@@ -1,29 +1,35 @@
-import azure.functions as func
-import os
-import requests
-import json
-import traceback
 import logging
+logging.info(">>> Global import reached in syncLeases")
+
+import azure.functions as func
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info(">>> Triggered syncLeases")
+    logging.info(">>> Entered main() in syncLeases")
     try:
+        import os
+        import requests
+        import json
+        import traceback
+
+        logging.info(">>> All imports successful in main()")
+
+        test_mode = req.params.get('test') == 'true'
         api_key = os.environ.get("DOORLOOP_API_KEY")
         supabase_url = os.environ.get("SUPABASE_URL")
         supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
         if not all([api_key, supabase_url, supabase_key]):
-            raise Exception("Missing environment vars")
+            raise Exception("Missing required env vars")
 
-        headers = {"Authorization": f"Bearer {api_key}" }
+        headers = {"Authorization": f"Bearer {api_key}"}
         url = f"https://api.doorloop.com/v1/leases?page=1"
         r = requests.get(url, headers=headers)
         r.raise_for_status()
         data = r.json()
         records = data.get("data", []) if isinstance(data, dict) else data
 
-        logging.info(f"✅ Pulled {len(records)} records from DoorLoop")
-        return func.HttpResponse(f"✅ syncLeases pulled {len(records)} records", status_code=200)
+        logging.info(f"✅ Pulled {len(records)} leases from DoorLoop")
+        return func.HttpResponse(f"✅ Pulled {len(records)} leases", status_code=200)
 
     except Exception as e:
         tb = traceback.format_exc()
