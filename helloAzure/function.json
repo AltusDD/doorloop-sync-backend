@@ -6,10 +6,8 @@
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "route": "helloAzure",
-      "methods": [
-        "get"
-      ]
+      "methods": ["get"],
+      "route": "helloAzure"
     },
     {
       "type": "http",
