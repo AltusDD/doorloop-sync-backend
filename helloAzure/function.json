@@ -1,14 +1,15 @@
-
 {
-  "scriptFile": "function_app.py",
+  "scriptFile": "__init__.py",
   "bindings": [
     {
       "authLevel": "anonymous",
       "type": "httpTrigger",
       "direction": "in",
       "name": "req",
-      "methods": ["get"],
-      "route": "helloAzure"
+      "route": "helloAzure",
+      "methods": [
+        "get"
+      ]
     },
     {
       "type": "http",
