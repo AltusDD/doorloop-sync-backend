@@ -2,6 +2,7 @@ import azure.functions as func
 import os
 import requests
 import json
+import traceback
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     test_mode = req.params.get('test') == 'true'
@@ -12,6 +13,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     headers = {"Authorization": f"Bearer {doorloop_api_key}" }
     results = []
     page = 1
+
     try:
         while True:
             r = requests.get(f"{base_url}?page={page}", headers=headers)
@@ -42,4 +44,5 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse(f"✅ syncLeases completed: {len(results)} records synced", status_code=200)
 
     except Exception as e:
-        return func.HttpResponse(f"❌ syncLeases failed: {str(e)}", status_code=500)
+        tb = traceback.format_exc()
+        return func.HttpResponse(f"❌ ERROR: {str(e)}\nTraceback:\n{tb}", status_code=500)
