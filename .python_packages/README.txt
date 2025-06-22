@@ -1,1 +1,0 @@
-Simulated packages placeholder: requests, supabase, etc.
