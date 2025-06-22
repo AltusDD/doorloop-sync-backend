@@ -1,23 +1,45 @@
 import azure.functions as func
 import os
 import requests
+import json
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     test_mode = req.params.get('test') == 'true'
-    api_key = os.environ.get("DOORLOOP_API_KEY")
-    endpoint = "https://api.doorloop.com/v1/properties"
-
-    headers = {{
-        "Authorization": f"Bearer {{api_key}}"
-    }}
-
+    doorloop_api_key = os.environ.get("DOORLOOP_API_KEY")
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    base_url = "https://api.doorloop.com/v1/properties"
+    headers = {"Authorization": f"Bearer {doorloop_api_key}" }
+    results = []
+    page = 1
     try:
-        r = requests.get(endpoint, headers=headers)
-        r.raise_for_status()
-        data = r.json()
-        count = len(data if isinstance(data, list) else data.get("data", []))
+        while True:
+            r = requests.get(f"{base_url}?page={page}", headers=headers)
+            r.raise_for_status()
+            data = r.json()
+            page_data = data.get("data", []) if isinstance(data, dict) else data
+            if not page_data:
+                break
+            results.extend(page_data)
+            if len(page_data) < 50:
+                break
+            page += 1
+
         if test_mode:
-            return func.HttpResponse(f"✅ [TEST MODE] Synced {count} records from properties", status_code=200)
-        return func.HttpResponse(f"✅ Synced {count} records from properties", status_code=200)
+            return func.HttpResponse(f"✅ [TEST MODE] syncProperties - {len(results)} records fetched", status_code=200)
+
+        resp = requests.post(
+            f"{supabase_url}/rest/v1/properties",
+            headers={
+                "apikey": supabase_key,
+                "Authorization": f"Bearer {supabase_key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates"
+            },
+            data=json.dumps(results)
+        )
+        resp.raise_for_status()
+        return func.HttpResponse(f"✅ syncProperties completed: {len(results)} records synced", status_code=200)
+
     except Exception as e:
-        return func.HttpResponse(f"❌ Sync failed: {{str(e)}}", status_code=500)
+        return func.HttpResponse(f"❌ syncProperties failed: {str(e)}", status_code=500)
