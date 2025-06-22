@@ -1,19 +1,26 @@
-import azure.functions as func
-import os
-import requests
-import json
-import traceback
+import sys
 import logging
+logging.info(">>> Global import reached in syncNotes")
+
+import azure.functions as func
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info(">>> Triggered syncNotes")
+    logging.info(">>> Entered main() in syncNotes")
     try:
+        import os
+        import requests
+        import json
+        import traceback
+
+        logging.info(">>> All imports successful in main()")
+
+        test_mode = req.params.get('test') == 'true'
         api_key = os.environ.get("DOORLOOP_API_KEY")
         supabase_url = os.environ.get("SUPABASE_URL")
         supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
         if not all([api_key, supabase_url, supabase_key]):
-            raise Exception("Missing environment vars")
+            raise Exception("Missing required env vars")
 
         headers = {"Authorization": f"Bearer {api_key}" }
         url = f"https://api.doorloop.com/v1/notes?page=1"
