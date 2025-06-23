@@ -1,16 +1,23 @@
-import logging
-logging.info(">>> Loaded syncTenants")
+print(">>> 🔥 syncTenants __init__.py loaded")
 
-import azure.functions as func
+try:
+    import azure.functions as func
+    print("✅ azure.functions import successful")
+except Exception as e:
+    print("❌ Failed to import azure.functions:", e)
+
+try:
+    import os
+    import requests
+    import json
+    import traceback
+    print("✅ All other imports successful")
+except Exception as e:
+    print("❌ Failed during secondary imports:", e)
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info(">>> Entered main() in syncTenants")
+    print(">>> Entered main() in syncTenants")
     try:
-        import os
-        import requests
-        import json
-        import traceback
-
         api_key = os.getenv("DOORLOOP_API_KEY")
         if not api_key:
             raise Exception("Missing DOORLOOP_API_KEY")
@@ -23,9 +30,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         res.raise_for_status()
         data = res.json()
         count = len(data.get("data", []))
-        logging.info(f"✅ Pulled {count} records from tenants")
         return func.HttpResponse(f"✅ Pulled {count} records from tenants", status_code=200)
     except Exception as e:
-        logging.error("❌ Exception occurred")
-        logging.error(traceback.format_exc())
-        return func.HttpResponse(f"❌ ERROR in syncTenants: " + str(e), status_code=500)
+        print("❌ Exception in main():", traceback.format_exc())
+        return func.HttpResponse(f"❌ ERROR: {str(e)}", status_code=500)
