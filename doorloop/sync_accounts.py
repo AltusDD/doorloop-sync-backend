@@ -1,16 +1,13 @@
 import os
 import requests
 from dotenv import load_dotenv
-from ..supabase.client import upsert_records
+from supabase.client import upsert_records
 
 load_dotenv()
 
 BASE_URL = "https://app.doorloop.com/api"
 API_KEY = os.getenv("DOORLOOP_API_KEY")
-
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}"
-}
+HEADERS = { "Authorization": f"Bearer {API_KEY}" }
 
 def sync():
     page = 1
