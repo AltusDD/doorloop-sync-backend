@@ -1,7 +1,7 @@
 import os
 import requests
 from dotenv import load_dotenv
-from altus_supabase.client import upsert_records
+from ..altus_supabase.client import upsert_records
 
 load_dotenv()
 
