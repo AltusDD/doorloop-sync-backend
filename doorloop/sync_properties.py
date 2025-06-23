@@ -1,4 +1,4 @@
-from doorloop.api import fetch_all
+from doorloop.sync_api import fetch_all
 from altus_supabase.client import upsert_records
 
 FIELDS = [
