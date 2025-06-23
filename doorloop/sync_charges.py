@@ -1,20 +1,18 @@
 import os
 import requests
 from dotenv import load_dotenv
+from supabase.client import upsert_records
 
 load_dotenv()
 
 BASE_URL = "https://app.doorloop.com/api"
 API_KEY = os.getenv("DOORLOOP_API_KEY")
-
-HEADERS = {
-    "Authorization": f"Bearer {API_KEY}"
-}
+HEADERS = { "Authorization": f"Bearer {API_KEY}" }
 
 def sync():
     page = 1
     total_synced = 0
-    all_charges = []
+    all_data = []
 
     while True:
         response = requests.get(
@@ -22,7 +20,6 @@ def sync():
             headers=HEADERS,
             params={"page": page}
         )
-
         if response.status_code != 200:
             print(f"[ERROR] DoorLoop /lease-charges failed at page {page}: {response.status_code}")
             return {"status": "error", "page": page, "code": response.status_code}
@@ -34,14 +31,15 @@ def sync():
         if not batch:
             break
 
-        print(f"[INFO] Page {page}: {len(batch)} charges")
-        all_charges.extend(batch)
+        print(f"[INFO] Page {page}: {len(batch)} records from /lease-charges")
+        all_data.extend(batch)
         total_synced += len(batch)
 
-        if len(all_charges) >= total:
+        if len(all_data) >= total:
             break
-
         page += 1
 
-    print(f"[SUCCESS] Synced {total_synced} lease charges from DoorLoop.")
+    print(f"[SUCCESS] Synced {total_synced} from /lease-charges")
+    upsert = upsert_records("lease-charges", all_data)
+    print(f"[UPSERT] Supabase result: {upsert}")
     return {"status": "success", "synced": total_synced}
