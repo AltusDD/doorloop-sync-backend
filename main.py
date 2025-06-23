@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 from fastapi import FastAPI
 from doorloop import (
     sync_properties, sync_units, sync_leases, sync_tenants, sync_owners,
