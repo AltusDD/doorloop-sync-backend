@@ -1,5 +1,1 @@
-fastapi
-uvicorn
-requests
-python-dotenv
-supabase
+# Placeholder for requirements.txt
