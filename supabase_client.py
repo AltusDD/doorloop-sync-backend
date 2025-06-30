@@ -1,23 +1,39 @@
 import os
 import requests
-import time
+import json
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-HEADERS = {"apikey": SUPABASE_SERVICE_ROLE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}", "Content-Type": "application/json"}
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_DB_URL = os.environ.get("SUPABASE_DB_URL")
 
-def insert_raw_data(all_data):
-    for endpoint, payload in all_data.items():
-        table = f"doorloop_raw_{endpoint.replace('-', '_')}"
-        data = payload.get("data", [])
-        if not data:
-            print(f"⚠️ No data for {endpoint}")
-            continue
-        print(f"📥 Inserting {len(data)} records into {table}...")
-        for record in data:
-            body = {**record, "_raw_payload": record}
-            resp = requests.post(f"{SUPABASE_URL}/rest/v1/{table}", headers=HEADERS, json=body)
-            if not resp.ok:
-                print(f"❌ Failed inserting into {table}: {resp.status_code} — {resp.text}")
-            time.sleep(0.1)
-        print(f"✅ Completed insert for {table}")
+headers = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
+
+def insert_raw_data(data, endpoint=None):
+    if not data:
+        print("No data to insert.")
+        return
+
+    url = f"{SUPABASE_URL}/rest/v1/doorloop_raw_leases"  # TEMP: change this for each endpoint
+    payload = []
+
+    for item in data:
+        record = {
+            "doorloop_id": item.get("id"),
+            "_raw_payload": item,
+        }
+        if endpoint:
+            record["endpoint"] = endpoint
+        payload.append(record)
+
+    print(f"Inserting {len(payload)} records into doorloop_raw_leases...")
+
+    res = requests.post(url, headers=headers, data=json.dumps(payload))
+    if res.status_code >= 300:
+        print(f"❌ Error inserting into Supabase: {res.status_code} - {res.text}")
+    else:
+        print(f"✅ Inserted {len(payload)} records into Supabase.")
+
