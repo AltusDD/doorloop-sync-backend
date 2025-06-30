@@ -10,7 +10,7 @@ def main():
     print(f"✅ Synced {len(all_data)} records from /{endpoint}")
 
     if all_data:
-        insert_raw_data(endpoint, all_data)
+        insert_raw_data(all_data)
         print(f"📦 Inserted into Supabase: /{endpoint}")
     else:
         print("⚠️ No data to insert.")
