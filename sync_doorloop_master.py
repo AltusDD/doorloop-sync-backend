@@ -1,52 +1,72 @@
+# sync_doorloop_master.py
 import os
 from dotenv import load_dotenv
-from doorloop_client import fetch_all_entities
-from supabase_client import upsert_raw_doorloop_data  # ✅ Corrected function name
+# --- FIX: Correct the function name being imported ---
+from doorloop_client import fetch_all_doorloop_records 
+from supabase_client import upsert_raw_doorloop_data  # Corrected function name
 
+# Load environment variables from .env file (if running locally)
 load_dotenv()
 
+# === CONFIGURATION ===
+# Ensure these environment variables are set in your execution environment (e.g., .env, GitHub Actions secrets)
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://app.doorloop.com/api")
+DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL") # For direct psycopg2 connection (if used in other parts)
 
-# Define all DoorLoop endpoints and their destination Supabase tables
-ENTITY_ENDPOINT_MAP = {
-    "properties": "doorloop_raw_properties",
-    "units": "doorloop_raw_units",
-    "leases": "doorloop_raw_leases",
-    "tenants": "doorloop_raw_tenants",
-    "owners": "doorloop_raw_owners",
-    "portfolios": "doorloop_raw_portfolios",
-    "tasks": "doorloop_raw_tasks",
-    "work_orders": "doorloop_raw_work_orders",
-    "lease_charges": "doorloop_raw_lease_charges",
-    "lease_payments": "doorloop_raw_lease_payments",
-    "lease_credits": "doorloop_raw_lease_credits",
-    "communications": "doorloop_raw_communications",
-    "vendors": "doorloop_raw_vendors",
-    "users": "doorloop_raw_users",
-    "activity_logs": "doorloop_raw_activity_logs",
-    "applications": "doorloop_raw_applications",
-    "attachments": "doorloop_raw_attachments",
-    "accounts": "doorloop_raw_accounts",
-    "expenses": "doorloop_raw_expenses",
-    "notes": "doorloop_raw_notes",
-    "reports": "doorloop_raw_reports",
-    "recurring_charges": "doorloop_raw_recurring_charges",
-    "recurring_credits": "doorloop_raw_recurring_credits",
-    "insurance_policies": "doorloop_raw_insurance_policies",
-    "files": "doorloop_raw_files"
-}
+# Define all DoorLoop endpoints and their corresponding raw Supabase table names
+# The key is the API endpoint, the value is the base name for doorloop_raw_<name> table.
+ALL_DOORLOOP_ENDPOINTS = [
+    "/properties", "/units", "/tenants", "/owners", "/leases", "/lease-payments",
+    "/lease-charges", "/lease-credits", "/vendors", "/tasks", "/files", "/notes",
+    "/communications", "/applications", "/inspections", "/insurance-policies",
+    "/recurring-charges", "/recurring-credits", "/accounts", "/users",
+    "/portfolios", "/reports", "/activity-logs",
+    # Add any other specific endpoints from your OpenAPI spec if missed
+]
 
-def run_master_sync():
-    for endpoint, table_name in ENTITY_ENDPOINT_MAP.items():
-        print(f"🔄 Syncing {endpoint} → {table_name}")
+# === MAIN SYNC ORCHESTRATION ===
+async def run_master_sync():
+    print("--- Starting Master DoorLoop Data Sync ---")
+
+    # --- Environment Variable Check ---
+    if not all([DOORLOOP_API_BASE_URL, DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY]):
+        missing_vars = [name for name, val in {
+            "DOORLOOP_API_BASE_URL": DOORLOOP_API_BASE_URL,
+            "DOORLOOP_API_KEY": DOORLOOP_API_KEY,
+            "SUPABASE_URL": SUPABASE_URL,
+            "SUPABASE_SERVICE_ROLE_KEY": SUPABASE_SERVICE_ROLE_KEY
+        }.items() if not val]
+        print(f"❌ CRITICAL ERROR: Missing environment variables: {', '.join(missing_vars)}. Sync cannot proceed.")
+        return # Exit if critical env vars are missing
+
+    print(f"🔑 Env vars SET. Base URL: {DOORLOOP_API_BASE_URL}")
+
+    for endpoint in ALL_DOORLOOP_ENDPOINTS:
+        print(f"\n🔄 Processing endpoint: {endpoint}")
         try:
-            records = fetch_all_entities(DOORLOOP_API_KEY, endpoint)
-            upsert_raw_doorloop_data(endpoint, records, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-            print(f"✅ Synced {len(records)} records to {table_name}")
-        except Exception as e:
-            print(f"❌ Failed to sync {endpoint}: {str(e)}")
+            # --- Step 1: Fetch from DoorLoop API ---
+            records = fetch_all_doorloop_records(endpoint, DOORLOOP_API_BASE_URL, DOORLOOP_API_KEY)
+            print(f"✅ Fetched {len(records)} records from DoorLoop for {endpoint}.")
 
+            # --- Step 2: Upsert into Supabase Raw Tables (raw_doorloop_data & doorloop_raw_<entity>) ---
+            if records: # Only attempt upsert if records were fetched
+                upsert_raw_doorloop_data(endpoint, records, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+                print(f"✅ Successfully upserted {len(records)} records to Supabase raw tables for {endpoint}.")
+            else:
+                print(f"⚠️ No records fetched for {endpoint}. Skipping Supabase upsert.")
+
+        except Exception as e:
+            print(f"❌ Failed to sync {endpoint}: {type(e).__name__}: {str(e)}")
+            # Optionally log to a sync_errors table here for persistent audit
+            continue # Continue to next endpoint even if one fails
+
+    print("\n--- Master Sync Orchestration Complete (Raw Ingestion Phase). ---")
+    print("Next: Normalization into core business tables and KPI calculation.")
+
+# === ENTRY POINT ===
 if __name__ == "__main__":
-    run_master_sync()
+    import asyncio
+    asyncio.run(run_master_sync())
