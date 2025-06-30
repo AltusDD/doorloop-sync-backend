@@ -12,8 +12,20 @@ def insert_raw_data(payload):
         print(f"⚠️ insert_raw_data was called with empty or invalid data: {type(payload)}")
         return
 
-    endpoint = payload[0].get("endpoint", "unknown")  # fallback label
+    # Auto-detect endpoint from payload if present
+    sample = payload[0]
+    if isinstance(sample, dict):
+        endpoint = sample.get("endpoint", "unknown")
+    else:
+        print(f"❌ Cannot extract endpoint: payload[0] is not a dict → {type(sample)}")
+        return
+
     table_name = endpoint.replace("/", "") + "_raw"
+
+    # Attach doorloop_id to each item
+    for item in payload:
+        if isinstance(item, dict):
+            item["doorloop_id"] = item.get("id")
 
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -21,14 +33,10 @@ def insert_raw_data(payload):
         "Content-Type": "application/json"
     }
 
-    for item in payload:
-        item["doorloop_id"] = item.get("id")  # include DoorLoop ID for tracking
-
     url = f"{SUPABASE_URL}/rest/v1/{table_name}"
-
     response = requests.post(url, headers=headers, json=payload)
 
     if response.status_code == 201:
-        print(f"✅ Raw data inserted into {table_name}")
+        print(f"✅ Inserted into Supabase: {endpoint}")
     else:
-        print(f"❌ Failed to insert data into {table_name}: {response.status_code} {response.text}")
+        print(f"❌ Supabase insert failed ({response.status_code}): {response.text}")
