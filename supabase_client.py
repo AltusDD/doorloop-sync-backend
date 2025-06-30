@@ -8,18 +8,16 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def insert_raw_data(payload):
-    if not isinstance(payload, list) or len(payload) == 0:
-        print(f"⚠️ insert_raw_data was called with empty or invalid data: {type(payload)}")
+    if not isinstance(payload, list) or not payload:
+        print(f"⚠️ insert_raw_data was called with invalid payload: {type(payload)} → {payload}")
         return
 
-    # Auto-detect endpoint from payload if present
     sample = payload[0]
-    if isinstance(sample, dict):
-        endpoint = sample.get("endpoint", "unknown")
-    else:
-        print(f"❌ Cannot extract endpoint: payload[0] is not a dict → {type(sample)}")
+    if not isinstance(sample, dict):
+        print(f"❌ Cannot process: payload[0] is not a dict → {type(sample)}")
         return
 
+    endpoint = sample.get("endpoint", "unknown")
     table_name = endpoint.replace("/", "") + "_raw"
 
     # Attach doorloop_id to each item
