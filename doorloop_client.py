@@ -1,24 +1,40 @@
 import os
 import requests
+from dotenv import load_dotenv
 
-def fetch_all_doorloop_data(endpoint):
-    headers = {
-        "Authorization": f"Bearer {os.getenv('DOORLOOP_API_KEY')}",
-        "Content-Type": "application/json"
-    }
+load_dotenv()
 
-    url = f"{os.getenv('DOORLOOP_API_BASE_URL')}/{endpoint}"
-    response = requests.get(url, headers=headers)
+DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+BASE_URL = "https://api.doorloop.com/v1"
 
-    if response.status_code != 200:
-        print(f"[ERROR] API call to {url} failed with {response.status_code}")
-        print(f"[ERROR] Body: {response.text}")
+HEADERS = {
+    "Authorization": f"Bearer {DOORLOOP_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+def fetch_all_entities(endpoint):
+    """
+    Fetches all paginated records from the specified DoorLoop API endpoint.
+    """
+    url = f"{BASE_URL}{endpoint}"
+    all_records = []
+    page = 1
+
+    while True:
+        response = requests.get(url, headers=HEADERS, params={"page": page})
         response.raise_for_status()
 
-    try:
-        return response.json()
-    except Exception as e:
-        print(f"[ERROR] Could not parse JSON from: {url}")
-        print(f"[ERROR] Raw text: {response.text}")
-        raise e
+        data = response.json()
+        records = data.get("data", [])
 
+        if not records:
+            break
+
+        all_records.extend(records)
+
+        if not data.get("hasMore", False):
+            break
+
+        page += 1
+
+    return all_records
