@@ -1,48 +1,45 @@
+# sync_doorloop_master.py
+
 import os
-import json
-from dotenv import load_dotenv
-from supabase_client import upsert_raw_doorloop_data
 from doorloop_client import fetch_all_entities
+from supabase_client import insert_raw_data
 
-load_dotenv()
-
-# Set the list of DoorLoop endpoints you want to sync
-DOORLOOP_ENDPOINTS = [
-    "/properties",
-    "/units",
-    "/tenants",
-    "/owners",
-    "/leases",
-    "/lease-payments",
-    "/lease-charges",
-    "/lease-credits",
-    "/vendors",
-    "/tasks",
-    "/files",
-    "/notes",
-    "/communications",
-    "/applications",
-    "/inspections",
-    "/insurance-policies",
-    "/recurring-charges",
-    "/recurring-credits",
-    "/accounts",
-    "/users",
-    "/portfolios",
-    "/reports",
-    "/activity-logs",
-    "/attachments",
-    "/expenses"
+DOORLOOP_ENTITIES = [
+    "properties",
+    "units",
+    "leases",
+    "tenants",
+    "owners",
+    "tasks",
+    "vendors",
+    "users",
+    "accounts",
+    "attachments",
+    "applications",
+    "communications",
+    "expenses",
+    "files",
+    "activity_logs",
+    "reports",
+    "recurring_charges",
+    "recurring_credits",
+    "lease_charges",
+    "lease_credits",
+    "lease_payments",
+    "notes",
+    "portfolios"
 ]
 
-def sync_all():
-    for endpoint in DOORLOOP_ENDPOINTS:
-        print(f"\n🚀 Syncing: {endpoint}")
+def main():
+    for entity in DOORLOOP_ENTITIES:
+        print(f"🔄 Syncing {entity}...")
         try:
-            records = fetch_all_entities(endpoint)
-            upsert_raw_doorloop_data(endpoint, records)
+            data = fetch_all_entities(entity)
+            print(f"✅ Retrieved {len(data)} records for {entity}")
+            insert_raw_data(entity, data)
+            print(f"📥 Inserted {entity} records into Supabase.")
         except Exception as e:
-            print(f"❌ Error syncing {endpoint}: {e}")
+            print(f"❌ Failed syncing {entity}: {e}")
 
 if __name__ == "__main__":
-    sync_all()
+    main()
