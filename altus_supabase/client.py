@@ -1,1 +1,0 @@
-# Placeholder for altus_supabase/client.py

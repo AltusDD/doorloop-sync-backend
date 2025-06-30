@@ -1,1 +1,0 @@
-# Placeholder for doorloop/sync_properties.py
