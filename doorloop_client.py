@@ -1,22 +1,24 @@
 import os
 import requests
 
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://app.doorloop.com/api")
-HEADERS = {"Authorization": f"Bearer {DOORLOOP_API_KEY}"}
+def fetch_all_doorloop_data(endpoint):
+    headers = {
+        "Authorization": f"Bearer {os.getenv('DOORLOOP_API_KEY')}",
+        "Content-Type": "application/json"
+    }
 
-ENDPOINTS = [
-    "properties", "units", "tenants", "leases", "lease-payments", "lease-charges", "lease-credits",
-    "vendors", "tasks", "users", "reports", "recurring-credits", "recurring-charges",
-    "notes", "expenses", "communications", "attachments", "applications", "activity-logs", "accounts"
-]
+    url = f"{os.getenv('DOORLOOP_API_BASE_URL')}/{endpoint}"
+    response = requests.get(url, headers=headers)
 
-def fetch_all_doorloop_data():
-    all_data = {}
-    for endpoint in ENDPOINTS:
-        print(f"📡 Fetching {endpoint}...")
-        response = requests.get(f"{DOORLOOP_API_BASE_URL}/{endpoint}", headers=HEADERS)
+    if response.status_code != 200:
+        print(f"[ERROR] API call to {url} failed with {response.status_code}")
+        print(f"[ERROR] Body: {response.text}")
         response.raise_for_status()
-        all_data[endpoint] = response.json()
-        print(f"✅ Finished fetching {endpoint} — {len(all_data[endpoint].get('data', []))} records.")
-    return all_data
+
+    try:
+        return response.json()
+    except Exception as e:
+        print(f"[ERROR] Could not parse JSON from: {url}")
+        print(f"[ERROR] Raw text: {response.text}")
+        raise e
+
