@@ -2,8 +2,8 @@ import os
 import requests
 import json
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 headers = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -13,10 +13,10 @@ headers = {
 
 def insert_raw_data(data, endpoint=None):
     if not data or not isinstance(data, list):
-        print("❌ insert_raw_data was called with empty or invalid data.")
+        print(f"❌ insert_raw_data was called with empty or invalid data: {type(data)}")
         return
 
-    url = f"{SUPABASE_URL}/rest/v1/doorloop_raw_leases"  # TEMP: hardcoded for /leases testing
+    url = f"{SUPABASE_URL}/rest/v1/doorloop_raw_leases"  # TEMP: You can parametrize this later
     payload = []
 
     for item in data:
@@ -33,7 +33,11 @@ def insert_raw_data(data, endpoint=None):
 
         payload.append(record)
 
-    print(f"📤 Inserting {len(payload)} records into doorloop_raw_leases...")
+    if not payload:
+        print("❌ insert_raw_data was called but no valid dict records were found.")
+        return
+
+    print(f"📤 Inserting {len(payload)} records into Supabase...")
 
     res = requests.post(url, headers=headers, data=json.dumps(payload))
     if res.status_code >= 300:
