@@ -1,15 +1,14 @@
-import os
 from doorloop_client import fetch_all_doorloop_data
-from supabase_client import insert_raw_data
-from dotenv import load_dotenv
-
-load_dotenv()
 
 def main():
     print("🚀 Starting master DoorLoop sync...")
-    all_data = fetch_all_doorloop_data()
-    insert_raw_data(all_data)
-    print("✅ DoorLoop master sync complete.")
+
+    # Example: sync 1 endpoint just to test (expand later)
+    endpoint = "leases"
+    all_data = fetch_all_doorloop_data(endpoint)
+
+    print(f"✅ Synced {len(all_data)} records from /{endpoint}")
+    # You can add a call to your Supabase insert function here later
 
 if __name__ == "__main__":
     main()
