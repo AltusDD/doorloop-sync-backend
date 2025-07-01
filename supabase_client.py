@@ -14,11 +14,9 @@ _logger.setLevel(logging.INFO)
 _logger.setLevel(logging.INFO)
 
 def _safe_json_dumps(data: Any) -> Optional[str]:
-    """
     Safely dumps a Python object to a JSON string. Handles non-serializable
     types by converting them to strings and logs a warning.
     Returns None if the input data is None.
-    """
     if data is None:
         return None
     try:
@@ -28,12 +26,10 @@ def _safe_json_dumps(data: Any) -> Optional[str]:
         return str(data)
 
 def _convert_date_to_iso(date_str: Optional[str]) -> Optional[str]:
-    """
     Converts various date string formats to ISO 8601 format (YYYY-MM-DDTHH:MM:SS).
     Handles 'Z' for UTC, timezone offsets, and milliseconds.
     Returns the original string if parsing fails, logging a warning.
     Returns None if the input date_str is None or empty.
-    """
     if not date_str:
         return None
     if isinstance(date_str, datetime):
@@ -70,12 +66,27 @@ def _convert_date_to_iso(date_str: Optional[str]) -> Optional[str]:
         return date_str
 
 def upsert_raw_doorloop_data(
+    """
+    Upserts raw DoorLoop data into two Supabase tables:
+    - raw_doorloop_data (for universal logging)
+    - doorloop_raw_<entity> (mirror table with mapped fields)
+
+    Args:
+        endpoint (str): The DoorLoop API endpoint being processed.
+        records (List[Dict[str, Any]]): The list of DoorLoop records to upsert.
+        supabase_url (str): The base URL of your Supabase project.
+        supabase_service_role_key (str): The service role API key.
+
+    Raises:
+        ValueError: If Supabase URL, service role key, or endpoint is missing.
+        TypeError: If records is not a list.
+        requests.exceptions.RequestException: If there's an HTTP error during the API call to Supabase.
+    """
     endpoint: str,
     records: List[Dict[str, Any]],
     supabase_url: str,
     supabase_service_role_key: str
 ):
-    """
     Upserts raw DoorLoop data into a generic 'raw_doorloop_data' table
     and also into entity-specific mirror tables (e.g., 'doorloop_raw_properties').
 
@@ -88,11 +99,9 @@ def upsert_raw_doorloop_data(
                                          permissions to insert/upsert data.
     Raises:
         ValueError: If Supabase URL, service role key, or endpoint is missing.
-    """
+        requests.exceptions.RequestException: If there's an HTTP error during the API call to Supabase.
         requests.exceptions.RequestException: If there's an HTTP error during
                                               the API call to Supabase.
-    """
-    """
     if not supabase_service_role_key:
         raise ValueError("Supabase service role key is missing.")
     if not supabase_url:
@@ -369,7 +378,6 @@ def upsert_raw_doorloop_data(
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
     types by converting them to strings and logs a warning.
     Returns None if the input data is None.
-    """
     if data is None:
         return None
     try:
@@ -379,12 +387,10 @@ def upsert_raw_doorloop_data(
         return str(data)
 
 def _convert_date_to_iso(date_str: Optional[str]) -> Optional[str]:
-    """
     Converts various date string formats to ISO 8601 format (YYYY-MM-DDTHH:MM:SS).
     Handles 'Z' for UTC, timezone offsets, and milliseconds.
     Returns the original string if parsing fails, logging a warning.
     Returns None if the input date_str is None or empty.
-    """
     if not date_str:
         return None
     if isinstance(date_str, datetime):
@@ -426,7 +432,6 @@ def upsert_raw_doorloop_data(
     supabase_url: str,
     supabase_service_role_key: str
 ):
-    """
     Upserts raw DoorLoop data into a generic 'raw_doorloop_data' table
     and also into entity-specific mirror tables (e.g., 'doorloop_raw_properties').
 
@@ -439,11 +444,9 @@ def upsert_raw_doorloop_data(
                                          permissions to insert/upsert data.
     Raises:
         ValueError: If Supabase URL, service role key, or endpoint is missing.
-    """
+        requests.exceptions.RequestException: If there's an HTTP error during the API call to Supabase.
         requests.exceptions.RequestException: If there's an HTTP error during
                                               the API call to Supabase.
-    """
-    """
     if not supabase_service_role_key:
         raise ValueError("Supabase service role key is missing.")
     if not supabase_url:
