@@ -14,13 +14,10 @@ _logger.setLevel(logging.INFO) # Set level for this module
 def fetch_all_doorloop_records(endpoint: str, base_url: str, token: str) -> List[Dict[str, Any]]:
     if not token:
         _logger.error("DoorLoop API token is missing in fetch_all_doorloop_records.")
-        raise ValueError("DoorLoop API token is missing.")
     if not base_url:
         _logger.error("DoorLoop API base URL is missing in fetch_all_doorloop_records.")
-        raise ValueError("DoorLoop API base URL is missing.")
     if not endpoint:
         _logger.error("DoorLoop API endpoint is missing in fetch_all_doorloop_records.")
-        raise ValueError("DoorLoop API endpoint is missing.")
 
     headers = {
         "Authorization": f"Bearer {token}",
@@ -45,8 +42,8 @@ def fetch_all_doorloop_records(endpoint: str, base_url: str, token: str) -> List
                 _logger.warning(f"DEBUG_FETCH: Non-JSON/Non-200 Response Body (first 500 chars): {response.text[:500]}...")
 
             if not response.headers.get('Content-Type', '').startswith('application/json'):
-    _logger.error(f"ERROR_FETCH: Expected JSON but got {response.headers.get('Content-Type')} for {url}. Body: {response.text[:500]}...")
-    raise ValueError(f"Non-JSON response from DoorLoop API for {endpoint}")
+                _logger.error(f"ERROR_FETCH: Expected JSON but got {response.headers.get('Content-Type')} for {url}. Body: {response.text[:500]}...")
+                raise ValueError(f"Non-JSON response from DoorLoop API for {endpoint}")
 response.raise_for_status() # This will raise HTTPError for 4xx/5xx responses
 
             data = response.json()
@@ -74,10 +71,8 @@ response.raise_for_status() # This will raise HTTPError for 4xx/5xx responses
 
             page_number += 1
         except requests.exceptions.RequestException as e:
-            _logger.error(f"ERROR_FETCH: Request failed for {url}: {e}")
             raise 
         except Exception as e:
-            _logger.error(f"ERROR_FETCH: Unexpected error for {url}: {e}")
             raise 
     _logger.info(f"--- DEBUG_FETCH: Finished fetching {len(all_data)} records from {endpoint}. ---")
     return all_data
