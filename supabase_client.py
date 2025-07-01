@@ -5,7 +5,7 @@ import json
 import hashlib
 import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional # Optional is now correctly imported
+from typing import List, Dict, Any, Optional # <-- THIS IS THE CRUCIAL LINE THAT WAS MISSED!
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
