@@ -1,33 +1,40 @@
+# doorloop_client.py
 
 import os
 import httpx
-from dotenv import load_dotenv
-
-load_dotenv()
 
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_BASE_URL = os.getenv("DOORLOOP_BASE_URL", "https://api.doorloop.com/v1")
+DOORLOOP_BASE_URL = "https://app.doorloop.com/api"
 
 HEADERS = {
     "Authorization": f"Bearer {DOORLOOP_API_KEY}",
-    "Content-Type": "application/json"
+    "Accept": "application/json",
+    "Content-Type": "application/json",
 }
 
-async def fetch_all_entities(endpoint):
+def fetch_all_entities(endpoint: str, page_size=100):
+    """Fetch all paginated records from DoorLoop API for the given endpoint."""
     records = []
     page = 1
-    while True:
-        url = f"{DOORLOOP_BASE_URL}{endpoint}?page={page}&limit=100"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=HEADERS)
-            response.raise_for_status()
-            data = response.json()
 
-        if not data or len(data) == 0:
+    while True:
+        url = f"{DOORLOOP_BASE_URL}{endpoint}?page={page}&limit={page_size}"
+        print(f"🌐 Fetching: {url}")
+        response = httpx.get(url, headers=HEADERS, follow_redirects=True)
+
+        if response.status_code != 200:
+            raise httpx.HTTPStatusError(
+                f"Failed to fetch {endpoint}: {response.status_code}",
+                request=response.request,
+                response=response
+            )
+
+        data = response.json()
+        if not data:
             break
 
         records.extend(data)
-        if len(data) < 100:
+        if len(data) < page_size:
             break
         page += 1
 
