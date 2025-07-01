@@ -351,7 +351,6 @@ def upsert_raw_doorloop_data(
         except requests.exceptions.RequestException as e:
             print(f"ERROR_RAW_UPSERT: Failed to upsert raw data for {endpoint}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
             raise
-if prepared_mirror_table_data:
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
     if prepared_mirror_table_data:
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
@@ -702,7 +701,6 @@ def upsert_raw_doorloop_data(
         except requests.exceptions.RequestException as e:
             print(f"ERROR_RAW_UPSERT: Failed to upsert raw data for {endpoint}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
             raise
-if prepared_mirror_table_data:
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
         try:
             mirror_response = requests.post(
