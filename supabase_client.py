@@ -334,7 +334,21 @@ def upsert_raw_doorloop_data(
             raise # Re-raise the exception to indicate a critical failure
 
     # Send to entity-specific mirror table
-    if prepared_mirror_table_data:
+    
+    if prepared_raw_doorloop_data:
+        try:
+            raw_response = requests.post(
+                raw_doorloop_data_table_url,
+                headers=headers,
+                json=prepared_raw_doorloop_data,
+                timeout=60
+            )
+            raw_response.raise_for_status()
+            print(f"DEBUG_SUPABASE_CLIENT: raw_doorloop_data upsert successful ({len(prepared_raw_doorloop_data)} records).")
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR_RAW_UPSERT: Failed to upsert raw data for {endpoint}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
+            raise
+if prepared_mirror_table_data:
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
         try:
             mirror_response = requests.post(
