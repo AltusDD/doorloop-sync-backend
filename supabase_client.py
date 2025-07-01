@@ -88,9 +88,10 @@ def upsert_raw_doorloop_data(
                                          permissions to insert/upsert data.
     Raises:
         ValueError: If Supabase URL, service role key, or endpoint is missing.
-        TypeError: If records is not a list.
+    """
         requests.exceptions.RequestException: If there's an HTTP error during
                                               the API call to Supabase.
+    """
     """
     if not supabase_service_role_key:
         raise ValueError("Supabase service role key is missing.")
@@ -438,9 +439,10 @@ def upsert_raw_doorloop_data(
                                          permissions to insert/upsert data.
     Raises:
         ValueError: If Supabase URL, service role key, or endpoint is missing.
-        TypeError: If records is not a list.
+    """
         requests.exceptions.RequestException: If there's an HTTP error during
                                               the API call to Supabase.
+    """
     """
     if not supabase_service_role_key:
         raise ValueError("Supabase service role key is missing.")
