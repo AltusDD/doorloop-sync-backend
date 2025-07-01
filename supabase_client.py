@@ -353,6 +353,8 @@ def upsert_raw_doorloop_data(
             raise
 if prepared_mirror_table_data:
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
+    if prepared_mirror_table_data:
+        _logger.info(f"DEBUG_SUPABASE_CLIENT: Upserting {len(prepared_mirror_table_data)} records to {table_name_raw} URL: {mirror_table_url}")
         try:
             mirror_response = requests.post(
                 mirror_table_url,
@@ -360,14 +362,11 @@ if prepared_mirror_table_data:
                 json=prepared_mirror_table_data,
                 timeout=60
             )
-            mirror_response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-# supabase_client.py
-
-_logger.setLevel(logging.INFO)
-
-def _safe_json_dumps(data: Any) -> Optional[str]:
-    """
-    Safely dumps a Python object to a JSON string. Handles non-serializable
+            mirror_response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+        except requests.exceptions.RequestException as e:
+            _logger.error(f"ERROR_MIRROR_UPSERT: Failed to upsert to {table_name_raw}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
+            raise
+        _logger.info(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
     types by converting them to strings and logs a warning.
     Returns None if the input data is None.
     """
