@@ -1,8 +1,16 @@
-# supabase_client.py
+import os
+import requests
+import json
+import hashlib
+import logging
 from datetime import datetime
-from typing import List, Dict, Any, Optional # <-- THIS IS THE CRUCIAL LINE THAT WAS MISSED!
+from typing import List, Dict, Any, Optional
 
 _logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
+
+# supabase_client.py
+
 _logger.setLevel(logging.INFO)
 
 def _safe_json_dumps(data: Any) -> Optional[str]:
@@ -354,10 +362,7 @@ if prepared_mirror_table_data:
             )
             mirror_response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
 # supabase_client.py
-from datetime import datetime
-from typing import List, Dict, Any, Optional # <-- THIS IS THE CRUCIAL LINE THAT WAS MISSED!
 
-_logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)
 
 def _safe_json_dumps(data: Any) -> Optional[str]:
@@ -714,5 +719,6 @@ if prepared_mirror_table_data:
             _logger.error(error_message)
             raise # Re-raise the exception to indicate a critical failure
 
+        _logger.info(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
         _logger.info(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
