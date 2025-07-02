@@ -1,103 +1,122 @@
-
 import os
 import requests
 import psycopg2
-from urllib.parse import urlparse
-from dotenv import load_dotenv
+from psycopg2.extras import Json
+import time
+from datetime import datetime
+import logging
 
-# Load .env if running locally (optional)
-load_dotenv()
+# Setup logging
+LOG_FILE = "doorloop_sync.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
 
-# Read secrets from environment (Azure / GitHub or local .env)
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL") or os.getenv("DOORLOOP_BASE_URL")
-SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL") or os.getenv("SUPABASE_DB_CONNECTION_STRING")
+def log_success(message):
+    logging.info("✅ " + message)
 
-# Extract Postgres connection components
-parsed_url = urlparse(SUPABASE_DB_URL)
-DB_NAME = parsed_url.path[1:]
-DB_USER = parsed_url.username
-DB_PASS = parsed_url.password
-DB_HOST = parsed_url.hostname
-DB_PORT = parsed_url.port
+def log_error(message):
+    logging.error("❌ " + message)
 
-HEADERS = {"Authorization": DOORLOOP_API_KEY}
-DOORLOOP_ENDPOINTS = [
-    "accounts", "users", "properties", "units", "leases", "tenants", "lease-payments",
-    "lease-returned-payments", "lease-charges", "lease-credits", "portfolios", "tasks",
-    "owners", "vendors", "expenses", "vendor-bills", "vendor-credits", "reports",
-    "communications", "notes", "files"
+def get_env_var(name):
+    value = os.environ.get(name)
+    if not value:
+        log_error(f"Missing required environment variable: {name}")
+        exit(1)
+    return value
+
+DOORLOOP_API_KEY = get_env_var("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = get_env_var("DOORLOOP_API_BASE_URL")
+SUPABASE_DB_URL = get_env_var("SUPABASE_DB_URL")
+
+HEADERS = {
+    "Authorization": f"Bearer {DOORLOOP_API_KEY}"
+}
+
+ENDPOINTS = [
+    "accounts",
+    "users",
+    "properties",
+    "units",
+    "leases",
+    "tenants",
+    "lease-payments",
+    "lease-returned-payments",
+    "lease-charges",
+    "lease-credits",
+    "portfolios",
+    "tasks",
+    "owners",
+    "vendors",
+    "expenses",
+    "vendor-bills",
+    "vendor-credits",
+    "reports",
+    "communications",
+    "notes",
+    "files"
 ]
 
-def ensure_table(cursor, table):
-    cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS "{table}" (
-            id TEXT PRIMARY KEY,
-            data JSONB,
-            last_updated TIMESTAMP DEFAULT now()
-        )
-    ''')
-
-def upsert_record(cursor, table, record):
-    record_id = record.get("id")
-    if not record_id:
-        return
-    cursor.execute(f'''
-        INSERT INTO "{table}" (id, data)
-        VALUES (%s, %s)
-        ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, last_updated = now()
-    ''', (record_id, record))
-
-def sync_endpoint(endpoint):
-    print(f"🔄 Syncing `{endpoint}` ...")
+def fetch_all(endpoint):
+    all_data = []
     page = 1
-    page_size = 100
-    all_records = []
-
     while True:
-        url = f"{DOORLOOP_API_BASE_URL}/{endpoint}?page_number={page}&page_size={page_size}&sort_by=createdAt&descending=true"
-        response = requests.get(url, headers=HEADERS)
-
-        if response.status_code != 200:
-            print(f"❌ Error fetching `{endpoint}`: {response.status_code}")
+        url = f"{DOORLOOP_API_BASE_URL}/{endpoint}?page_number={page}&page_size=100"
+        resp = requests.get(url, headers=HEADERS)
+        if resp.status_code == 404:
+            log_error(f"404: {endpoint} not found")
             break
-
-        records = response.json().get("data", [])
-        if not records:
+        elif resp.status_code != 200:
+            log_error(f"Error fetching {endpoint}: {resp.status_code}")
             break
-
-        all_records.extend(records)
-        if len(records) < page_size:
+        data = resp.json().get("data", [])
+        if not data:
             break
-
+        all_data.extend(data)
         page += 1
+    log_success(f"Fetched {len(all_data)} records from {endpoint}")
+    return all_data
 
-    print(f"📦 Fetched {len(all_records)} records from `{endpoint}`.")
-    return all_records
-
-def main():
-    print("🚀 Starting full DoorLoop → Supabase sync...")
-
-    conn = psycopg2.connect(
-        dbname=DB_NAME, user=DB_USER, password=DB_PASS, host=DB_HOST, port=DB_PORT
-    )
-    cur = conn.cursor()
-
-    for endpoint in DOORLOOP_ENDPOINTS:
-        table_name = endpoint.replace("-", "_")
-        try:
-            ensure_table(cur, table_name)
-            records = sync_endpoint(endpoint)
-            for record in records:
-                upsert_record(cur, table_name, record)
-            conn.commit()
-        except Exception as e:
-            print(f"🔥 Error syncing `{endpoint}` → {e}")
-            conn.rollback()
-
-    cur.close()
-    conn.close()
-    print("✅ Sync complete.")
+def sync_to_supabase(endpoint, records):
+    if not records:
+        log_success(f"No data to insert for {endpoint}.")
+        return
+    try:
+        conn = psycopg2.connect(SUPABASE_DB_URL)
+        cur = conn.cursor()
+        table_name = f"dl__{endpoint.replace('-', '_')}"
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS {table_name} (
+                id TEXT PRIMARY KEY,
+                data JSONB,
+                last_updated TIMESTAMP
+            )
+        """)
+        for record in records:
+            cur.execute(f"""
+                INSERT INTO {table_name} (id, data, last_updated)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (id)
+                DO UPDATE SET data = EXCLUDED.data, last_updated = EXCLUDED.last_updated
+            """, (record.get("id"), Json(record), datetime.utcnow()))
+        conn.commit()
+        cur.close()
+        conn.close()
+        log_success(f"Inserted {len(records)} records into {table_name}.")
+    except Exception as e:
+        log_error(f"Error inserting into Supabase for {endpoint}: {str(e)}")
 
 if __name__ == "__main__":
-    main()
+    start = time.time()
+    log_success("🚀 Starting DoorLoop → Supabase sync")
+    for endpoint in ENDPOINTS:
+        log_success(f"🔄 Syncing: {endpoint}")
+        records = fetch_all(endpoint)
+        sync_to_supabase(endpoint, records)
+    elapsed = time.time() - start
+    log_success(f"🎉 Sync complete in {elapsed:.2f} seconds.")
