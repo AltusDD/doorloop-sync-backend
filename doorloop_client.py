@@ -1,34 +1,42 @@
-
-import requests
 import os
+import requests
+from urllib.parse import urljoin
 
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_BASE_URL = os.getenv("DOORLOOP_BASE_URL")
+
+if not DOORLOOP_API_BASE_URL or not DOORLOOP_API_KEY:
+    raise EnvironmentError("Missing DoorLoop API configuration in environment variables.")
+
+HEADERS = {
+    "Authorization": f"Bearer {DOORLOOP_API_KEY}",
+    "Accept": "application/json",
+}
 
 def fetch_all_records(endpoint):
-    if not DOORLOOP_API_KEY or not DOORLOOP_BASE_URL:
-        raise EnvironmentError("Missing DoorLoop API configuration in environment variables.")
-
-    headers = {
-        "Authorization": f"Bearer {DOORLOOP_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
+    print(f"🌐 Fetching from endpoint: {endpoint}")
     all_data = []
-    page = 1
+    page_number = 1
     page_size = 100
 
     while True:
-        url = f"{DOORLOOP_BASE_URL}{endpoint}?page_number={page}&page_size={page_size}&sort_by=createdAt&descending=true"
-        response = requests.get(url, headers=headers)
-        if response.status_code != 200:
-            raise Exception(f"Failed to fetch page {page} of {endpoint}: {response.text}")
-        data = response.json()
+        url = f"{DOORLOOP_API_BASE_URL}{endpoint}?page_number={page_number}&page_size={page_size}&sort_by=createdAt&descending=true"
+        print(f"➡️ Requesting: {url}")
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+
+        json_data = response.json()
+        data = json_data.get("data", [])
         if not data:
             break
-        all_data.extend(data)
-        if len(data) < page_size:
-            break
-        page += 1
 
+        all_data.extend(data)
+
+        total = json_data.get("total", 0)
+        if len(all_data) >= total:
+            break
+
+        page_number += 1
+
+    print(f"📦 Total records fetched from {endpoint}: {len(all_data)}")
     return all_data
