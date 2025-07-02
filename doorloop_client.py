@@ -1,40 +1,56 @@
 
-import os
 import requests
+import os
+import logging
 
-DOORLOOP_API_KEY = os.environ.get("DOORLOOP_API_KEY")
-DOORLOOP_BASE_URL = os.environ.get("DOORLOOP_BASE_URL")
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
-HEADERS = {
-    "Authorization": f"Bearer {DOORLOOP_API_KEY}",
-    "Content-Type": "application/json"
-}
+def fetch_data_from_doorloop(endpoint: str, base_url: str, api_key: str) -> list:
+    if not base_url or not api_key:
+        _logger.error("❌ Missing DoorLoop API configuration in environment variables.")
+        return []
 
-def fetch_data_from_doorloop(endpoint):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "accept": "application/json"
+    }
+
     results = []
     page = 1
     page_size = 100
 
     while True:
-        url = f"{DOORLOOP_BASE_URL}{endpoint}?page_number={page}&page_size={page_size}"
-        response = requests.get(url, headers=HEADERS)
+        url = f"{base_url}{endpoint}?page_number={page}&page_size={page_size}"
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
 
-        if response.status_code == 405:
-            raise ValueError(f"405 Method Not Allowed for URL: {url}")
-        elif "application/json" not in response.headers.get("Content-Type", ""):
-            raise ValueError(f"Non-JSON response from DoorLoop API for {endpoint}")
+            if "application/json" not in response.headers.get("Content-Type", ""):
+                raise ValueError(f"Non-JSON response from DoorLoop API for {endpoint}")
 
-        response.raise_for_status()
-        data = response.json()
+            data = response.json()
+            if isinstance(data, dict) and "data" in data:
+                batch = data["data"]
+            else:
+                batch = data
 
-        if not isinstance(data, list):
-            raise ValueError(f"Expected list, got {type(data)} for {endpoint}")
+            if not batch:
+                break
 
-        results.extend(data)
-
-        if len(data) < page_size:
+            results.extend(batch)
+            page += 1
+        except requests.HTTPError as http_err:
+            if response.status_code == 405:
+                _logger.warning(f"405 Method Not Allowed: {url}")
+                break
+            _logger.error(f"HTTPError fetching {endpoint}: {http_err}")
             break
-
-        page += 1
+        except ValueError as val_err:
+            _logger.error(f"ValueError for {endpoint}: {val_err}")
+            break
+        except Exception as ex:
+            _logger.error(f"Unexpected error for {endpoint}: {ex}")
+            break
 
     return results
