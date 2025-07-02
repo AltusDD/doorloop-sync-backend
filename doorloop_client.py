@@ -1,42 +1,52 @@
 import os
 import requests
-from urllib.parse import urljoin
 
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
 
-if not DOORLOOP_API_BASE_URL or not DOORLOOP_API_KEY:
+if not DOORLOOP_API_KEY or not DOORLOOP_API_BASE_URL:
     raise EnvironmentError("Missing DoorLoop API configuration in environment variables.")
 
 HEADERS = {
     "Authorization": f"Bearer {DOORLOOP_API_KEY}",
-    "Accept": "application/json",
+    "Accept": "application/json"
 }
 
 def fetch_all_records(endpoint):
-    print(f"🌐 Fetching from endpoint: {endpoint}")
     all_data = []
-    page_number = 1
+    page = 1
     page_size = 100
+    has_more = True
 
-    while True:
-        url = f"{DOORLOOP_API_BASE_URL}{endpoint}?page_number={page_number}&page_size={page_size}&sort_by=createdAt&descending=true"
+    while has_more:
+        url = f"{DOORLOOP_API_BASE_URL}{endpoint}?page_number={page}&page_size={page_size}&sort_by=createdAt&descending=true"
         print(f"➡️ Requesting: {url}")
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=HEADERS)
 
-        json_data = response.json()
-        data = json_data.get("data", [])
-        if not data:
-            break
+            print(f"↩️ Status Code: {response.status_code}")
+            print(f"📝 Raw Response: {response.text}")
 
-        all_data.extend(data)
+            response.raise_for_status()
+            json_data = response.json()
 
-        total = json_data.get("total", 0)
-        if len(all_data) >= total:
-            break
+            data = json_data.get("data", [])
+            all_data.extend(data)
 
-        page_number += 1
+            pagination = json_data.get("pagination", {})
+            total_pages = pagination.get("totalPages", 1)
+            has_more = page < total_pages
+            page += 1
+        except requests.exceptions.HTTPError as e:
+            print(f"HTTP Error: {e}")
+            print(f"Response content: {response.text}")
+            raise
+        except requests.exceptions.RequestException as e:
+            print(f"Request Error: {e}")
+            raise
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            raise
 
     print(f"📦 Total records fetched from {endpoint}: {len(all_data)}")
     return all_data
