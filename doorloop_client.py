@@ -1,21 +1,18 @@
-
+import os
 import requests
 
-def fetch_data_from_doorloop(endpoint: str, base_url: str, api_key: str):
-    if not base_url or not api_key:
-        raise ValueError("Missing DoorLoop API configuration in environment variables.")
+DOORLOOP_API_KEY = os.environ.get("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = os.environ.get("DOORLOOP_API_BASE_URL")
 
-    url = f"{base_url.rstrip('/')}{endpoint}"
+if not DOORLOOP_API_KEY or not DOORLOOP_API_BASE_URL:
+    raise EnvironmentError("Missing DoorLoop API configuration in environment variables.")
+
+def fetch_data_from_doorloop(endpoint):
+    url = f"{DOORLOOP_API_BASE_URL}{endpoint}"
     headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json"
+        "Authorization": f"Bearer {DOORLOOP_API_KEY}",
+        "Content-Type": "application/json"
     }
-
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.json().get("data", [])
-    except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"Error fetching from DoorLoop: {e}")
-    except ValueError:
-        raise ValueError("Invalid JSON response from DoorLoop API.")
+    response = requests.get(url, headers=headers)
+    response.raise_for_status()
+    return response.json()
