@@ -2,7 +2,7 @@ import os
 import requests
 
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv(""DOORLOOP_API_BASE_URL", "https://api.doorloop.com/api/"")
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/api/")
 
 if not DOORLOOP_API_KEY or not DOORLOOP_API_BASE_URL:
     raise EnvironmentError("Missing DoorLoop API configuration in environment variables.")
