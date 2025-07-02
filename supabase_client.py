@@ -1,26 +1,29 @@
-
 import os
 import requests
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-def post_to_supabase(endpoint: str, data: list):
-    print(f"🔄 Posting {len(data)} records to Supabase endpoint: {endpoint}")
-    if data:
-        print(f"📌 Sample record: {data[0]}")
-    else:
-        print("⚠️ No data to post")
+def upsert_data_to_supabase(endpoint, data):
+    if not data:
+        print(f"⚠️ No data to upsert for {endpoint}")
+        return
 
-    url = f"{SUPABASE_URL}/rest/v1/{endpoint}"
+    table_name = endpoint.strip("/").replace("-", "_")
+
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates"
     }
-    response = requests.post(url, json=data, headers=headers)
-    print(f"✅ Supabase Response Status: {response.status_code}")
-    print(f"📝 Supabase Response Body: {response.text}")
-    response.raise_for_status()
-    return response.json()
+
+    try:
+        print(f"📤 Upserting {len(data)} records to Supabase table: {table_name}")
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        print(f"✅ Upsert complete for {table_name}.")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Failed to upsert data to {table_name}: {e}")
+        print(f"🔁 Response Text: {response.text if 'response' in locals() else 'N/A'}")
