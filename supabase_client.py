@@ -1,29 +1,43 @@
+
+# supabase_client.py
 import os
-import requests
+from supabase import create_client, Client
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def upsert_data_to_supabase(endpoint, data):
-    if not data:
-        print(f"⚠️ No data to upsert for {endpoint}")
+def get_table_columns(table_name):
+    try:
+        response = supabase.table(table_name).select("*").limit(1).execute()
+        if response.data and isinstance(response.data, list):
+            return list(response.data[0].keys())
+    except Exception as e:
+        print(f"⚠️ Warning: Could not fetch columns for table {table_name}: {e}")
+    return []
+
+def upsert_records(table_name, records):
+    if not records:
         return
 
-    table_name = endpoint.strip("/").replace("-", "_")
+    allowed_keys = get_table_columns(table_name)
+    if not allowed_keys:
+        print(f"❌ Skipping upsert — unable to determine valid columns for {table_name}")
+        return
 
-    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-    }
+    filtered_records = [
+        {k: v for k, v in record.items() if k in allowed_keys}
+        for record in records
+    ]
 
     try:
-        print(f"📤 Upserting {len(data)} records to Supabase table: {table_name}")
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        print(f"✅ Upsert complete for {table_name}.")
-    except requests.exceptions.RequestException as e:
+        response = supabase.table(table_name).upsert(filtered_records).execute()
+        if response.status_code >= 400:
+            print(f"❌ Upsert failed: {response.status_code} → {response.data}")
+        else:
+            print(f"✅ Upserted {len(filtered_records)} records to {table_name}")
+    except Exception as e:
         print(f"❌ Failed to upsert data to {table_name}: {e}")
-        print(f"🔁 Response Text: {response.text if 'response' in locals() else 'N/A'}")
