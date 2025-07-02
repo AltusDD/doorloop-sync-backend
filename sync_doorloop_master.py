@@ -1,9 +1,13 @@
+# sync_doorloop_master.py
 import os
-from doorloop_client import fetch_all_records
+from doorloop_client import fetch_all_records # This import is correct
 from supabase_client import upsert_records
 import requests
 
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
+# --- CHANGE THIS LINE ---
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/api/")
+# --- END CHANGE ---
+
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
 
 HEADERS = {
@@ -16,6 +20,7 @@ def main():
 
     # Initial test connection
     test_url = f"{DOORLOOP_API_BASE_URL}accounts"
+    print(f"👋 Testing connection to: {test_url}") # Add this to confirm the URL
     try:
         res = requests.get(test_url, headers=HEADERS)
         print("👋 Test Connection Status:", res.status_code)
@@ -36,7 +41,7 @@ def main():
 
     for endpoint in endpoints:
         print(f"🔄 Processing endpoint: /{endpoint}")
-        records = fetch_all_records(endpoint)
+        records = fetch_all_records(endpoint) # This correctly uses the URL from doorloop_client.py
         print(f"✅ Fetched {len(records)} records from DoorLoop for /{endpoint}.")
         table_name = endpoint.replace("-", "_")
         upsert_records(table_name, records)
