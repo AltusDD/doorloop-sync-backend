@@ -4,7 +4,7 @@ from doorloop_client import fetch_data_from_doorloop
 from supabase_client import post_to_supabase
 
 DOORLOOP_API_KEY = os.environ.get("DOORLOOP_API_KEY")
-DOORLOOP_BASE_URL = os.environ.get("DOORLOOP_BASE_URL")
+DOORLOOP_BASE_URL = os.environ.get("DOORLOOP_API_BASE_URL")
 
 ENDPOINTS = [
     "properties", "units", "tenants", "owners", "leases",
