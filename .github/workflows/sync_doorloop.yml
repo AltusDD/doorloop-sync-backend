@@ -1,13 +1,19 @@
 name: 🔁 DoorLoop → Supabase Sync
 
 on:
-  workflow_dispatch:  # Manual trigger from GitHub UI
+  workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'  # Optional: hourly (UTC)
+    - cron: '0 * * * *'
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+
+    env:
+      DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+      DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: 📥 Checkout repository
@@ -23,24 +29,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🐛 Debug Environment Variables
+      - name: 🧪 DEBUG: Show environment variables
         run: |
-          echo "✅ DOORLOOP_BASE_URL=$DOORLOOP_BASE_URL"
-          echo "✅ SUPABASE_URL=$SUPABASE_URL"
-          echo "✅ API key length: ${#DOORLOOP_API_KEY}"
-        env:
-          DOORLOOP_BASE_URL: ${{ secrets.DOORLOOP_BASE_URL }}
-          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          echo "DOORLOOP_API_KEY=${DOORLOOP_API_KEY}"
+          echo "DOORLOOP_API_BASE_URL=${DOORLOOP_API_BASE_URL}"
+          echo "SUPABASE_URL=${SUPABASE_URL}"
+          echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}"
 
       - name: 🔁 Run DoorLoop → Supabase Sync
         run: python sync_all_doorloop_to_supabase.py
-        env:
-          DOORLOOP_BASE_URL: ${{ secrets.DOORLOOP_BASE_URL }}
-          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: ✅ Done
         run: echo "✔️ Sync complete"
