@@ -1,52 +1,41 @@
-import requests
+
 import os
-import time
+import requests
 import logging
 
-DOORLOOP_API_KEY = os.environ.get("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.environ.get("DOORLOOP_API_BASE_URL")
+DOORLOOP_BASE_URL = os.getenv("DOORLOOP_BASE_URL")
+DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
 
-HEADERS = {
-    "Authorization": f"Bearer {DOORLOOP_API_KEY}"
-}
+if not DOORLOOP_BASE_URL:
+    raise ValueError("❌ Environment variable DOORLOOP_BASE_URL is not set.")
+if not DOORLOOP_API_KEY:
+    raise ValueError("❌ Environment variable DOORLOOP_API_KEY is not set.")
 
-logger = logging.getLogger(__name__)
-RATE_LIMIT_DELAY = 0.1
-LAST_API_CALL_TIME = 0
+logging.basicConfig(level=logging.INFO)
+logging.info(f"📡 Using DoorLoop Base URL: {DOORLOOP_BASE_URL}")
 
-def fetch_all(endpoint):
-    global LAST_API_CALL_TIME
-    results = []
-    page = 1
+def fetch_all_records(endpoint):
+    all_records = []
+    page_number = 1
+    page_size = 100
+    headers = {"Authorization": f"Bearer {DOORLOOP_API_KEY}"}
 
     while True:
-        elapsed = time.time() - LAST_API_CALL_TIME
-        if elapsed < RATE_LIMIT_DELAY:
-            time.sleep(RATE_LIMIT_DELAY - elapsed)
-
-        url = f"{DOORLOOP_API_BASE_URL}/{endpoint}?page_number={page}&page_size=100"
-        response = requests.get(url, headers=HEADERS)
-        LAST_API_CALL_TIME = time.time()
-
-        if response.status_code == 429:
-            retry = int(response.headers.get("Retry-After", 5))
-            logger.warning(f"Rate limit hit. Sleeping for {retry}s.")
-            time.sleep(retry)
-            continue
-
-        if response.status_code == 404:
-            logger.warning(f"{endpoint} not found.")
-            break
+        url = f"{DOORLOOP_BASE_URL}/{endpoint}?page_number={page_number}&page_size={page_size}"
+        logging.info(f"📤 Fetching: {url}")
+        response = requests.get(url, headers=headers)
 
         if response.status_code != 200:
-            logger.error(f"Error {response.status_code} for {endpoint}: {response.text}")
-            break
+            logging.error(f"❌ Failed to fetch from {endpoint}: {response.text}")
+            raise Exception(f"Failed to fetch from {endpoint}: {response.text}")
 
-        data = response.json().get("data", [])
+        data = response.json()
         if not data:
             break
+        all_records.extend(data)
+        if len(data) < page_size:
+            break
+        page_number += 1
 
-        results.extend(data)
-        page += 1
-
-    return results
+    logging.info(f"✅ Retrieved {len(all_records)} records from {endpoint}")
+    return all_records
