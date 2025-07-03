@@ -1,9 +1,9 @@
-name: DoorLoop Sync to Supabase
+name: 🔁 DoorLoop → Supabase Sync
 
 on:
-  workflow_dispatch:  # allows manual run
+  workflow_dispatch:
   schedule:
-    - cron: "0 5 * * *"  # every day at 5 AM UTC
+    - cron: '0 * * * *'
 
 jobs:
   sync:
@@ -16,25 +16,28 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.10.13
 
-      - name: Install dependencies
+      - name: 📦 Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run DoorLoop Sync
+      - name: 🔍 Verify Environment Variables
+        run: |
+          echo "DOORLOOP_API_KEY=${DOORLOOP_API_KEY}"
+          echo "DOORLOOP_API_BASE_URL=${DOORLOOP_API_BASE_URL}"
+          echo "SUPABASE_URL=${SUPABASE_URL}"
+          echo "SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}"
+
+      - name: 🔁 Run DoorLoop → Supabase Sync
         run: python sync_all_doorloop_to_supabase.py
 
-      - name: Upload sync log
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: doorloop-sync-log
-          path: doorloop_sync.log
+      - name: ✅ Done
+        run: echo "✔️ Sync complete"
