@@ -3,7 +3,7 @@ name: 🔁 DoorLoop → Supabase Sync
 on:
   workflow_dispatch:  # Allow manual runs from the GitHub UI
   schedule:
-    - cron: '0 * * * *'  # Optional: Runs every hour (UTC)
+    - cron: '0 * * * *'  # Runs every hour (UTC)
 
 jobs:
   sync:
@@ -16,7 +16,7 @@ jobs:
       - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.10.13
+          python-version: "3.10.13"
 
       - name: 📦 Install Python dependencies
         run: |
@@ -25,6 +25,12 @@ jobs:
 
       - name: 🔁 Run DoorLoop → Supabase Sync
         run: python sync_all_doorloop_to_supabase.py
+        env:
+          DOORLOOP_BASE_URL: ${{ secrets.DOORLOOP_BASE_URL }}
+          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: ✅ Done
         run: echo "✔️ Sync complete"
+
