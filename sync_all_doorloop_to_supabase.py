@@ -1,81 +1,56 @@
-import os
-import requests
 import logging
-import traceback
+import time
+from doorloop_client import fetch_all
+from supabase_client import upsert_data
 
-from doorloop_client import fetch_all_records
-from supabase_client import upsert_records, ensure_columns_exist
+# Setup logging
+LOG_FILE = "doorloop_sync.log"
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
 
-# ✅ Load and validate environment variables
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
+def log_success(message):
+    logging.info("✅ " + message)
 
-# ✅ Fail fast if environment variables are missing
-if not DOORLOOP_API_KEY:
-    raise EnvironmentError("❌ Missing required environment variable: DOORLOOP_API_KEY")
-if not DOORLOOP_API_BASE_URL:
-    raise EnvironmentError("❌ Missing required environment variable: DOORLOOP_API_BASE_URL")
+def log_error(message):
+    logging.error("❌ " + message)
 
-# ✅ Ensure base URL ends with a slash
-if not DOORLOOP_API_BASE_URL.endswith("/"):
-    DOORLOOP_API_BASE_URL += "/"
-
-HEADERS = {
-    "Authorization": f"Bearer {DOORLOOP_API_KEY}",
-    "Accept": "application/json"
-}
-
-# ✅ Enable logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
-# ✅ Endpoints to sync
 ENDPOINTS = [
-    "accounts", "users", "properties", "units", "leases", "tenants",
-    "lease-payments", "lease-returned-payments", "lease-charges", "lease-credits",
-    "portfolios", "tasks", "owners", "vendors", "expenses",
-    "vendor-bills", "vendor-credits", "communications", "notes", "files"
+    "accounts", "users", "properties", "units", "leases", "tenants", "lease-payments",
+    "lease-returned-payments", "lease-charges", "lease-credits", "portfolios", "tasks",
+    "owners", "vendors", "expenses", "vendor-bills", "vendor-credits", "communications",
+    "notes", "files"
 ]
 
-def test_connection():
-    test_url = f"{DOORLOOP_API_BASE_URL}accounts"
-    try:
-        res = requests.get(test_url, headers=HEADERS)
-        logging.info(f"✅ Test request to {test_url} returned {res.status_code}")
-        if res.status_code == 401:
-            logging.error("❌ Unauthorized: Check DOORLOOP_API_KEY")
-            logging.error(res.text)
-            return False
-        if res.status_code >= 400:
-            logging.error(f"❌ Error response: {res.status_code} — {res.text}")
-            return False
-        return True
-    except Exception as e:
-        logging.error(f"❌ Connection test failed: {e}")
-        return False
-
-def main():
-    logging.info("✅ 🚀 Starting DoorLoop → Supabase sync")
-
-    if not test_connection():
-        logging.error("❌ Aborting sync due to failed connection.")
-        return
+if __name__ == "__main__":
+    start = time.time()
+    log_success("🚀 Starting DoorLoop → Supabase sync")
 
     for endpoint in ENDPOINTS:
-        logging.info(f"✅ 🔄 Syncing endpoint: {endpoint}")
         try:
-            records = fetch_all_records(endpoint, DOORLOOP_API_BASE_URL, HEADERS)
-            logging.info(f"✅ Retrieved {len(records)} records from {endpoint}")
+            log_success(f"🔄 Syncing endpoint: {endpoint}")
+            records = fetch_all(endpoint)
+            if not records:
+                log_success(f"No data for {endpoint}. Skipping.")
+                continue
 
-            if records:
-                table_name = endpoint.replace("-", "_")
-                ensure_columns_exist(table_name, records)
-                upsert_records(table_name, records)
+            table_name = endpoint.replace("-", "_")
+            if endpoint == "portfolios":
+                table_name = "property_groups"
 
+            upsert_data(
+                table_name=table_name,
+                records=records,
+                primary_key_field="id"
+            )
+
+            log_success(f"✅ Synced {len(records)} records to {table_name}")
         except Exception as e:
-            logging.error(f"❌ ❌ Failed syncing {endpoint}: {e}")
-            traceback.print_exc()
+            log_error(f"❌ Failed syncing {endpoint}: {e}")
 
-    logging.info("✅ 🎉 Sync complete")
-
-if __name__ == "__main__":
-    main()
+    log_success(f"🎉 Sync complete in {time.time() - start:.2f}s")
