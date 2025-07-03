@@ -1,7 +1,10 @@
+
 import os
 import requests
 import time
 import logging
+
+logger = logging.getLogger(__name__)
 
 class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
@@ -37,21 +40,24 @@ class DoorLoopClient:
 
             response = requests.get(url, headers=self.headers, params=full_params)
 
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", 5))
-                logging.warning(f"Rate limit hit. Retrying in {retry_after} seconds.")
-                time.sleep(retry_after)
-                continue
-
+            logger.info(f"🔍 Endpoint: {endpoint}, Status Code: {response.status_code}")
             if not response.ok:
-                logging.error(f"❌ Failed to fetch {endpoint}: {response.status_code} - {response.text}")
+                logger.error(f"❌ Failed to fetch {endpoint}: {response.status_code} - {response.text}")
                 raise Exception(f"❌ Failed to fetch {endpoint}: {response.status_code} - {response.text}")
 
-            page_data = response.json()
+            try:
+                page_data = response.json()
+            except ValueError:
+                logger.error(f"❌ Failed to parse JSON from {endpoint}. Raw response:
+{response.text}")
+                raise
+
             data_list = page_data.get("data") if isinstance(page_data, dict) and "data" in page_data else page_data
+
             if not data_list or not isinstance(data_list, list):
                 break
             results.extend(data_list)
+
             if len(data_list) < 100:
                 break
             page += 1
