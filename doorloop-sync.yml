@@ -1,7 +1,7 @@
 name: DoorLoop Sync to Supabase
 
 on:
-  workflow_dispatch:  # run manually
+  workflow_dispatch:  # allows manual run
   schedule:
     - cron: "0 5 * * *"  # every day at 5 AM UTC
 
