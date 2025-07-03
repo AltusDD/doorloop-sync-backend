@@ -1,4 +1,3 @@
-
 import os
 import requests
 import time
@@ -29,9 +28,9 @@ class DoorLoopClient:
 
         while True:
             current_time = time.time()
-            elapsed = current_time - self.last_api_call_time
-            if elapsed < RATE_LIMIT_DELAY:
-                time.sleep(RATE_LIMIT_DELAY - elapsed)
+            elapsed_since_last_call = current_time - self.last_api_call_time
+            if elapsed_since_last_call < RATE_LIMIT_DELAY:
+                time.sleep(RATE_LIMIT_DELAY - elapsed_since_last_call)
             self.last_api_call_time = time.time()
 
             full_params = {"page_number": page, "page_size": 100}
@@ -40,7 +39,12 @@ class DoorLoopClient:
 
             response = requests.get(url, headers=self.headers, params=full_params)
 
-            logger.info(f"🔍 Endpoint: {endpoint}, Status Code: {response.status_code}")
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("Retry-After", 5))
+                logger.warning(f"Rate limit hit for {endpoint}. Retrying after {retry_after} seconds. Response: {response.text}")
+                time.sleep(retry_after)
+                continue
+
             if not response.ok:
                 logger.error(f"❌ Failed to fetch {endpoint}: {response.status_code} - {response.text}")
                 raise Exception(f"❌ Failed to fetch {endpoint}: {response.status_code} - {response.text}")
@@ -48,8 +52,7 @@ class DoorLoopClient:
             try:
                 page_data = response.json()
             except ValueError:
-                logger.error(f"❌ Failed to parse JSON from {endpoint}. Raw response:
-{response.text}")
+                logger.error(f"❌ Failed to parse JSON from {endpoint}. Raw response:\n{response.text}")
                 raise
 
             data_list = page_data.get("data") if isinstance(page_data, dict) and "data" in page_data else page_data
@@ -61,5 +64,4 @@ class DoorLoopClient:
             if len(data_list) < 100:
                 break
             page += 1
-
         return results
