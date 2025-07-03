@@ -1,43 +1,47 @@
-
-# supabase_client.py
+import requests
 import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
+import logging
+from datetime import datetime
 
-load_dotenv()
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+HEADERS = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "resolution=merge-duplicates"
+}
 
-def get_table_columns(table_name):
-    try:
-        response = supabase.table(table_name).select("*").limit(1).execute()
-        if response.data and isinstance(response.data, list):
-            return list(response.data[0].keys())
-    except Exception as e:
-        print(f"⚠️ Warning: Could not fetch columns for table {table_name}: {e}")
-    return []
+logger = logging.getLogger(__name__)
 
-def upsert_records(table_name, records):
+def to_snake_case(name):
+    return ''.join(['_' + c.lower() if c.isupper() else c for c in name]).lstrip('_')
+
+def upsert_data(table_name, records, primary_key_field="id"):
     if not records:
+        logger.info(f"No records for {table_name}")
         return
 
-    allowed_keys = get_table_columns(table_name)
-    if not allowed_keys:
-        print(f"❌ Skipping upsert — unable to determine valid columns for {table_name}")
-        return
+    transformed = []
+    for record in records:
+        item = {}
+        for k, v in record.items():
+            key = to_snake_case(k)
+            if key == "class":
+                key = "class_name"
+            if isinstance(v, datetime):
+                item[key] = v.isoformat()
+            else:
+                item[key] = v
+        transformed.append(item)
 
-    filtered_records = [
-        {k: v for k, v in record.items() if k in allowed_keys}
-        for record in records
-    ]
-
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict={primary_key_field}"
     try:
-        response = supabase.table(table_name).upsert(filtered_records).execute()
-        if response.status_code >= 400:
-            print(f"❌ Upsert failed: {response.status_code} → {response.data}")
-        else:
-            print(f"✅ Upserted {len(filtered_records)} records to {table_name}")
-    except Exception as e:
-        print(f"❌ Failed to upsert data to {table_name}: {e}")
+        r = requests.post(url, headers=HEADERS, json=transformed)
+        r.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Insert failed for {table_name}: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Response: {e.response.text}")
+        raise
