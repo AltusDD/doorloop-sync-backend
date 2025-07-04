@@ -411,6 +411,8 @@ if __name__ == "__main__":
                     if not schema_ok:
                         log_error(f"❌ Failed to ensure schema for {table_name}. Skipping data sync for this endpoint.")
                         continue # Skip data sync if schema setup failed
+                    # Add a short delay here to allow PostgREST's schema cache to refresh
+                    time.sleep(1) # Sleep for 1 second. Adjust as needed (e.g., 0.5 to 2 seconds).
                 else:
                     log_warning(f"⚠️ No API schema defined for endpoint '{endpoint}'. Skipping schema auto-patch for this table. Data upsert might fail if table/columns are missing or types are mismatched.")
                     # If you want to strictly require schema definition, uncomment the 'continue' below:
@@ -443,4 +445,3 @@ if __name__ == "__main__":
         exit(1) # Exit with a non-zero status code
 
     log_success(f"🎉 Sync complete in {time.time() - start:.2f}s")
-
