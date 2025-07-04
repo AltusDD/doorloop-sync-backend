@@ -1,38 +1,147 @@
 import requests
+import os
 import logging
-from supabase_schema_manager import ensure_table_structure
+import json
+from datetime import datetime, date # Added date for infer_type consistency
+
+# Import the schema manager class
+# Ensure your supabase_schema_manager.py file is updated with the latest code I provided.
+from supabase_schema_manager import SupabaseSchemaManager
 
 logger = logging.getLogger(__name__)
 
 class SupabaseClient:
-    def __init__(self, supabase_url: str, service_role_key: str):
-        if not supabase_url or not service_role_key:
-            raise ValueError("Supabase URL and Service Role Key must be provided.")
-        self.supabase_url = supabase_url
+    def __init__(self, url: str, service_role_key: str):
+        """
+        Initializes the Supabase client.
+        Accepts Supabase URL and service role key as arguments.
+        """
+        if not url:
+            raise ValueError("SUPABASE_URL must be provided to SupabaseClient.")
+        if not service_role_key:
+            raise ValueError("SUPABASE_SERVICE_ROLE_KEY must be provided to SupabaseClient.")
+
+        self.url = url.rstrip("/") # Ensure no trailing slash for consistent URL building
         self.service_role_key = service_role_key
         self.headers = {
             "apikey": self.service_role_key,
             "Authorization": f"Bearer {self.service_role_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates" # For UPSERT behavior
         }
+        # Instantiate the schema manager here, passing its required arguments
+        self.schema_manager = SupabaseSchemaManager(self.url, self.service_role_key)
 
-    def ensure_table_and_columns(self, table_name: str, records: list):
+
+    def _map_api_field_to_column_name(self, api_field: str) -> str:
+        """
+        Converts camelCase API field names to snake_case column names and handles specific renames.
+        This mapping must be consistent with the logic in supabase_schema_manager.py.
+        """
+        # Basic camelCase to snake_case
+        column_name = ''.join(['_' + c.lower() if c.isupper() else c for c in api_field]).lstrip('_')
+
+        # Specific renames (keep consistent with supabase_schema_manager.py)
+        if column_name == "class": return "class_name"
+        if column_name == "from": return "from_participant"
+        if column_name == "to": return "to_participants"
+        if column_name == "cc": return "cc_participants"
+        if column_name == "bcc": return "bcc_participants"
+        if column_name == "announcement": return "announcement_id"
+        if column_name == "lease_payment": return "lease_payment_id"
+        if column_name == "property": return "property_id"
+        if column_name == "unit": return "unit_id"
+        if column_name == "lease": return "lease_id"
+        if column_name == "vendor": return "vendor_id"
+        if column_name == "account": return "account_id"
+        if column_name == "received_from_tenant": return "received_from_tenant_id"
+        if column_name == "deposit_to_account": return "deposit_to_account_id"
+        if column_name == "total_balance_due": return "total_balance_due"
+        if column_name == "total_recurring_charges": return "total_recurring_charges"
+        if column_name == "evicton_pending": return "eviction_pending"
+        if column_name == "proof_of_insurance_required": return "proof_of_insurance_required"
+        if column_name == "rollover_to_at_will": return "rollover_to_at_will"
+        if column_name == "pay_from_account": return "pay_from_account_id"
+        if column_name == "payment_method": return "payment_method"
+        if column_name == "pay_to_resource_type": return "pay_to_resource_type"
+        if column_name == "pay_to_resource_id": return "pay_to_resource_id"
+        if column_name == "date": return "date_field"
+        if column_name == "due_date": return "due_date"
+        if column_name == "total_amount": return "total_amount"
+        if column_name == "total_balance": return "total_balance"
+        if column_name == "sent_at": return "sent_at"
+        if column_name == "opened_at": return "opened_at"
+        if column_name == "clicked_at": return "clicked_at"
+        if column_name == "bounced_at": return "bounced_at"
+        if column_name == "linked_resource": return "linked_resource"
+        if column_name == "created_by": return "created_by"
+        if column_name == "created_at": return "created_at_ts"
+        if column_name == "updated_at": return "updated_at_ts"
+        if column_name == "download_url": return "download_url"
+        if column_name == "num_active_units": return "num_active_units"
+        if column_name == "pets_policy": return "pets_policy"
+        if column_name == "board_members": return "board_members"
+        if column_name == "settings": return "settings_json"
+        if column_name == "is_valid_address": return "is_valid_address"
+        if column_name == "external_id": return "external_id"
+        if column_name == "manager_id": return "manager_id"
+        if column_name == "insurance_json": return "insurance_json"
+        if column_name == "tax_info_json": return "tax_info_json"
+        if column_name == "financials_json": return "financials_json"
+        if column_name == "compliance_json": return "compliance_json"
+        if column_name == "purchase_date": return "purchase_date"
+        if column_name == "purchase_price": return "purchase_price"
+        if column_name == "current_value": return "current_value"
+        if column_name == "bedroom_count": return "bedroom_count"
+        if column_name == "system_account": return "system_account"
+        if column_name == "fully_qualified_name": return "fully_qualified_name"
+        if column_name == "cash_flow_activity": return "cash_flow_activity"
+        if column_name == "default_account_for": return "default_account_for"
+
+        return column_name
+
+
+    def upsert_data(self, table_name: str, records: list, primary_key_field: str = "id"):
+        """
+        Upserts a list of records into the specified Supabase table.
+        Applies snake_case transformation to keys before sending.
+        """
         if not records:
-            logger.warning(f"⚠️ No data provided to check schema for {table_name}.")
+            logger.info(f"No records for {table_name}")
             return
+
+        transformed = []
+        for record in records:
+            item = {}
+            for k, v in record.items():
+                key = self._map_api_field_to_column_name(k) # Use the consistent mapping
+                
+                # Handle specific type conversions for Supabase PostgREST
+                if isinstance(v, datetime):
+                    item[key] = v.isoformat() # Convert datetime objects to ISO 8601 string
+                elif isinstance(v, date):
+                    item[key] = v.isoformat() # Convert date objects to ISO 8601 string
+                elif isinstance(v, (list, dict)):
+                    # For lists/dicts, send as is; Supabase JSONB will handle it
+                    item[key] = v
+                else:
+                    item[key] = v
+            transformed.append(item)
+
+        url = f"{self.url}/rest/v1/{table_name}?on_conflict={primary_key_field}"
         try:
-            ensure_table_structure(self.supabase_url, self.service_role_key, table_name, records)
-        except Exception as e:
-            logger.error(f"❌ ensure_table_structure failed for {table_name}: {str(e)}")
-            raise
+            r = requests.post(url, headers=self.headers, json=transformed)
+            r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            logger.info(f"Successfully upserted {len(transformed)} records into {table_name}.")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ Supabase insert failed for {table_name}: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                logger.error(f"Response: {e.response.text}")
+            raise # Re-raise to propagate the error
 
-    def upsert_data(self, table_name: str, records: list, conflict_key="id"):
-        if not records:
-            logger.info(f"ℹ️ No data to upsert for {table_name}. Skipping.")
-            return
-        url = f"{self.supabase_url}/rest/v1/{table_name}?on_conflict={conflict_key}"
-        response = requests.post(url, headers=self.headers, json=records)
-        if not response.ok:
-            logger.error(f"❌ Supabase insert failed for {table_name}: {response.status_code} {response.text}")
-            response.raise_for_status()
-        logger.info(f"✅ Upserted {len(records)} records to {table_name}")
+    def ensure_table_and_columns(self, table_name: str, api_schema: dict) -> bool:
+        """
+        Orchestrates schema creation and patching for a given table using the schema manager.
+        """
+        return self.schema_manager.ensure_schema(table_name, api_schema)
+
