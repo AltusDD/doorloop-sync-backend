@@ -104,35 +104,50 @@ class SupabaseClient:
     def upsert_data(self, table_name: str, records: list, primary_key_field: str = "id"):
         """
         Upserts a list of records into the specified Supabase table.
-        Applies snake_case transformation to keys before sending.
+        Applies snake_case transformation to keys and ensures all records in a batch
+        have a consistent set of keys (columns) to satisfy PostgREST's "All object keys must match" constraint.
         """
         if not records:
             logger.info(f"No records for {table_name}")
             return
 
-        transformed = []
+        # Step 1: Collect all unique keys (column names after transformation) across all records in the batch
+        all_unique_transformed_keys = set()
+        for record in records:
+            for k in record.keys():
+                all_unique_transformed_keys.add(self._map_api_field_to_column_name(k))
+
+        # Step 2: Transform and standardize each record
+        transformed_and_standardized_records = []
         for record in records:
             item = {}
-            for k, v in record.items():
-                key = self._map_api_field_to_column_name(k) # Use the consistent mapping
+            for original_key, original_value in record.items():
+                transformed_key = self._map_api_field_to_column_name(original_key)
                 
                 # Handle specific type conversions for Supabase PostgREST
-                if isinstance(v, datetime):
-                    item[key] = v.isoformat() # Convert datetime objects to ISO 8601 string
-                elif isinstance(v, date):
-                    item[key] = v.isoformat() # Convert date objects to ISO 8601 string
-                elif isinstance(v, (list, dict)):
+                if isinstance(original_value, datetime):
+                    item[transformed_key] = original_value.isoformat() # Convert datetime objects to ISO 8601 string
+                elif isinstance(original_value, date):
+                    item[transformed_key] = original_value.isoformat() # Convert date objects to ISO 8601 string
+                elif isinstance(original_value, (list, dict)):
                     # For lists/dicts, send as is; Supabase JSONB will handle it
-                    item[key] = v
+                    item[transformed_key] = original_value
                 else:
-                    item[key] = v
-            transformed.append(item)
+                    item[transformed_key] = original_value
+            
+            # Ensure all records have all unique keys, filling with None if missing
+            for key in all_unique_transformed_keys:
+                if key not in item:
+                    item[key] = None # Fill missing keys with None
+            
+            transformed_and_standardized_records.append(item)
 
         url = f"{self.url}/rest/v1/{table_name}?on_conflict={primary_key_field}"
         try:
-            r = requests.post(url, headers=self.headers, json=transformed)
+            # Send the standardized list of records
+            r = requests.post(url, headers=self.headers, json=transformed_and_standardized_records)
             r.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-            logger.info(f"Successfully upserted {len(transformed)} records into {table_name}.")
+            logger.info(f"Successfully upserted {len(transformed_and_standardized_records)} records into {table_name}.")
         except requests.exceptions.RequestException as e:
             logger.error(f"❌ Supabase insert failed for {table_name}: {e}")
             if hasattr(e, 'response') and e.response is not None:
