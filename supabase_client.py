@@ -1,4 +1,3 @@
-
 import requests
 import logging
 import time
@@ -7,9 +6,9 @@ from supabase_schema_manager import SupabaseSchemaManager
 logger = logging.getLogger(__name__)
 
 class SupabaseClient:
-    def __init__(self, url: str, key: str):
+    def __init__(self, url: str, service_role_key: str):
         self.url = url.rstrip("/")
-        self.key = key
+        self.key = service_role_key
         self.headers = {
             "apikey": self.key,
             "Authorization": f"Bearer {self.key}",
@@ -47,15 +46,16 @@ class SupabaseClient:
                 logger.warning(f"🛠️ Schema mismatch on {table}. Attempting auto-repair...")
                 self._repair_schema(table, records)
                 clean_records = self._sanitize(table, records)
-                return self.upsert(table, clean_records, pk_field)
+                self.upsert(table, clean_records)
             else:
-                logger.error(f"❌ Supabase insert failed for {table}: {response.status_code} {response.reason}")
-                logger.error(f"Response: {response.text}")
+                logger.error(f"❌ Supabase insert failed for {table}: {response.status_code} {response.text}")
         except Exception as e:
-            logger.exception(f"🔥 Exception during Supabase insert for {table}: {str(e)}")
+            logger.error(f"🔥 Exception during upsert to {table}: {e}")
 
     def _repair_schema(self, table: str, records: list[dict]):
-        logger.info(f"🛠️ Repairing schema for {table}")
-        for record in records:
-            for key, value in record.items():
-                self.schema_manager.ensure_column(table, key, value)
+        try:
+            first_record = records[0]
+            logger.debug(f"🔧 Repairing schema for table: {table}")
+            self.schema_manager.ensure_table_structure(table, first_record)
+        except Exception as e:
+            logger.error(f"🔥 Error during schema repair for {table}: {e}")
