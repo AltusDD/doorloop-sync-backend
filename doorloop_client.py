@@ -1,4 +1,3 @@
-
 import os
 import requests
 import time
@@ -9,23 +8,26 @@ logging.basicConfig(level=logging.DEBUG)
 
 class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
-        if not api_key:
-            raise ValueError("DOORLOOP_API_KEY must be provided to DoorLoopClient.")
-        if not base_url:
-            raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
+        self.api_key = api_key.strip()
+        self.base_url = base_url.strip()
 
-        self.api_key = api_key
-        self.base_url = base_url
+        if not self.api_key:
+            raise ValueError("DOORLOOP_API_KEY must be provided to DoorLoopClient.")
+        if not self.base_url:
+            raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
+        if "app.doorloop.com" in self.base_url and not self.base_url.endswith("/api"):
+            raise ValueError("❌ BASE_URL likely incorrect. Use https://app.doorloop.com/api or https://api.doorloop.com/v1")
+
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json"
+            "Accept": "application/json",
+            "Content-Type": "application/json"
         }
         self.last_api_call_time = 0
-
         logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
 
     def fetch_all(self, endpoint: str, params=None):
-        url = f"{self.base_url}/{endpoint}"
+        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
         results = []
         page = 1
@@ -60,8 +62,12 @@ class DoorLoopClient:
             try:
                 page_data = response.json()
             except ValueError:
-                logger.error(f"❌ Failed to parse JSON from {endpoint}. Raw response:
-{response.text}")
+                logger.error(
+                    f"❌ Failed to parse JSON from {endpoint}.\n"
+                    f"Status Code: {response.status_code}\n"
+                    f"Headers: {response.headers}\n"
+                    f"Raw Response:\n{response.text}"
+                )
                 raise
 
             data_list = page_data.get("data") if isinstance(page_data, dict) and "data" in page_data else page_data
@@ -75,4 +81,5 @@ class DoorLoopClient:
             if len(data_list) < 100:
                 break
             page += 1
+
         return results
