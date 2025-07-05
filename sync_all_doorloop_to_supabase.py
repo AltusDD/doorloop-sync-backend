@@ -49,11 +49,11 @@ API_SCHEMAS = {
         "active": {"type": "boolean"},
         "type": {"type": "string"},
         "description": {"type": "string"},
-        # Common metadata fields, if they are always top-level in API response:
-        # "createdAt": {"type": "string", "format": "date-time"},
-        # "updatedAt": {"type": "string", "format": "date-time"},
-        # "createdBy": {"type": "string"},
-        # "updatedBy": {"type": "string"}
+        # Common top-level metadata fields (if consistently present in API response)
+        "createdAt": {"type": "string", "format": "date-time"},
+        "updatedAt": {"type": "string", "format": "date-time"},
+        "createdBy": {"type": "string"},
+        "updatedBy": {"type": "string"}
     },
     "users": {
         "id": {"type": "string"},
@@ -68,18 +68,20 @@ API_SCHEMAS = {
         "companyName": {"type": "string"},
         "jobTitle": {"type": "string"},
         "notes": {"type": "string"},
-        "phones": {"type": "array", "items": {"type": "object"}}, # These are nested objects
-        "emails": {"type": "array", "items": {"type": "object"}}, # These are nested objects
+        "phones": {"type": "array", "items": {"type": "object"}}, # Nested objects
+        "emails": {"type": "array", "items": {"type": "object"}}, # Nested objects
         "primaryAddress": {"type": "object"}, # Nested object
         "pictureUrl": {"type": "string"},
         "active": {"type": "boolean"},
         "loginEmail": {"type": "string"},
         "role": {"type": "string"},
         "properties": {"type": "string"}, # Check if this is truly a single string or array of IDs
-        "lastSeenAt": {"type": "string", "format": "date-time"}
-        # Removed problematic inferred fields:
-        # "bankAccounts": {"type": "array", "items": {"type": "object"}},
-        # "acceptedOnTOS": {"type": "boolean"},
+        "lastSeenAt": {"type": "string", "format": "date-time"},
+        # Common top-level metadata fields (if consistently present in API response)
+        "createdAt": {"type": "string", "format": "date-time"},
+        "updatedAt": {"type": "string", "format": "date-time"},
+        "createdBy": {"type": "string"},
+        "updatedBy": {"type": "string"}
     },
     "properties": {
         "id": {"type": "string"},
@@ -111,8 +113,6 @@ API_SCHEMAS = {
         "purchasePrice": {"type": "number"},
         "currentValue": {"type": "number"},
         "bedroomCount": {"type": "integer"}
-        # Removed problematic inferred fields:
-        # "typeDescription": {"type": "string"},
     },
     "units": {
         "id": {"type": "string"},
@@ -131,6 +131,10 @@ API_SCHEMAS = {
         "amenities": {"type": "array", "items": {"type": "string"}}
         # Removed problematic inferred fields:
         # "batch": {"type": "string"},
+        # "createdAt": {"type": "string", "format": "date-time"}, # If not top-level
+        # "updatedAt": {"type": "string", "format": "date-time"}, # If not top-level
+        # "createdBy": {"type": "string"}, # If not top-level
+        # "updatedBy": {"type": "string"} # If not top-level
     },
     "leases": {
         "id": {"type": "string"},
@@ -152,8 +156,11 @@ API_SCHEMAS = {
         "totalRecurringPayments": {"type": "number"},
         "totalRecurringCredits": {"type": "number"},
         "TotalRecurringCharges": {"type": "number"} # Note: API typo "TotalRecurringCharges"
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "tenants": {
         "id": {"type": "string"},
@@ -178,9 +185,12 @@ API_SCHEMAS = {
         "emergencyContacts": {"type": "array", "items": {"type": "object"}},
         "prospectInfo": {"type": "object"},
         "portalInfo": {"type": "object"},
-        "type": {"type": "string"}
-        # Removed problematic inferred fields:
-        # "acceptedOnTOS": {"type": "boolean"},
+        "type": {"type": "string"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "lease-payments": {
         "id": {"type": "string"},
@@ -194,8 +204,11 @@ API_SCHEMAS = {
         "autoDeposit": {"type": "boolean"},
         "depositStatus": {"type": "string"},
         "reversedPayment": {"type": "string"} # Will be mapped to reversed_payment_id
-        # Removed problematic inferred fields:
-        # "amountAppliedToCharges": {"type": "number"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "lease-charges": {
         "id": {"type": "string"},
@@ -206,8 +219,11 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "lease-credits": {
         "id": {"type": "string"},
@@ -218,8 +234,11 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "tasks": {
         "id": {"type": "string"},
@@ -267,8 +286,11 @@ API_SCHEMAS = {
         "managementStartDate": {"type": "string", "format": "date"},
         "managementEndDate": {"type": "string", "format": "date"},
         "federalTaxInfo": {"type": "object"}
-        # Removed problematic inferred fields:
-        # "alternateAddress": {"type": "object"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "vendors": {
         "id": {"type": "string"},
@@ -292,8 +314,11 @@ API_SCHEMAS = {
         "properties": {"type": "array", "items": {"type": "string"}}, # Array of property IDs
         "insuranceInfo": {"type": "object"},
         "federalTaxInfo": {"type": "object"}
-        # Removed problematic inferred fields:
-        # "accounts": {"type": "array", "items": {"type": "object"}},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "expenses": {
         "id": {"type": "string"},
@@ -307,8 +332,11 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed problematic inferred fields:
-        # "checkInfo": {"type": "object"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "vendor-bills": {
         "id": {"type": "string"},
@@ -321,8 +349,11 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "vendor-credits": {
         "id": {"type": "string"},
@@ -335,8 +366,11 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "communications": {
         "id": {"type": "string"},
@@ -356,8 +390,11 @@ API_SCHEMAS = {
         "bouncedAt": {"type": "array", "items": {"type": "number"}}, # Array of Unix timestamps
         "status": {"type": "string"},
         "announcement": {"type": "string"} # Will be mapped to announcement_id
-        # Removed problematic inferred fields:
-        # "conversation": {"type": "object"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "notes": {
         "id": {"type": "string"},
@@ -367,8 +404,9 @@ API_SCHEMAS = {
         "linkedResource": {"type": "object"}, # Will be mapped to linked_resource
         "createdAt": {"type": "number"}, # Unix timestamp
         "createdBy": {"type": "string"}
-        # Removed problematic inferred fields:
-        # "property": {"type": "string"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "updatedBy": {"type": "string"}
     },
     "files": {
         "id": {"type": "string"},
@@ -381,15 +419,19 @@ API_SCHEMAS = {
         "createdBy": {"type": "string"},
         "createdAt": {"type": "string"}, # API has this as string, not timestamp
         "downloadUrl": {"type": "string"}
-        # Removed problematic inferred fields:
-        # "createdByName": {"type": "string"},
+        # Common top-level metadata fields (if consistently present in API response)
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "updatedBy": {"type": "string"}
     },
     "property-groups": { # Maps to property_groups
         "id": {"type": "string"},
         "name": {"type": "string"},
         "properties": {"type": "array", "items": {"type": "string"}} # Array of Property IDs
-        # Removed problematic inferred fields:
+        # Common top-level metadata fields (if consistently present in API response)
         # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "lease-returned-payments": { # Assuming this endpoint exists and has a schema
         "id": {"type": "string"},
@@ -400,6 +442,11 @@ API_SCHEMAS = {
         "reference": {"type": "string"},
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"}
+        # Common top-level metadata fields (if consistently present in API response)
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     }
 }
 
