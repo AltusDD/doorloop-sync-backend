@@ -9,9 +9,10 @@ API_SCHEMAS = {
     "properties": ["id", "name", "type", "status", "address", "city", "state", "zip"],
 }
 
-def clean_record(record):
+def clean_record(record, allowed_fields):
     clean = {}
-    for k, v in record.items():
+    for k in allowed_fields:
+        v = record.get(k)
         if isinstance(v, (str, int, float, bool)) or v is None:
             clean[k] = v
         elif isinstance(v, dict) and 'iso' in v:
@@ -33,5 +34,5 @@ if __name__ == "__main__":
     for endpoint, fields in API_SCHEMAS.items():
         logging.info(f"🔄 Syncing {endpoint}...")
         records = dl_client.fetch_all(endpoint)
-        clean_records = [clean_record(r) for r in records]
+        clean_records = [clean_record(r, fields) for r in records]
         sb_client.upsert_data(endpoint, clean_records)
