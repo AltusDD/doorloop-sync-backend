@@ -11,62 +11,49 @@ class SupabaseSchemaManager:
             "Content-Type": "application/json"
         }
 
-    def _get_existing_columns(self, table_name):
-        url = f"{self.supabase_url}/information_schema.columns"
-        params = {
-            "table_name": f"eq.{table_name}",
-            "select": "column_name"
-        }
-        resp = requests.get(url, headers=self.headers, params=params)
-        if resp.status_code != 200:
-            logging.warning(f"⚠️ Could not fetch columns for {table_name}: {resp.text}")
-            return []
-        column_names = [col["column_name"] for col in resp.json()]
-        logging.info(f"📊 Existing columns for {table_name}: {column_names}")
-        return column_names
+    def _execute_sql(self, sql):
+        payload = {"sql": sql}
+        r = requests.post(f"{self.supabase_url}/rest/v1/rpc/execute_sql", headers=self.headers, json=payload)
+        if r.status_code not in [200, 201, 204]:
+            logging.error(f"❌ Failed to execute SQL: {sql} → {r.status_code}: {r.text}")
+        else:
+            logging.info(f"✅ Column patch succeeded: {sql}")
 
     def add_missing_columns(self, table_name, records):
-        if not records:
-            logging.info(f"🟡 No records to process for {table_name}")
-            return
-
+        logging.info(f"📊 Scanning fields for table: {table_name}")
         existing_columns = self._get_existing_columns(table_name)
+        logging.debug(f"🔎 Existing columns: {existing_columns}")
         proposed_columns = set()
         for record in records:
             logging.debug(f"🔍 Scanning record: {record}")
-            for k, v in record.items():
-                if k not in existing_columns:
-                    proposed_columns.add((k, v))
+            for key, value in record.items():
+                if key not in existing_columns:
+                    proposed_columns.add((key, self._infer_sql_type(value)))
 
-        logging.info(f"📌 Proposed new columns for {table_name}: {[k for k, _ in proposed_columns]}")
-
-        for column_name, sample_value in proposed_columns:
-            col_type = self._infer_postgres_type(sample_value)
-            if not col_type:
-                logging.info(f"⏩ Skipping unsupported field: {column_name}")
-                continue
-            sql = f'ALTER TABLE public."{table_name}" ADD COLUMN IF NOT EXISTS "{column_name}" {col_type};'
+        for col_name, col_type in proposed_columns:
+            sql = f'ALTER TABLE public."{table_name}" ADD COLUMN IF NOT EXISTS "{col_name}" {col_type};'
             logging.info(f"🛠️ Executing SQL: {sql}")
             self._execute_sql(sql)
 
-    def _infer_postgres_type(self, value):
+        # Force schema cache refresh
+        ping = requests.get(f"{self.supabase_url}/rest/v1/", headers=self.headers)
+        logging.info(f"🔁 PostgREST schema refresh response: {ping.status_code}")
+
+    def _get_existing_columns(self, table_name):
+        url = f"{self.supabase_url}/rest/v1/{table_name}?limit=1"
+        r = requests.get(url, headers=self.headers)
+        if r.status_code == 200:
+            return list(r.json()[0].keys()) if r.json() else []
+        return []
+
+    def _infer_sql_type(self, value):
         if isinstance(value, bool):
             return "boolean"
         elif isinstance(value, int):
             return "bigint"
         elif isinstance(value, float):
-            return "double precision"
+            return "float"
         elif isinstance(value, str):
             return "text"
-        elif value is None:
-            return "text"
-        return None
-
-    def _execute_sql(self, sql):
-        url = f"{self.supabase_url}/rest/v1/rpc/execute_sql"
-        payload = { "sql": sql }
-        resp = requests.post(url, headers=self.headers, json=payload)
-        if resp.status_code != 200:
-            logging.error(f"❌ Failed to execute SQL: {sql} → {resp.status_code}: {resp.text}")
         else:
-            logging.info(f"✅ SQL executed successfully: {sql}")
+            return "text"
