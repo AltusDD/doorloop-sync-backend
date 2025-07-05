@@ -5,7 +5,6 @@ import json
 from datetime import datetime, date # Added date for infer_type consistency
 
 # Import the schema manager class
-# Ensure your supabase_schema_manager.py file is updated with the latest code I provided.
 from supabase_schema_manager import SupabaseSchemaManager
 
 logger = logging.getLogger(__name__)
@@ -83,7 +82,7 @@ class SupabaseClient:
         if column_name == "board_members": return "board_members"
         if column_name == "settings": return "settings_json"
         if column_name == "is_valid_address": return "is_valid_address"
-        if column_name == "external_id": return "external_id"
+        if api_field == "externalId": return "external_id" # Corrected from column_name == "external_id"
         if column_name == "manager_id": return "manager_id"
         if column_name == "insurance_json": return "insurance_json"
         if column_name == "tax_info_json": return "tax_info_json"

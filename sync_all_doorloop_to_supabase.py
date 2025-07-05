@@ -45,12 +45,13 @@ API_SCHEMAS = {
         "active": {"type": "boolean"},
         "type": {"type": "string"},
         "description": {"type": "string"},
-        "systemAccount": {"type": "boolean"},
-        "fullyQualifiedName": {"type": "string"},
-        "cashFlowActivity": {"type": "string"},
-        "defaultAccountFor": {"type": "object"},
-        "createdAt": {"type": "string", "format": "date-time"},
-        "updatedAt": {"type": "string", "format": "date-time"},
+        # Removed inferred fields that are NOT directly in /accounts API response
+        # "systemAccount": {"type": "boolean"},
+        # "fullyQualifiedName": {"type": "string"},
+        # "cashFlowActivity": {"type": "string"},
+        # "defaultAccountFor": {"type": "object"},
+        "createdAt": {"type": "string", "format": "date-time"}, # These are common top-level fields
+        "updatedAt": {"type": "string", "format": "date-time"}, # for many DoorLoop objects
         "createdBy": {"type": "string"},
         "updatedBy": {"type": "string"}
     },
@@ -76,6 +77,8 @@ API_SCHEMAS = {
         "role": {"type": "string"},
         "properties": {"type": "string"}, # Check if this is truly a single string or array of IDs
         "lastSeenAt": {"type": "string", "format": "date-time"}
+        # Removed inferred fields that are NOT directly in /users API response
+        # "bankAccounts": {"type": "array", "items": {"type": "object"}}, # This caused error
     },
     "properties": {
         "id": {"type": "string"},
@@ -83,7 +86,7 @@ API_SCHEMAS = {
         "type": {"type": "string"},
         "address": {"type": "object"},
         "description": {"type": "string"},
-        "class": {"type": "string"}, # Will be mapped to class_name
+        "class": {"type": "string"}, # This IS correct for properties and maps to class_name
         "owners": {"type": "array", "items": {"type": "object"}},
         "pictures": {"type": "array", "items": {"type": "object"}},
         "amenities": {"type": "array", "items": {"type": "string"}},
@@ -107,6 +110,8 @@ API_SCHEMAS = {
         "purchasePrice": {"type": "number"},
         "currentValue": {"type": "number"},
         "bedroomCount": {"type": "integer"}
+        # Removed inferred fields that are NOT directly in /properties API response
+        # "typeDescription": {"type": "string"}, # This caused error
     },
     "units": {
         "id": {"type": "string"},
