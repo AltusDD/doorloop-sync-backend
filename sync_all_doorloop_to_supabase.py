@@ -1,72 +1,60 @@
-
 import os
 import logging
 from doorloop_client import DoorLoopClient
 from supabase_client import SupabaseClient
-from supabase_schema_manager import SupabaseSchemaManager
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-# ✅ Set up environment variables
+# 🔐 Environment Variables
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-if not all([DOORLOOP_API_KEY, DOORLOOP_API_BASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL]):
-    raise EnvironmentError("Missing one or more required environment variables.")
+# ✅ Initialize Clients
+dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY)
+sb_client = SupabaseClient(url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
 
-# ✅ Initialize clients
-dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
-sb_client = SupabaseClient(url=SUPABASE_URL, key=SUPABASE_SERVICE_ROLE_KEY)
+# 🔁 Raw Endpoint to Table Mapping
+RAW_ENDPOINTS = {
+    "accounts": "doorloop_raw_accounts",
+    "users": "doorloop_raw_users",
+    "properties": "doorloop_raw_properties",
+    "units": "doorloop_raw_units",
+    "leases": "doorloop_raw_leases",
+    "tenants": "doorloop_raw_tenants",
+    "lease-payments": "doorloop_raw_lease_payments",
+    "lease-charges": "doorloop_raw_lease_charges",
+    "lease-credits": "doorloop_raw_lease_credits",
+    "tasks": "doorloop_raw_tasks",
+    "owners": "doorloop_raw_owners",
+    "vendors": "doorloop_raw_vendors",
+    "expenses": "doorloop_raw_expenses",
+    "vendor-bills": "doorloop_raw_vendor_bills",
+    "vendor-credits": "doorloop_raw_vendor_credits",
+    "communications": "doorloop_raw_communications",
+    "notes": "doorloop_raw_notes",
+    "files": "doorloop_raw_files",
+    "portfolios": "doorloop_raw_portfolios",
+    "lease-returned-payments": "doorloop_raw_lease_reversed_payments"
+}
 
-schema_manager = SupabaseSchemaManager(sb_client)
+# 🚀 Start Sync
+logging.info("🔁 Starting full DoorLoop → Supabase raw sync")
 
-# ✅ Define the list of endpoints to sync
-endpoints = [
-    "accounts",
-    "users",
-    "properties",
-    "units",
-    "leases",
-    "tenants",
-    "lease-payments",
-    "lease-charges",
-    "lease-credits",
-    "tasks",
-    "owners",
-    "vendors",
-    "expenses",
-    "vendor-bills",
-    "vendor-credits",
-    "communications",
-    "notes",
-    "files",
-    "portfolios",
-    "lease-returned-payments"
-]
-
-# ✅ Sync each endpoint to its corresponding doorloop_raw_ table
-for endpoint in endpoints:
-    logger.info(f"🔄 Syncing raw endpoint: {endpoint}")
-
+for endpoint, table in RAW_ENDPOINTS.items():
+    logging.info(f"🔄 Syncing endpoint: {endpoint} → table: {table}")
     try:
         records = dl_client.fetch_all(endpoint)
-        logger.info(f"✅ Retrieved {len(records)} records from DoorLoop /{endpoint}")
-
-        raw_table = f"doorloop_raw_{endpoint.replace('-', '_')}"
-
-        schema_manager.ensure_raw_table(raw_table)  # ensures table exists and has correct structure
-
-        payloads = [{
-            "id": r.get("id") or r.get("_id"),
-            "payload_json": r,
-            "endpoint": endpoint
-        } for r in records]
-
-        sb_client.upsert_raw_data(raw_table, payloads)
-        logger.info(f"📥 Upserted {len(payloads)} into {raw_table}")
-
+        wrapped_records = [
+            {
+                "id": record.get("id"),
+                "payload_json": record,
+                "endpoint": endpoint
+            }
+            for record in records if record.get("id")
+        ]
+        sb_client.upsert_data(table, wrapped_records)
     except Exception as e:
-        logger.exception(f"🔥 Exception while syncing {endpoint}: {e}")
+        logging.error(f"❌ Sync failed for {endpoint}: {e}")
+
+logging.info("✅ Raw sync complete")
