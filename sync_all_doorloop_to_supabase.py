@@ -50,7 +50,7 @@ API_SCHEMAS = {
         # "fullyQualifiedName": {"type": "string"},
         # "cashFlowActivity": {"type": "string"},
         # "defaultAccountFor": {"type": "object"},
-        "createdAt": {"type": "string", "format": "date-time"}, # Common top-level fields
+        "createdAt": {"type": "string", "format": "date-time"}, # Common top-level fields for many DoorLoop objects
         "updatedAt": {"type": "string", "format": "date-time"},
         "createdBy": {"type": "string"},
         "updatedBy": {"type": "string"}
@@ -76,7 +76,7 @@ API_SCHEMAS = {
         "loginEmail": {"type": "string"},
         "role": {"type": "string"},
         "properties": {"type": "string"}, # Check if this is truly a single string or array of IDs
-        "lastSeenAt": {"type": "string", "format": "date-time"}
+        "lastSeenAt": {"type": "string", "format": "date-time"},
         # Removed inferred fields that are NOT directly in /users API response
         # "bankAccounts": {"type": "array", "items": {"type": "object"}}, # This caused error
         # "acceptedOnTOS": {"type": "boolean"}, # This caused error for tenants, check users
@@ -388,6 +388,8 @@ API_SCHEMAS = {
         "id": {"type": "string"},
         "name": {"type": "string"},
         "properties": {"type": "array", "items": {"type": "string"}} # Array of Property IDs
+        # Removed inferred fields that are NOT directly in /property-groups API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "lease-returned-payments": { # Assuming this endpoint exists and has a schema
         "id": {"type": "string"},

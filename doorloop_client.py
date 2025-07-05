@@ -7,6 +7,10 @@ logger = logging.getLogger(__name__)
 
 class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
+        """
+        Initializes the DoorLoop API client.
+        API key and base URL are passed as arguments, not read directly from os.getenv here.
+        """
         self.api_key = api_key.strip()
         self.base_url = base_url.strip()
 
