@@ -37,6 +37,7 @@ class DoorLoopClient:
         RATE_LIMIT_DELAY = 0.1
 
         while True:
+            # Enforce rate limit
             current_time = time.time()
             elapsed_since_last_call = current_time - self.last_api_call_time
             if elapsed_since_last_call < RATE_LIMIT_DELAY:
