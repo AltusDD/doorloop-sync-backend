@@ -1,4 +1,3 @@
-
 import requests
 import logging
 
@@ -18,6 +17,11 @@ class SupabaseSchemaManager:
             logging.error(f"❌ Failed to execute SQL: {sql} → {r.status_code}: {r.text}")
         else:
             logging.info(f"✅ Column patch succeeded: {sql}")
+
+    def ensure_raw_table_exists(self, table_name):
+        sql = f'CREATE TABLE IF NOT EXISTS public."{table_name}" (id uuid PRIMARY KEY DEFAULT gen_random_uuid());'
+        logging.info(f"🛠️ Ensuring table exists: {table_name}")
+        self._execute_sql(sql)
 
     def add_missing_columns(self, table_name, records):
         logging.info(f"📊 Scanning fields for table: {table_name}")
