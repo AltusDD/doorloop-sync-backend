@@ -5,42 +5,67 @@ from doorloop_client import DoorLoopClient
 from supabase_client import SupabaseClient
 from supabase_schema_manager import SupabaseSchemaManager
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def clean_record(record):
-    clean = {}
-    for k, v in record.items():
-        if isinstance(v, (str, int, float, bool)) or v is None:
-            clean[k] = v
-        elif isinstance(v, dict) and 'iso' in v:
-            clean[k] = v['iso']
-        else:
-            continue
-    return clean
+# ✅ Set up environment variables
+DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
 
-if __name__ == "__main__":
-    logging.info("🚀 Starting full DoorLoop → Supabase sync")
+if not all([DOORLOOP_API_KEY, DOORLOOP_API_BASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL]):
+    raise EnvironmentError("Missing one or more required environment variables.")
 
-    doorloop_api_key = os.getenv("DOORLOOP_API_KEY")
-    doorloop_base_url = os.getenv("DOORLOOP_API_BASE_URL")
-    supabase_url = os.getenv("SUPABASE_URL")
-    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# ✅ Initialize clients
+dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
+sb_client = SupabaseClient(url=SUPABASE_URL, key=SUPABASE_SERVICE_ROLE_KEY)
+schema_manager = SupabaseSchemaManager(sb_client)
 
-    logging.debug("🔐 Environment variables loaded")
+# ✅ Define the list of endpoints to sync
+endpoints = [
+    "accounts",
+    "users",
+    "properties",
+    "units",
+    "leases",
+    "tenants",
+    "lease-payments",
+    "lease-charges",
+    "lease-credits",
+    "tasks",
+    "owners",
+    "vendors",
+    "expenses",
+    "vendor-bills",
+    "vendor-credits",
+    "communications",
+    "notes",
+    "files",
+    "portfolios",
+    "lease-returned-payments"
+]
 
-    dl_client = DoorLoopClient(api_key=doorloop_api_key, base_url=doorloop_base_url)
-    sb_client = SupabaseClient(url=supabase_url, service_role_key=service_role_key)
-    schema_manager = SupabaseSchemaManager(supabase_url, service_role_key)
+# ✅ Sync each endpoint to its corresponding doorloop_raw_ table
+for endpoint in endpoints:
+    logger.info(f"🔄 Syncing raw endpoint: {endpoint}")
 
-    endpoints = ["accounts"]
-
-    for endpoint in endpoints:
-        logging.info(f"🔄 Syncing {endpoint}...")
+    try:
         records = dl_client.fetch_all(endpoint)
-        if not records:
-            logging.warning(f"⚠️ No records returned for {endpoint}")
-            continue
-        clean_records = [clean_record(r) for r in records]
-        logging.debug(f"🧼 Cleaned {len(clean_records)} records for {endpoint}")
-        schema_manager.add_missing_columns(endpoint, clean_records)
-        sb_client.upsert_data(endpoint, clean_records)
+        logger.info(f"✅ Retrieved {len(records)} records from DoorLoop /{endpoint}")
+
+        raw_table = f"doorloop_raw_{endpoint.replace('-', '_')}"
+
+        schema_manager.ensure_raw_table(raw_table)  # ensures table exists and has correct structure
+
+        payloads = [{
+            "id": r.get("id") or r.get("_id"),
+            "payload_json": r,
+            "endpoint": endpoint
+        } for r in records]
+
+        sb_client.upsert_raw_data(raw_table, payloads)
+        logger.info(f"📥 Upserted {len(payloads)} into {raw_table}")
+
+    except Exception as e:
+        logger.exception(f"🔥 Exception while syncing {endpoint}: {e}")
