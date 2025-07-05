@@ -1,7 +1,7 @@
 import requests
 import logging
 import json
-from datetime import datetime, date # Added date for infer_type
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
