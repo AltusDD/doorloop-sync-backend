@@ -4,15 +4,9 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
-# Set default logging level for this module to INFO, or DEBUG if you want more verbosity
-# logging.basicConfig(level=logging.INFO) # This might be set globally in sync_all_doorloop_to_supabase.py
 
 class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
-        """
-        Initializes the DoorLoop API client.
-        API key and base URL are passed as arguments, not read directly from os.getenv here.
-        """
         self.api_key = api_key.strip()
         self.base_url = base_url.strip()
 
@@ -20,9 +14,11 @@ class DoorLoopClient:
             raise ValueError("DOORLOOP_API_KEY must be provided to DoorLoopClient.")
         if not self.base_url:
             raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
-        # Optional: Add a check for base_url format if it's consistently causing issues
+        # Ensure base_url ends with /api if it's the app.doorloop.com domain
         if "app.doorloop.com" in self.base_url and not self.base_url.endswith("/api"):
-             logger.warning("⚠️ BASE_URL might be incorrect. Consider using 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
+            logger.warning("⚠️ BASE_URL likely incorrect. Consider using 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
+            # Optionally, you could try to fix it here:
+            # self.base_url = self.base_url.rstrip('/') + '/api'
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -33,10 +29,6 @@ class DoorLoopClient:
         logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
 
     def fetch_all(self, endpoint: str, params=None):
-        """
-        Fetches all paginated data from a given DoorLoop API endpoint.
-        Includes basic rate limiting and error handling.
-        """
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
         results = []
@@ -73,12 +65,14 @@ class DoorLoopClient:
             try:
                 page_data = response.json()
             except ValueError:
+                # This catches the "Expecting value: line 1 column 1" error for non-JSON responses
                 logger.error(
-                    f"❌ Failed to parse JSON from {endpoint}.\n"
+                    f"❌ Failed to parse JSON from {endpoint}. Received non-JSON response.\n"
                     f"Status Code: {response.status_code}\n"
                     f"Headers: {response.headers}\n"
                     f"Raw Response:\n{response.text}"
                 )
+                # Re-raise the error as it's a critical issue for data fetching
                 raise
 
             # DoorLoop API returns { "total": N, "data": [...] } for some endpoints,

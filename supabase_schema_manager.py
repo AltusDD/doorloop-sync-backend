@@ -35,7 +35,10 @@ class SupabaseSchemaManager:
             return False
 
     def _get_table_columns_from_db(self, table_name: str) -> set:
-        """Fetches existing column names for a table from information_schema."""
+        """
+        Fetches existing column names for a table from information_schema.
+        Handles potential non-JSON responses from execute_sql RPC.
+        """
         sql = f"""
         SELECT column_name
         FROM information_schema.columns
@@ -50,9 +53,13 @@ class SupabaseSchemaManager:
                 data=json.dumps(payload)
             )
             r.raise_for_status()
-            # The RPC 'execute_sql' returns a JSON array of objects,
-            # each object having a 'column_name' key.
-            return {col['column_name'] for col in r.json()}
+            # Try to parse JSON, if it fails, assume no columns or empty response
+            try:
+                response_data = r.json()
+                return {col['column_name'] for col in response_data}
+            except json.JSONDecodeError:
+                logger.warning(f"Could not parse JSON response for columns of table '{table_name}'. Response: {r.text[:200]}...")
+                return set() # Assume no columns if response is not valid JSON
         except requests.exceptions.RequestException as e:
             logger.warning(f"Could not retrieve columns for table '{table_name}'. It might not exist or permissions are insufficient for info_schema: {e}")
             return set() # Return empty set if table doesn't exist or no access

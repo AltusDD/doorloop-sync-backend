@@ -28,7 +28,7 @@ ENDPOINTS = [
     "accounts", "users", "properties", "units", "leases", "tenants",
     "lease-payments", "lease-charges", "lease-credits", "tasks",
     "owners", "vendors", "expenses", "vendor-bills", "vendor-credits",
-    "communications", "notes", "files", "portfolios",
+    "communications", "notes", "files", "property-groups", # Changed "portfolios" to "property-groups"
     # Add any other endpoints you need to sync
 ]
 
@@ -50,8 +50,8 @@ API_SCHEMAS = {
         # "fullyQualifiedName": {"type": "string"},
         # "cashFlowActivity": {"type": "string"},
         # "defaultAccountFor": {"type": "object"},
-        "createdAt": {"type": "string", "format": "date-time"}, # These are common top-level fields
-        "updatedAt": {"type": "string", "format": "date-time"}, # for many DoorLoop objects
+        "createdAt": {"type": "string", "format": "date-time"}, # Common top-level fields
+        "updatedAt": {"type": "string", "format": "date-time"},
         "createdBy": {"type": "string"},
         "updatedBy": {"type": "string"}
     },
@@ -79,6 +79,7 @@ API_SCHEMAS = {
         "lastSeenAt": {"type": "string", "format": "date-time"}
         # Removed inferred fields that are NOT directly in /users API response
         # "bankAccounts": {"type": "array", "items": {"type": "object"}}, # This caused error
+        # "acceptedOnTOS": {"type": "boolean"}, # This caused error for tenants, check users
     },
     "properties": {
         "id": {"type": "string"},
@@ -128,6 +129,8 @@ API_SCHEMAS = {
         "description": {"type": "string"},
         "listing": {"type": "object"},
         "amenities": {"type": "array", "items": {"type": "string"}}
+        # Removed inferred fields that are NOT directly in /units API response
+        # "batch": {"type": "string"}, # This caused error
     },
     "leases": {
         "id": {"type": "string"},
@@ -149,6 +152,8 @@ API_SCHEMAS = {
         "totalRecurringPayments": {"type": "number"},
         "totalRecurringCredits": {"type": "number"},
         "TotalRecurringCharges": {"type": "number"} # Note: API typo "TotalRecurringCharges"
+        # Removed inferred fields that are NOT directly in /leases API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "tenants": {
         "id": {"type": "string"},
@@ -174,6 +179,8 @@ API_SCHEMAS = {
         "prospectInfo": {"type": "object"},
         "portalInfo": {"type": "object"},
         "type": {"type": "string"}
+        # Removed inferred fields that are NOT directly in /tenants API response
+        # "acceptedOnTOS": {"type": "boolean"}, # This caused error
     },
     "lease-payments": {
         "id": {"type": "string"},
@@ -187,6 +194,8 @@ API_SCHEMAS = {
         "autoDeposit": {"type": "boolean"},
         "depositStatus": {"type": "string"},
         "reversedPayment": {"type": "string"} # Will be mapped to reversed_payment_id
+        # Removed inferred fields that are NOT directly in /lease-payments API response
+        # "amountAppliedToCharges": {"type": "number"}, # This caused error
     },
     "lease-charges": {
         "id": {"type": "string"},
@@ -197,6 +206,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
+        # Removed inferred fields that are NOT directly in /lease-charges API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "lease-credits": {
         "id": {"type": "string"},
@@ -207,6 +218,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
+        # Removed inferred fields that are NOT directly in /lease-credits API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "tasks": {
         "id": {"type": "string"},
@@ -230,6 +243,8 @@ API_SCHEMAS = {
         "entryPermission": {"type": "string"},
         "createdAt": {"type": "number"}, # Unix timestamp
         "updatedAt": {"type": "number"} # Unix timestamp
+        # Removed inferred fields that are NOT directly in /tasks API response
+        # "completedAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "owners": {
         "id": {"type": "string"},
@@ -252,6 +267,8 @@ API_SCHEMAS = {
         "managementStartDate": {"type": "string", "format": "date"},
         "managementEndDate": {"type": "string", "format": "date"},
         "federalTaxInfo": {"type": "object"}
+        # Removed inferred fields that are NOT directly in /owners API response
+        # "alternateAddress": {"type": "object"}, # This caused error
     },
     "vendors": {
         "id": {"type": "string"},
@@ -275,6 +292,8 @@ API_SCHEMAS = {
         "properties": {"type": "array", "items": {"type": "string"}}, # Array of property IDs
         "insuranceInfo": {"type": "object"},
         "federalTaxInfo": {"type": "object"}
+        # Removed inferred fields that are NOT directly in /vendors API response
+        # "accounts": {"type": "array", "items": {"type": "object"}}, # This caused error
     },
     "expenses": {
         "id": {"type": "string"},
@@ -288,6 +307,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
+        # Removed inferred fields that are NOT directly in /expenses API response
+        # "checkInfo": {"type": "object"}, # This caused error
     },
     "vendor-bills": {
         "id": {"type": "string"},
@@ -300,6 +321,8 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
+        # Removed inferred fields that are NOT directly in /vendor-bills API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "vendor-credits": {
         "id": {"type": "string"},
@@ -312,6 +335,8 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
+        # Removed inferred fields that are NOT directly in /vendor-credits API response
+        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
     },
     "communications": {
         "id": {"type": "string"},
@@ -331,6 +356,8 @@ API_SCHEMAS = {
         "bouncedAt": {"type": "array", "items": {"type": "number"}}, # Array of Unix timestamps
         "status": {"type": "string"},
         "announcement": {"type": "string"} # Will be mapped to announcement_id
+        # Removed inferred fields that are NOT directly in /communications API response
+        # "conversation": {"type": "object"}, # This caused error
     },
     "notes": {
         "id": {"type": "string"},
@@ -340,6 +367,8 @@ API_SCHEMAS = {
         "linkedResource": {"type": "object"}, # Will be mapped to linked_resource
         "createdAt": {"type": "number"}, # Unix timestamp
         "createdBy": {"type": "string"}
+        # Removed inferred fields that are NOT directly in /notes API response
+        # "property": {"type": "string"}, # This caused error
     },
     "files": {
         "id": {"type": "string"},
@@ -352,8 +381,10 @@ API_SCHEMAS = {
         "createdBy": {"type": "string"},
         "createdAt": {"type": "string"}, # API has this as string, not timestamp
         "downloadUrl": {"type": "string"}
+        # Removed inferred fields that are NOT directly in /files API response
+        # "createdByName": {"type": "string"}, # This caused error
     },
-    "portfolios": { # Maps to property_groups
+    "property-groups": { # Maps to property_groups
         "id": {"type": "string"},
         "name": {"type": "string"},
         "properties": {"type": "array", "items": {"type": "string"}} # Array of Property IDs
@@ -377,7 +408,6 @@ if __name__ == "__main__":
 
     try:
         # Fetch environment variables at the application's entry point
-        # This is the crucial change to resolve the ValueError.
         DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
         DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
         SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -403,7 +433,7 @@ if __name__ == "__main__":
 
                 # Determine target Supabase table name
                 table_name = endpoint.replace("-", "_")
-                if endpoint == "portfolios":
+                if endpoint == "portfolios": # This mapping is for table name, not API endpoint path
                     table_name = "property_groups"
                 # Add other specific mappings if needed (e.g., lease-returned-payments -> lease_reversed_payments)
 
@@ -424,7 +454,7 @@ if __name__ == "__main__":
                     # continue
 
                 # 2. Fetch records using the DoorLoopClient instance
-                records = dl_client.fetch_all(endpoint)
+                records = dl_client.fetch_all(endpoint) # This uses the endpoint name as the path
                 if not records:
                     log_success(f"No data for {endpoint}. Skipping.")
                     continue
