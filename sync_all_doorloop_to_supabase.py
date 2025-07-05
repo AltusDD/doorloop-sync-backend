@@ -28,7 +28,8 @@ if __name__ == "__main__":
     service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
     dl_client = DoorLoopClient(api_key=doorloop_api_key, base_url=doorloop_base_url)
-    sb_client = SupabaseClient(supabase_url=supabase_url, service_role_key=service_role_key)
+    sb_client = SupabaseClient(url=supabase_url, key=service_role_key)
+
 
     for endpoint, fields in API_SCHEMAS.items():
         logging.info(f"🔄 Syncing {endpoint}...")
