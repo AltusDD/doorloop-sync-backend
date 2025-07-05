@@ -53,10 +53,15 @@ class SupabaseSchemaManager:
                 data=json.dumps(payload)
             )
             r.raise_for_status()
-            # Try to parse JSON, if it fails, assume no columns or empty response
+            # Try to parse JSON. If it fails, it means the RPC didn't return valid JSON for SELECT.
             try:
                 response_data = r.json()
-                return {col['column_name'] for col in response_data}
+                # Ensure response_data is a list of dicts, and each dict has 'column_name'
+                if isinstance(response_data, list) and all(isinstance(item, dict) and 'column_name' in item for item in response_data):
+                    return {col['column_name'] for col in response_data}
+                else:
+                    logger.warning(f"Unexpected JSON structure for columns of table '{table_name}'. Response: {r.text[:200]}...")
+                    return set() # Assume no columns if structure is unexpected
             except json.JSONDecodeError:
                 logger.warning(f"Could not parse JSON response for columns of table '{table_name}'. Response: {r.text[:200]}...")
                 return set() # Assume no columns if response is not valid JSON
