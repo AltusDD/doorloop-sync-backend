@@ -49,11 +49,15 @@ API_SCHEMAS = {
         "active": {"type": "boolean"},
         "type": {"type": "string"},
         "description": {"type": "string"},
-        # Common top-level metadata fields (if consistently present in API response)
-        "createdAt": {"type": "string", "format": "date-time"},
-        "updatedAt": {"type": "string", "format": "date-time"},
-        "createdBy": {"type": "string"},
-        "updatedBy": {"type": "string"}
+        # Removed all other problematic fields from accounts based on logs
+        # "systemAccount": {"type": "boolean"},
+        # "fullyQualifiedName": {"type": "string"},
+        # "cashFlowActivity": {"type": "string"},
+        # "defaultAccountFor": {"type": "object"},
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "users": {
         "id": {"type": "string"},
@@ -77,11 +81,13 @@ API_SCHEMAS = {
         "role": {"type": "string"},
         "properties": {"type": "string"}, # Check if this is truly a single string or array of IDs
         "lastSeenAt": {"type": "string", "format": "date-time"},
-        # Common top-level metadata fields (if consistently present in API response)
-        "createdAt": {"type": "string", "format": "date-time"},
-        "updatedAt": {"type": "string", "format": "date-time"},
-        "createdBy": {"type": "string"},
-        "updatedBy": {"type": "string"}
+        # Removed all other problematic fields from users based on logs
+        # "bankAccounts": {"type": "array", "items": {"type": "object"}},
+        # "acceptedOnTOS": {"type": "boolean"},
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "properties": {
         "id": {"type": "string"},
@@ -96,10 +102,6 @@ API_SCHEMAS = {
         "numActiveUnits": {"type": "integer"},
         "batch": {"type": "string"}, # This was problematic for units, but seems to be in properties sample
         "settings": {"type": "object"},
-        "createdAt": {"type": "string", "format": "date-time"},
-        "updatedAt": {"type": "string", "format": "date-time"},
-        "createdBy": {"type": "string"},
-        "updatedBy": {"type": "string"},
         "boardMembers": {"type": "array", "items": {"type": "object"}},
         "petsPolicy": {"type": "object"},
         "isValidAddress": {"type": "boolean"},
@@ -112,7 +114,13 @@ API_SCHEMAS = {
         "purchaseDate": {"type": "string", "format": "date"},
         "purchasePrice": {"type": "number"},
         "currentValue": {"type": "number"},
-        "bedroomCount": {"type": "integer"}
+        "bedroomCount": {"type": "integer"},
+        # Removed all other problematic fields from properties based on logs
+        # "typeDescription": {"type": "string"},
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "units": {
         "id": {"type": "string"},
@@ -129,12 +137,12 @@ API_SCHEMAS = {
         "description": {"type": "string"},
         "listing": {"type": "object"},
         "amenities": {"type": "array", "items": {"type": "string"}}
-        # Removed problematic inferred fields:
+        # Removed all other problematic fields from units based on logs
         # "batch": {"type": "string"},
-        # "createdAt": {"type": "string", "format": "date-time"}, # If not top-level
-        # "updatedAt": {"type": "string", "format": "date-time"}, # If not top-level
-        # "createdBy": {"type": "string"}, # If not top-level
-        # "updatedBy": {"type": "string"} # If not top-level
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "leases": {
         "id": {"type": "string"},
@@ -156,7 +164,7 @@ API_SCHEMAS = {
         "totalRecurringPayments": {"type": "number"},
         "totalRecurringCredits": {"type": "number"},
         "TotalRecurringCharges": {"type": "number"} # Note: API typo "TotalRecurringCharges"
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from leases based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -175,9 +183,9 @@ API_SCHEMAS = {
         "companyName": {"type": "string"},
         "jobTitle": {"type": "string"},
         "notes": {"type": "string"},
-        "phones": {"type": "array", "items": {"type": "object"}},
-        "emails": {"type": "array", "items": {"type": "object"}},
-        "primaryAddress": {"type": "object"},
+        "phones": {"type": "array", "items": {"type": "object"}}, # Nested objects
+        "emails": {"type": "array", "items": {"type": "object"}}, # Nested objects
+        "primaryAddress": {"type": "object"}, # Nested object
         "pictureUrl": {"type": "string"},
         "dependants": {"type": "array", "items": {"type": "object"}},
         "pets": {"type": "array", "items": {"type": "object"}},
@@ -185,8 +193,9 @@ API_SCHEMAS = {
         "emergencyContacts": {"type": "array", "items": {"type": "object"}},
         "prospectInfo": {"type": "object"},
         "portalInfo": {"type": "object"},
-        "type": {"type": "string"},
-        # Common top-level metadata fields (if consistently present in API response)
+        "type": {"type": "string"}
+        # Removed all other problematic fields from tenants based on logs
+        # "acceptedOnTOS": {"type": "boolean"},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -204,7 +213,8 @@ API_SCHEMAS = {
         "autoDeposit": {"type": "boolean"},
         "depositStatus": {"type": "string"},
         "reversedPayment": {"type": "string"} # Will be mapped to reversed_payment_id
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from lease-payments based on logs
+        # "amountAppliedToCharges": {"type": "number"},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -219,7 +229,7 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from lease-charges based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -234,7 +244,7 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from lease-credits based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -262,8 +272,10 @@ API_SCHEMAS = {
         "entryPermission": {"type": "string"},
         "createdAt": {"type": "number"}, # Unix timestamp
         "updatedAt": {"type": "number"} # Unix timestamp
-        # Removed problematic inferred fields:
+        # Removed all other problematic fields from tasks based on logs
         # "completedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "owners": {
         "id": {"type": "string"},
@@ -286,7 +298,8 @@ API_SCHEMAS = {
         "managementStartDate": {"type": "string", "format": "date"},
         "managementEndDate": {"type": "string", "format": "date"},
         "federalTaxInfo": {"type": "object"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from owners based on logs
+        # "alternateAddress": {"type": "object"},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -314,7 +327,8 @@ API_SCHEMAS = {
         "properties": {"type": "array", "items": {"type": "string"}}, # Array of property IDs
         "insuranceInfo": {"type": "object"},
         "federalTaxInfo": {"type": "object"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from vendors based on logs
+        # "accounts": {"type": "array", "items": {"type": "object"}},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -332,7 +346,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from expenses based on logs
+        # "checkInfo": {"type": "object"},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -349,7 +364,7 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from vendor-bills based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -366,7 +381,7 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from vendor-credits based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -390,7 +405,8 @@ API_SCHEMAS = {
         "bouncedAt": {"type": "array", "items": {"type": "number"}}, # Array of Unix timestamps
         "status": {"type": "string"},
         "announcement": {"type": "string"} # Will be mapped to announcement_id
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from communications based on logs
+        # "conversation": {"type": "object"},
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -404,7 +420,8 @@ API_SCHEMAS = {
         "linkedResource": {"type": "object"}, # Will be mapped to linked_resource
         "createdAt": {"type": "number"}, # Unix timestamp
         "createdBy": {"type": "string"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from notes based on logs
+        # "property": {"type": "string"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "updatedBy": {"type": "string"}
     },
@@ -419,7 +436,8 @@ API_SCHEMAS = {
         "createdBy": {"type": "string"},
         "createdAt": {"type": "string"}, # API has this as string, not timestamp
         "downloadUrl": {"type": "string"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from files based on logs
+        # "createdByName": {"type": "string"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "updatedBy": {"type": "string"}
     },
@@ -427,7 +445,7 @@ API_SCHEMAS = {
         "id": {"type": "string"},
         "name": {"type": "string"},
         "properties": {"type": "array", "items": {"type": "string"}} # Array of Property IDs
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from property-groups based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
@@ -442,7 +460,7 @@ API_SCHEMAS = {
         "reference": {"type": "string"},
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"}
-        # Common top-level metadata fields (if consistently present in API response)
+        # Removed all other problematic fields from lease-returned-payments based on logs
         # "createdAt": {"type": "string", "format": "date-time"},
         # "updatedAt": {"type": "string", "format": "date-time"},
         # "createdBy": {"type": "string"},
