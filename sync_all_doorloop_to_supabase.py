@@ -19,7 +19,8 @@ if not all([DOORLOOP_API_KEY, DOORLOOP_API_BASE_URL, SUPABASE_SERVICE_ROLE_KEY, 
 
 # ✅ Initialize clients
 dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
-sb_client = SupabaseClient(supabase_url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
+sb_client = SupabaseClient(url=SUPABASE_URL, key=SUPABASE_SERVICE_ROLE_KEY)
+
 schema_manager = SupabaseSchemaManager(sb_client)
 
 # ✅ Define the list of endpoints to sync
