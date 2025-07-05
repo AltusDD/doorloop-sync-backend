@@ -38,6 +38,10 @@ ENDPOINTS = [
 # The 'type' can be 'string', 'number', 'integer', 'boolean', 'object', 'array'.
 # 'format' can be 'date', 'date-time' for strings.
 # 'items' is used if 'type' is 'array' to describe elements.
+#
+# IMPORTANT: Only include TOP-LEVEL fields that are consistently present in the API response.
+# Nested fields will be handled as JSONB. Common metadata fields like createdAt/updatedAt
+# are often not top-level for every object, so only include them if they truly are.
 API_SCHEMAS = {
     "accounts": {
         "id": {"type": "string"},
@@ -45,15 +49,11 @@ API_SCHEMAS = {
         "active": {"type": "boolean"},
         "type": {"type": "string"},
         "description": {"type": "string"},
-        # Removed inferred fields that are NOT directly in /accounts API response
-        # "systemAccount": {"type": "boolean"},
-        # "fullyQualifiedName": {"type": "string"},
-        # "cashFlowActivity": {"type": "string"},
-        # "defaultAccountFor": {"type": "object"},
-        "createdAt": {"type": "string", "format": "date-time"}, # Common top-level fields for many DoorLoop objects
-        "updatedAt": {"type": "string", "format": "date-time"},
-        "createdBy": {"type": "string"},
-        "updatedBy": {"type": "string"}
+        # Common metadata fields, if they are always top-level in API response:
+        # "createdAt": {"type": "string", "format": "date-time"},
+        # "updatedAt": {"type": "string", "format": "date-time"},
+        # "createdBy": {"type": "string"},
+        # "updatedBy": {"type": "string"}
     },
     "users": {
         "id": {"type": "string"},
@@ -68,18 +68,18 @@ API_SCHEMAS = {
         "companyName": {"type": "string"},
         "jobTitle": {"type": "string"},
         "notes": {"type": "string"},
-        "phones": {"type": "array", "items": {"type": "object"}},
-        "emails": {"type": "array", "items": {"type": "object"}},
-        "primaryAddress": {"type": "object"},
+        "phones": {"type": "array", "items": {"type": "object"}}, # These are nested objects
+        "emails": {"type": "array", "items": {"type": "object"}}, # These are nested objects
+        "primaryAddress": {"type": "object"}, # Nested object
         "pictureUrl": {"type": "string"},
         "active": {"type": "boolean"},
         "loginEmail": {"type": "string"},
         "role": {"type": "string"},
         "properties": {"type": "string"}, # Check if this is truly a single string or array of IDs
-        "lastSeenAt": {"type": "string", "format": "date-time"},
-        # Removed inferred fields that are NOT directly in /users API response
-        # "bankAccounts": {"type": "array", "items": {"type": "object"}}, # This caused error
-        # "acceptedOnTOS": {"type": "boolean"}, # This caused error for tenants, check users
+        "lastSeenAt": {"type": "string", "format": "date-time"}
+        # Removed problematic inferred fields:
+        # "bankAccounts": {"type": "array", "items": {"type": "object"}},
+        # "acceptedOnTOS": {"type": "boolean"},
     },
     "properties": {
         "id": {"type": "string"},
@@ -92,7 +92,7 @@ API_SCHEMAS = {
         "pictures": {"type": "array", "items": {"type": "object"}},
         "amenities": {"type": "array", "items": {"type": "string"}},
         "numActiveUnits": {"type": "integer"},
-        "batch": {"type": "string"},
+        "batch": {"type": "string"}, # This was problematic for units, but seems to be in properties sample
         "settings": {"type": "object"},
         "createdAt": {"type": "string", "format": "date-time"},
         "updatedAt": {"type": "string", "format": "date-time"},
@@ -111,8 +111,8 @@ API_SCHEMAS = {
         "purchasePrice": {"type": "number"},
         "currentValue": {"type": "number"},
         "bedroomCount": {"type": "integer"}
-        # Removed inferred fields that are NOT directly in /properties API response
-        # "typeDescription": {"type": "string"}, # This caused error
+        # Removed problematic inferred fields:
+        # "typeDescription": {"type": "string"},
     },
     "units": {
         "id": {"type": "string"},
@@ -129,8 +129,8 @@ API_SCHEMAS = {
         "description": {"type": "string"},
         "listing": {"type": "object"},
         "amenities": {"type": "array", "items": {"type": "string"}}
-        # Removed inferred fields that are NOT directly in /units API response
-        # "batch": {"type": "string"}, # This caused error
+        # Removed problematic inferred fields:
+        # "batch": {"type": "string"},
     },
     "leases": {
         "id": {"type": "string"},
@@ -152,8 +152,8 @@ API_SCHEMAS = {
         "totalRecurringPayments": {"type": "number"},
         "totalRecurringCredits": {"type": "number"},
         "TotalRecurringCharges": {"type": "number"} # Note: API typo "TotalRecurringCharges"
-        # Removed inferred fields that are NOT directly in /leases API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "tenants": {
         "id": {"type": "string"},
@@ -179,8 +179,8 @@ API_SCHEMAS = {
         "prospectInfo": {"type": "object"},
         "portalInfo": {"type": "object"},
         "type": {"type": "string"}
-        # Removed inferred fields that are NOT directly in /tenants API response
-        # "acceptedOnTOS": {"type": "boolean"}, # This caused error
+        # Removed problematic inferred fields:
+        # "acceptedOnTOS": {"type": "boolean"},
     },
     "lease-payments": {
         "id": {"type": "string"},
@@ -194,8 +194,8 @@ API_SCHEMAS = {
         "autoDeposit": {"type": "boolean"},
         "depositStatus": {"type": "string"},
         "reversedPayment": {"type": "string"} # Will be mapped to reversed_payment_id
-        # Removed inferred fields that are NOT directly in /lease-payments API response
-        # "amountAppliedToCharges": {"type": "number"}, # This caused error
+        # Removed problematic inferred fields:
+        # "amountAppliedToCharges": {"type": "number"},
     },
     "lease-charges": {
         "id": {"type": "string"},
@@ -206,8 +206,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed inferred fields that are NOT directly in /lease-charges API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "lease-credits": {
         "id": {"type": "string"},
@@ -218,8 +218,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed inferred fields that are NOT directly in /lease-credits API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "tasks": {
         "id": {"type": "string"},
@@ -243,8 +243,8 @@ API_SCHEMAS = {
         "entryPermission": {"type": "string"},
         "createdAt": {"type": "number"}, # Unix timestamp
         "updatedAt": {"type": "number"} # Unix timestamp
-        # Removed inferred fields that are NOT directly in /tasks API response
-        # "completedAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "completedAt": {"type": "string", "format": "date-time"},
     },
     "owners": {
         "id": {"type": "string"},
@@ -267,8 +267,8 @@ API_SCHEMAS = {
         "managementStartDate": {"type": "string", "format": "date"},
         "managementEndDate": {"type": "string", "format": "date"},
         "federalTaxInfo": {"type": "object"}
-        # Removed inferred fields that are NOT directly in /owners API response
-        # "alternateAddress": {"type": "object"}, # This caused error
+        # Removed problematic inferred fields:
+        # "alternateAddress": {"type": "object"},
     },
     "vendors": {
         "id": {"type": "string"},
@@ -292,8 +292,8 @@ API_SCHEMAS = {
         "properties": {"type": "array", "items": {"type": "string"}}, # Array of property IDs
         "insuranceInfo": {"type": "object"},
         "federalTaxInfo": {"type": "object"}
-        # Removed inferred fields that are NOT directly in /vendors API response
-        # "accounts": {"type": "array", "items": {"type": "object"}}, # This caused error
+        # Removed problematic inferred fields:
+        # "accounts": {"type": "array", "items": {"type": "object"}},
     },
     "expenses": {
         "id": {"type": "string"},
@@ -307,8 +307,8 @@ API_SCHEMAS = {
         "date": {"type": "string", "format": "date"}, # Will be mapped to date_field
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"}
-        # Removed inferred fields that are NOT directly in /expenses API response
-        # "checkInfo": {"type": "object"}, # This caused error
+        # Removed problematic inferred fields:
+        # "checkInfo": {"type": "object"},
     },
     "vendor-bills": {
         "id": {"type": "string"},
@@ -321,8 +321,8 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Removed inferred fields that are NOT directly in /vendor-bills API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "vendor-credits": {
         "id": {"type": "string"},
@@ -335,8 +335,8 @@ API_SCHEMAS = {
         "batch": {"type": "string"},
         "totalAmount": {"type": "number"},
         "totalBalance": {"type": "number"}
-        # Removed inferred fields that are NOT directly in /vendor-credits API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "communications": {
         "id": {"type": "string"},
@@ -356,8 +356,8 @@ API_SCHEMAS = {
         "bouncedAt": {"type": "array", "items": {"type": "number"}}, # Array of Unix timestamps
         "status": {"type": "string"},
         "announcement": {"type": "string"} # Will be mapped to announcement_id
-        # Removed inferred fields that are NOT directly in /communications API response
-        # "conversation": {"type": "object"}, # This caused error
+        # Removed problematic inferred fields:
+        # "conversation": {"type": "object"},
     },
     "notes": {
         "id": {"type": "string"},
@@ -367,8 +367,8 @@ API_SCHEMAS = {
         "linkedResource": {"type": "object"}, # Will be mapped to linked_resource
         "createdAt": {"type": "number"}, # Unix timestamp
         "createdBy": {"type": "string"}
-        # Removed inferred fields that are NOT directly in /notes API response
-        # "property": {"type": "string"}, # This caused error
+        # Removed problematic inferred fields:
+        # "property": {"type": "string"},
     },
     "files": {
         "id": {"type": "string"},
@@ -381,15 +381,15 @@ API_SCHEMAS = {
         "createdBy": {"type": "string"},
         "createdAt": {"type": "string"}, # API has this as string, not timestamp
         "downloadUrl": {"type": "string"}
-        # Removed inferred fields that are NOT directly in /files API response
-        # "createdByName": {"type": "string"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdByName": {"type": "string"},
     },
     "property-groups": { # Maps to property_groups
         "id": {"type": "string"},
         "name": {"type": "string"},
         "properties": {"type": "array", "items": {"type": "string"}} # Array of Property IDs
-        # Removed inferred fields that are NOT directly in /property-groups API response
-        # "createdAt": {"type": "string", "format": "date-time"}, # This caused error
+        # Removed problematic inferred fields:
+        # "createdAt": {"type": "string", "format": "date-time"},
     },
     "lease-returned-payments": { # Assuming this endpoint exists and has a schema
         "id": {"type": "string"},

@@ -83,19 +83,28 @@ class SupabaseClient:
         if column_name == "settings": return "settings_json"
         if column_name == "is_valid_address": return "is_valid_address"
         if api_field == "externalId": return "external_id" # Corrected from column_name == "external_id"
-        if column_name == "manager_id": return "manager_id"
-        if column_name == "insurance_json": return "insurance_json"
-        if column_name == "tax_info_json": return "tax_info_json"
-        if column_name == "financials_json": return "financials_json"
-        if column_name == "compliance_json": return "compliance_json"
-        if column_name == "purchase_date": return "purchase_date"
-        if column_name == "purchase_price": return "purchase_price"
-        if column_name == "current_value": return "current_value"
-        if column_name == "bedroom_count": return "bedroom_count"
-        if column_name == "system_account": return "system_account"
-        if column_name == "fully_qualified_name": return "fully_qualified_name"
-        if column_name == "cash_flow_activity": return "cash_flow_activity"
-        if column_name == "default_account_for": return "default_account_for"
+        if api_field == "managerId": return "manager_id" # Corrected from column_name == "manager_id"
+        if api_field == "insuranceJson": return "insurance_json" # Corrected
+        if api_field == "taxInfoJson": return "tax_info_json" # Corrected
+        if api_field == "financialsJson": return "financials_json" # Corrected
+        if api_field == "complianceJson": return "compliance_json" # Corrected
+        if api_field == "purchaseDate": return "purchase_date" # Corrected
+        if api_field == "purchasePrice": return "purchase_price" # Corrected
+        if api_field == "currentValue": return "current_value" # Corrected
+        if api_field == "bedroomCount": return "bedroom_count" # Corrected
+        if api_field == "systemAccount": return "system_account" # Corrected
+        if api_field == "fullyQualifiedName": return "fully_qualified_name" # Corrected
+        if api_field == "cashFlowActivity": return "cash_flow_activity" # Corrected
+        if api_field == "defaultAccountFor": return "default_account_for" # Corrected
+        if api_field == "bankAccounts": return "bank_accounts" # Corrected
+        if api_field == "acceptedOnTOS": return "accepted_on_t_o_s" # Corrected
+        if api_field == "amountAppliedToCharges": return "amount_applied_to_charges" # Corrected
+        if api_field == "completedAt": return "completed_at" # Corrected
+        if api_field == "alternateAddress": return "alternate_address" # Corrected
+        if api_field == "checkInfo": return "check_info" # Corrected
+        if api_field == "conversation": return "conversation" # Corrected
+        if api_field == "createdByName": return "created_by_name" # Corrected
+
 
         return column_name
 
