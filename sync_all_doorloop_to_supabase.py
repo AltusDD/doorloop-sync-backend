@@ -1,21 +1,30 @@
-import os
 import logging
 from doorloop_client import DoorLoopClient
 from supabase_client import SupabaseClient
+from supabase_schema_manager import SupabaseSchemaManager
 
+# Set up logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# 🔐 Environment Variables
+# Load environment variables or define manually for testing
+import os
+
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/v1")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-# ✅ Initialize Clients
-dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY)
-sb_client = SupabaseClient(url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
+if not all([DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY]):
+    raise EnvironmentError("❌ Required environment variables missing. Check API keys and Supabase config.")
 
-# 🔁 Raw Endpoint to Table Mapping
-RAW_ENDPOINTS = {
+# Initialize clients
+dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
+sb_client = SupabaseClient(url=SUPABASE_URL, key=SUPABASE_SERVICE_ROLE_KEY)
+schema_manager = SupabaseSchemaManager(supabase_client=sb_client)
+
+# Define the raw sync targets (endpoint → table name)
+SYNC_TARGETS = {
     "accounts": "doorloop_raw_accounts",
     "users": "doorloop_raw_users",
     "properties": "doorloop_raw_properties",
@@ -38,23 +47,15 @@ RAW_ENDPOINTS = {
     "lease-returned-payments": "doorloop_raw_lease_reversed_payments"
 }
 
-# 🚀 Start Sync
-logging.info("🔁 Starting full DoorLoop → Supabase raw sync")
-
-for endpoint, table in RAW_ENDPOINTS.items():
-    logging.info(f"🔄 Syncing endpoint: {endpoint} → table: {table}")
+# Sync all raw data into raw tables
+for endpoint, table in SYNC_TARGETS.items():
     try:
+        logger.info(f"🔄 Syncing {endpoint} into {table}...")
         records = dl_client.fetch_all(endpoint)
-        wrapped_records = [
-            {
-                "id": record.get("id"),
-                "payload_json": record,
-                "endpoint": endpoint
-            }
-            for record in records if record.get("id")
-        ]
-        sb_client.upsert_data(table, wrapped_records)
+        if not records:
+            logger.warning(f"⚠️ No records returned from {endpoint}")
+            continue
+        schema_manager.ensure_raw_table_exists(table)
+        sb_client.insert_raw_records(table, records, source_endpoint=endpoint)
     except Exception as e:
-        logging.error(f"❌ Sync failed for {endpoint}: {e}")
-
-logging.info("✅ Raw sync complete")
+        logger.exception(f"🔥 Failed to sync {endpoint} → {table}: {str(e)}")
