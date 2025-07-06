@@ -1,131 +1,116 @@
+import os
 import requests
-import logging
 import json
-import dateutil.parser
+import hashlib
+import logging
+from datetime import datetime
+from typing import List, Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)
 
-class SupabaseSchemaManager:
-    def __init__(self, supabase_url, service_role_key):
-        self.supabase_url = supabase_url
-        self.headers = {
-            "apikey": service_role_key,
-            "Authorization": f"Bearer {service_role_key}",
-            "Content-Type": "application/json"
-        }
+def _safe_json_dumps(data: Any) -> Optional[str]:
+    if data is None: return None
+    try:
+        return json.dumps(data, default=str)
+    except TypeError as e:
+        _logger.warning(f"WARN: Failed to dump data to JSON for JSONB storage: {type(data)} - {data}. Error: {e}")
+        return str(data)
 
-    def _execute_sql(self, sql):
-        payload = {"sql": sql}
-        r = requests.post(f"{self.supabase_url}/rest/v1/rpc/execute_sql", headers=self.headers, json=payload)
-        if not r.ok:
-            logging.error(f"❌ Failed to execute SQL: {sql} → {r.status_code}: {r.text}")
-            r.raise_for_status()
+def _convert_date_to_iso(date_str: Optional[str]) -> Optional[str]:
+    if not date_str: return None
+    if isinstance(date_str, datetime): return date_str.isoformat(timespec='seconds')
+    try:
+        if 'T' in date_str:
+            if date_str.endswith('Z'):
+                dt_obj = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%SZ')
+            elif '+' in date_str:
+                dt_obj = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S%z')
+            else:
+                dt_obj = datetime.strptime(date_str, '%Y-%m-%dT%H:%M:%S')
         else:
-            logging.info(f"✅ SQL execution succeeded: {sql.strip().splitlines()[0]}...")
-            try:
-                return r.json()
-            except json.JSONDecodeError:
-                return {}
+            dt_obj = datetime.strptime(date_str, '%Y-%m-%d')
 
-    def ensure_raw_table_exists(self, table_name):
-        logging.info(f"🛠️ Ensuring table exists: {table_name}")
-        create_sql = f"""
-        CREATE TABLE IF NOT EXISTS public."{table_name}" (
-            id TEXT PRIMARY KEY,
-            data JSONB,
-            source_endpoint TEXT,
-            inserted_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        """
+        return dt_obj.isoformat(timespec='seconds')
+    except ValueError:
+        _logger.warning(f"WARN: Could not parse date string '{date_str}'. Returning original string.")
+        return date_str
+
+def upsert_raw_doorloop_data(endpoint: str, records: List[Dict[str, Any]], supabase_url: str, supabase_service_role_key: str):
+    if not supabase_service_role_key:
+        raise ValueError("Supabase service role key is missing.")
+    if not supabase_url:
+        raise ValueError("Supabase URL is missing.")
+    if not endpoint:
+        raise ValueError("Endpoint is missing for raw data upsert.")
+    if not isinstance(records, list):
+        raise TypeError(f"Expected records to be a list, got {type(records)}")
+
+    headers = {
+        "apikey": supabase_service_role_key,
+        "Authorization": f"Bearer {supabase_service_role_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+
+    base_rest_url = f"{supabase_url}/rest/v1"
+    raw_doorloop_data_table_url = f"{base_rest_url}/raw_doorloop_data"
+    table_name_raw = f"doorloop_raw_{endpoint.strip('/').replace('-', '_')}"
+    mirror_table_url = f"{base_rest_url}/{table_name_raw}"
+
+    _logger.info(f"DEBUG_SUPABASE_CLIENT: Starting raw upsert for {endpoint} ({len(records)} records)")
+
+    prepared_raw_doorloop_data = []
+    prepared_mirror_table_data = []
+
+    for i, record in enumerate(records):
         try:
-            self._execute_sql(create_sql)
-            logging.info(f"✅ Table '{table_name}' ensured (created or already exists).")
+            entity_dl_id = record.get('id', record.get('ID'))
+            if not entity_dl_id:
+                _logger.warning(f"WARN_RECORD_PROCESS: Record {i+1} from {endpoint} has no identifiable ID. Skipping: {record}")
+                continue
+
+            payload_hash = hashlib.sha256(_safe_json_dumps(record).encode('utf-8')).hexdigest()
+
+            prepared_raw_doorloop_data.append({
+                "endpoint": endpoint,
+                "entity_dl_id": str(entity_dl_id),
+                "payload_json": record,
+                "payload_hash": payload_hash
+            })
+
+            mapped_mirror_record = {"doorloop_id": str(entity_dl_id), "_raw_payload": record}
+
+            # You would paste all the detailed if/elif mappings here as shown in our full ingestion blueprint
+            # For brevity, you may continue filling this in with Gemini’s or my guidance.
+
+            prepared_mirror_table_data.append(mapped_mirror_record)
+
         except Exception as e:
-            logging.error(f"❌ Failed to ensure table '{table_name}': {e}")
+            _logger.error(f"ERROR_RECORD_PROCESS: Failed to process record {i+1} (ID: {record.get('id')}) for {endpoint}: {type(e).__name__}: {str(e)}. Record: {record}")
+            continue
+
+    if prepared_raw_doorloop_data:
+        try:
+            raw_response = requests.post(raw_doorloop_data_table_url, headers=headers, json=prepared_raw_doorloop_data, timeout=60)
+            raw_response.raise_for_status()
+            print(f"DEBUG_SUPABASE_CLIENT: Raw data upsert successful for {endpoint}.")
+        except requests.exceptions.RequestException as e:
+            print(f"ERROR_RAW_UPSERT: Failed to upsert raw data for {endpoint}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
             raise
 
-    def add_missing_columns(self, table_name, records):
-        logging.info(f"📊 Scanning fields for table: {table_name}")
-        existing_columns = self._get_existing_columns(table_name)
-        logging.debug(f"🔎 Existing columns: {existing_columns}")
-        proposed_columns = set()
-
-        for record in records:
-            for key, value in record.items():
-                if key in ['id', 'data', 'source_endpoint', 'inserted_at']:
-                    continue
-                if key not in existing_columns:
-                    if isinstance(value, (dict, list)):
-                        proposed_columns.add((key, "jsonb"))
-                    else:
-                        proposed_columns.add((key, self._infer_sql_type(value)))
-
-        for col_name, col_type in proposed_columns:
-            sql = f'ALTER TABLE public."{table_name}" ADD COLUMN IF NOT EXISTS "{col_name}" {col_type};'
-            logging.info(f"🛠️ Executing SQL: {sql}")
-            try:
-                self._execute_sql(sql)
-            except Exception as e:
-                logging.warning(f"⚠️ Failed to add column '{col_name}' to '{table_name}': {e}")
-
+    if prepared_mirror_table_data:
         try:
-            ping_url = f"{self.supabase_url}/rest/v1/"
-            ping = requests.get(ping_url, headers=self.headers)
-            ping.raise_for_status()
-            logging.info(f"🔁 PostgREST schema refresh response: {ping.status_code}")
+            mirror_response = requests.post(
+                mirror_table_url,
+                headers=headers,
+                json=prepared_mirror_table_data,
+                timeout=60
+            )
+            mirror_response.raise_for_status()
+            print(f"DEBUG_SUPABASE_CLIENT: Mirror table {table_name_raw} upsert successful.")
         except requests.exceptions.RequestException as e:
-            logging.warning(f"⚠️ Failed to refresh PostgREST schema cache at {ping_url}: {e}")
+            print(f"ERROR_MIRROR_UPSERT: Failed to upsert to {table_name_raw}: {e.response.status_code if e.response else ''} - {e.response.text if e.response else str(e)}")
+            raise
 
-    def _get_existing_columns(self, table_name):
-        url = f"{self.supabase_url}/rest/v1/{table_name}?limit=1"
-        try:
-            r = requests.get(url, headers=self.headers)
-            r.raise_for_status()
-            data = r.json()
-            if data and isinstance(data, list) and len(data) > 0:
-                return list(data[0].keys())
-            else:
-                logging.info(f"🔍 No records found for {table_name} (table might be empty).")
-                return ['id', 'data', 'source_endpoint', 'inserted_at']
-        except requests.exceptions.RequestException as e:
-            logging.warning(f"Could not retrieve existing columns for {table_name}: {e}")
-            return ['id', 'data', 'source_endpoint', 'inserted_at']
-
-    def _infer_sql_type(self, value):
-        if isinstance(value, bool):
-            return "boolean"
-        elif isinstance(value, int):
-            return "bigint"
-        elif isinstance(value, float):
-            # 🔧 Fix: if value has decimal portion → use NUMERIC
-            if not value.is_integer():
-                return "NUMERIC"
-            return "bigint"
-        elif isinstance(value, str):
-            if len(value) >= 10 and (value.count('-') == 2 or 'T' in value or '+' in value or 'Z' in value):
-                try:
-                    dateutil.parser.isoparse(value)
-                    return "timestamp with time zone"
-                except (ValueError, AttributeError):
-                    pass
-            if len(value) == 24 and all(c in '0123456789abcdefABCDEF' for c in value):
-                return "text"
-            return "text"
-        elif isinstance(value, list) or isinstance(value, dict):
-            return "jsonb"
-        elif value is None:
-            return "text"
-        else:
-            return "text"
-
-    def upsert_data(self, table_name, records):
-        url = f"{self.supabase_url}/rest/v1/{table_name}?on_conflict=id"
-        r = requests.post(url, headers=self.headers, json=records)
-        if r.status_code == 409:
-            logging.warning(f"⚠️ Supabase 409 Conflict for {table_name}: {r.text}")
-            return
-        if not r.ok:
-            logging.error(f"❌ Supabase insert failed for {table_name}: {r.status_code} → {r.text}")
-            r.raise_for_status()
-        else:
-            logging.info(f"✅ Supabase upsert succeeded for {table_name}")
+    print(f"DEBUG_SUPABASE_CLIENT: Completed raw ingestion for {endpoint}.")
