@@ -2,7 +2,7 @@ import logging
 import os
 import time  # <-- Add this import
 from doorloop_client import DoorLoopClient
-from supabase_client import SupabaseClient
+from supabase_ingest_client import SupabaseClient
 from supabase_schema_manager import SupabaseSchemaManager
 
 # Set up logging
