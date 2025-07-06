@@ -47,24 +47,28 @@ SYNC_TARGETS = {
     "lease-reversed-payments": "doorloop_raw_lease_reversed_payments",
 }
 
+# Optional delay to allow Supabase schema cache to refresh
 SCHEMA_CACHE_DELAY = int(os.getenv("SCHEMA_CACHE_DELAY", "5"))
 
-# Run full sync
+# Run full sync process
 for endpoint, table in SYNC_TARGETS.items():
     try:
         logger.info(f"🔄 Syncing {endpoint} into {table}...")
         records = dl_client.fetch_all(endpoint)
+
         if not records:
             logger.warning(f"⚠️ No records returned from {endpoint}")
             continue
 
-        # Ensure table and schema compliance
+        # Create or update the raw table schema
         schema_manager.ensure_raw_table_exists(table)
         schema_manager.add_missing_columns(table, records)
 
         logger.info(f"🔁 PostgREST schema refresh delay: {SCHEMA_CACHE_DELAY}s")
         time.sleep(SCHEMA_CACHE_DELAY)
 
+        # Insert or update the data
         sb_client.upsert_data(table, records)
+
     except Exception as e:
         logger.exception(f"🔥 Failed to sync {endpoint} → {table}: {str(e)}")
