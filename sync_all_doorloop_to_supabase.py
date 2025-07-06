@@ -1,6 +1,6 @@
 import logging
 import os
-import time  # <-- Add this import
+import time
 from doorloop_client import DoorLoopClient
 from supabase_ingest_client import SupabaseClient
 from supabase_schema_manager import SupabaseSchemaManager
@@ -21,7 +21,7 @@ if not all([DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY]):
 # Initialize clients
 dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
 sb_client = SupabaseClient(
-    url=SUPABASE_URL,
+    supabase_url=SUPABASE_URL,
     service_role_key=SUPABASE_SERVICE_ROLE_KEY
 )
 schema_manager = SupabaseSchemaManager(
@@ -69,7 +69,7 @@ for endpoint, table in SYNC_TARGETS.items():
         schema_manager.ensure_raw_table_exists(table)
         schema_manager.add_missing_columns(table, records)
 
-        # --- ADD THIS DELAY to allow PostgREST/Supabase schema cache to refresh ---
+        # Allow Supabase to refresh schema cache
         logger.info(f"⏳ Waiting {SCHEMA_CACHE_DELAY} seconds for Supabase schema cache to refresh...")
         time.sleep(SCHEMA_CACHE_DELAY)
 
