@@ -1,58 +1,50 @@
+
+import os
 import requests
 import logging
-import json
+import time
 
-logger = logging.getLogger(__name__)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-class SupabaseIngestClient:
-    def __init__(self, supabase_url, service_role_key):
-        self.supabase_url = supabase_url
-        self.service_role_key = service_role_key
+HEADERS = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
 
-    def upsert_data(self, table_name, records):
-        if not records:
-            logger.warning(f"⚠️ No records to upsert for {table_name}")
-            return
+def upsert_data(table_name, records):
+    if not records:
+        logging.info(f"📭 No records to upsert for {table_name}")
+        return
 
-        normalized_records = []
-        for record in records:
-            if not isinstance(record, dict):
-                continue
+    if table_name == "doorloop_raw_communications":
+        logging.info(f"📦 Using batch insert for {table_name} due to potential payload size")
+        return batch_insert(table_name, records, batch_size=50)
 
-            # 🔄 Normalize and store full raw payload
-            normalized_record = {
-                "id": str(record.get("id")),  # ID must be text, Supabase expects string key
-                "data": record,               # full original payload under 'data' jsonb field
-                "batch": "default"            # optional: useful for batch tracking
-            }
-            normalized_records.append(normalized_record)
-
-        url = f"{self.supabase_url}/rest/v1/{table_name}?on_conflict=id"
-        headers = {
-            "apikey": self.service_role_key,
-            "Authorization": f"Bearer {self.service_role_key}",
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates"
-        }
-
-        try:
-            response = requests.post(url, headers=headers, json=normalized_records)
-        except Exception as e:
-            logger.error(f"❌ Request to Supabase failed for {table_name}: {e}")
-            raise
-
-        if response.status_code == 201:
-            logger.info(f"✅ {len(normalized_records)} records upserted to {table_name}")
-        elif response.status_code == 409:
-            logger.warning(f"⚠️ Supabase 409 Conflict for {table_name}: {response.text}")
-        elif response.status_code == 200:
-            if response.text.strip():
-                logger.warning(f"⚠️ Supabase 200 OK with content for {table_name}")
-                logger.debug(f"📦 Response body:\n{response.text}")
-            else:
-                logger.info(f"ℹ️ Supabase 200 OK with empty body — likely merge/no-op for {table_name}")
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
+    try:
+        response = requests.post(url, headers=HEADERS, json=records, timeout=30)
+        if response.status_code == 200:
+            logging.info(f"✅ Upserted {len(records)} records into {table_name}")
         else:
-            logger.error(f"❌ Supabase insert failed for {table_name}: {response.status_code} → {response.text}")
+            logging.error(f"❌ Supabase insert failed for {table_name}: {response.status_code} → {response.text}")
             response.raise_for_status()
+    except Exception as e:
+        logging.exception(f"🔥 Exception during upsert → {e}")
+        raise
 
-        logger.debug(f"📤 Payload sample for {table_name}:\n{json.dumps(normalized_records[:2], indent=2)}")
+def batch_insert(table_name, records, batch_size=50):
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
+    for i in range(0, len(records), batch_size):
+        chunk = records[i:i+batch_size]
+        try:
+            response = requests.post(url, headers=HEADERS, json=chunk, timeout=30)
+            if response.status_code == 200:
+                logging.info(f"✅ Batch inserted {len(chunk)} records into {table_name}")
+            else:
+                logging.error(f"❌ Batch insert failed for {table_name}: {response.status_code} → {response.text}")
+                response.raise_for_status()
+        except Exception as e:
+            logging.exception(f"🔥 Exception during batch insert → {e}")
+            raise
