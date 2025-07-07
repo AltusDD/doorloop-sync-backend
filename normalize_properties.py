@@ -2,11 +2,12 @@ import os
 import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
+from pathlib import Path
 
-# ✅ Load .env variables if not injected externally
-load_dotenv()
+# ✅ Explicitly load .env using absolute path
+dotenv_path = Path(__file__).parent / ".env"
+load_dotenv(dotenv_path)
 
-# ✅ Read from env (assumes .env is present OR variables are injected)
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -15,7 +16,6 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-# ✅ Transform public.properties → normalized.properties
 def normalize_properties():
     logging.info("🔄 Normalizing from public.properties to normalized.properties...")
 
