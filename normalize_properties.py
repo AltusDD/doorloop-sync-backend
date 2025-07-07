@@ -1,16 +1,23 @@
 import os
 import logging
 from supabase import create_client, Client
+from dotenv import load_dotenv
 
-# ✅ Supabase connection setup (read from environment directly)
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+# ✅ Load .env variables if not injected externally
+load_dotenv()
+
+# ✅ Read from env (assumes .env is present OR variables are injected)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env or environment.")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-# ✅ Transformation logic from public.properties → normalized.properties
+# ✅ Transform public.properties → normalized.properties
 def normalize_properties():
-    logging.info("🔄 Starting normalization from public.properties to normalized.properties...")
+    logging.info("🔄 Normalizing from public.properties to normalized.properties...")
 
     response = supabase.table("public.properties").select("*").execute()
     if not response.data:
@@ -19,7 +26,7 @@ def normalize_properties():
 
     records = []
     for row in response.data:
-        transformed = {
+        records.append({
             "doorloop_id": row.get("doorloop_id"),
             "name": row.get("name"),
             "property_type": row.get("type"),
@@ -42,12 +49,11 @@ def normalize_properties():
             "created_at_raw": row.get("created_at"),
             "updated_at_raw": row.get("updated_at"),
             "_raw_payload": row.get("_raw_payload"),
-        }
-        records.append(transformed)
+        })
 
     if records:
         supabase.table("normalized.properties").upsert(records).execute()
-        logging.info(f"✅ Normalized {len(records)} properties into normalized.properties.")
+        logging.info(f"✅ Normalized {len(records)} properties.")
     else:
         logging.warning("⚠️ No records to upsert.")
 
