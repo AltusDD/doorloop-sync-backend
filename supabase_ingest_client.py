@@ -1,50 +1,48 @@
 
-import os
 import requests
 import logging
-import time
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+logger = logging.getLogger(__name__)
 
-HEADERS = {
-    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json"
-}
+class SupabaseIngestClient:
+    def __init__(self, url: str, api_key: str):
+        self.url = url
+        self.api_key = api_key
+        self.headers = {
+            "apikey": self.api_key,
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+        }
 
-def upsert_data(table_name, records):
-    if not records:
-        logging.info(f"📭 No records to upsert for {table_name}")
-        return
+    def _normalize_records(self, records):
+        if not records:
+            return records
+        # Get superset of keys
+        all_keys = set()
+        for rec in records:
+            all_keys.update(rec.keys())
+        # Fill missing keys with None
+        normalized = []
+        for rec in records:
+            normalized.append({k: rec.get(k, None) for k in all_keys})
+        return normalized
 
-    if table_name == "doorloop_raw_communications":
-        logging.info(f"📦 Using batch insert for {table_name} due to potential payload size")
-        return batch_insert(table_name, records, batch_size=50)
-
-    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
-    try:
-        response = requests.post(url, headers=HEADERS, json=records, timeout=30)
-        if response.status_code == 200:
-            logging.info(f"✅ Upserted {len(records)} records into {table_name}")
-        else:
-            logging.error(f"❌ Supabase insert failed for {table_name}: {response.status_code} → {response.text}")
-            response.raise_for_status()
-    except Exception as e:
-        logging.exception(f"🔥 Exception during upsert → {e}")
-        raise
-
-def batch_insert(table_name, records, batch_size=50):
-    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=id"
-    for i in range(0, len(records), batch_size):
-        chunk = records[i:i+batch_size]
+    def upsert_data(self, table_name, records):
+        records = self._normalize_records(records)
         try:
-            response = requests.post(url, headers=HEADERS, json=chunk, timeout=30)
-            if response.status_code == 200:
-                logging.info(f"✅ Batch inserted {len(chunk)} records into {table_name}")
-            else:
-                logging.error(f"❌ Batch insert failed for {table_name}: {response.status_code} → {response.text}")
-                response.raise_for_status()
+            url = f"{self.url}/rest/v1/{table_name}?on_conflict=id"
+            response = requests.post(url, json=records, headers=self.headers)
+            if not response.ok:
+                logger.error(f"❌ Supabase insert failed for {table_name}: {response.status_code} → {response.text}")
+            response.raise_for_status()
+            logger.info(f"✅ Upsert successful for {table_name}")
         except Exception as e:
-            logging.exception(f"🔥 Exception during batch insert → {e}")
+            logger.error(f"🔥 Exception during upsert → {e}")
             raise
+
+    def batch_insert(self, table_name, records, batch_size=500):
+        records = self._normalize_records(records)
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i+batch_size]
+            self.upsert_data(table_name, batch)
