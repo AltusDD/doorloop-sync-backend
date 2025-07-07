@@ -5,27 +5,19 @@ import json
 import requests
 from dotenv import load_dotenv
 
-# --- DEBUG: Add prints for working directory and .env status ---
-print(f"DEBUG: Current working directory: {os.getcwd()}")
-dotenv_path = os.path.join(os.getcwd(), '.env')
-if os.path.exists(dotenv_path):
-    print(f"DEBUG: .env file found at: {dotenv_path}")
-else:
-    print(f"DEBUG: .env file NOT found at: {dotenv_path}")
+# Load environment variables (will find nothing locally without .env)
+load_dotenv()
+
+# --- DEBUG: Print loaded env vars (masked for security) ---
+print(f"DEBUG: SUPABASE_URL loaded: {'SET' if os.getenv('SUPABASE_URL') else 'NOT SET'}")
+print(f"DEBUG: SUPABASE_SERVICE_ROLE_KEY loaded: {'SET' if os.getenv('SUPABASE_SERVICE_ROLE_KEY') else 'NOT SET'}")
 # --- END DEBUG ---
 
-# Load environment variables
-load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-# --- DEBUG: Print loaded env vars (masked) ---
-print(f"DEBUG: SUPABASE_URL loaded: {'SET' if SUPABASE_URL else 'NOT SET'}")
-print(f"DEBUG: SUPABASE_SERVICE_ROLE_KEY loaded: {'SET' if SUPABASE_SERVICE_ROLE_KEY else 'NOT SET'}")
-# --- END DEBUG ---
-
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env")
+    raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment variables.")
 
 headers = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
