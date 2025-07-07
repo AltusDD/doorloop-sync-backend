@@ -1,6 +1,7 @@
 
 import logging
-from supabase_ingest_client import upsert_records
+import os
+from supabase_ingest_client import SupabaseIngestClient
 from doorloop_client import get_raw_records
 from helpers.property_helpers import (
     flatten_property_record,
@@ -9,6 +10,10 @@ from helpers.property_helpers import (
 )
 
 logger = logging.getLogger(__name__)
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+client = SupabaseIngestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 def normalize_properties():
     logger.info("🔁 Normalizing properties from doorloop_raw_properties...")
@@ -27,15 +32,14 @@ def normalize_properties():
             flattened = flatten_property_record(record)
             normalized_properties.append(flattened)
 
-            # Extract linking records
             property_owners_links.extend(extract_property_owners(record))
             property_pictures_links.extend(extract_property_pictures(record))
 
         except Exception as e:
             logger.error(f"❌ Failed to normalize record ID={record.get('id')}: {e}")
 
-    upsert_records("properties", normalized_properties)
-    upsert_records("property_owners", property_owners_links)
-    upsert_records("property_pictures", property_pictures_links)
+    client.upsert_data("properties", normalized_properties)
+    client.upsert_data("property_owners", property_owners_links)
+    client.upsert_data("property_pictures", property_pictures_links)
 
     logger.info(f"✅ Normalized {len(normalized_properties)} properties.")
