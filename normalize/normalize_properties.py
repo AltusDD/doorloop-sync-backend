@@ -5,10 +5,10 @@ from supabase_ingest_client import SupabaseIngestClient
 from helpers.property_helpers import flatten_property_record, extract_property_owners, extract_property_pictures
 
 # Load secrets
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+DOORLOOP_API_KEY = os.environ["DOORLOOP_API_KEY"]
+DOORLOOP_API_BASE_URL = os.environ["DOORLOOP_API_BASE_URL"]
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 
 # Initialize clients
 dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
