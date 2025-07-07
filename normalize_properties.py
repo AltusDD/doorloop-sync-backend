@@ -1,55 +1,45 @@
 
-import requests
 import os
 import json
-from datetime import datetime
-from supabase import create_client, Client
+import requests
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def fetch_raw_properties():
-    response = supabase.table("public.properties").select("*").execute()
-    return response.data if response.data else []
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env")
 
-def transform_property(record):
-    address = record.get("address_json", {}) or {}
-    return {
-        "doorloop_id": record.get("doorloop_id"),
-        "name": record.get("name"),
-        "property_type": record.get("type"),
-        "class": record.get("class"),
-        "active": record.get("active"),
-        "address_street1": address.get("street1"),
-        "address_street2": address.get("street2"),
-        "address_city": address.get("city"),
-        "address_state": address.get("state"),
-        "address_zip": address.get("zip"),
-        "address_country": address.get("country"),
-        "address_lat": address.get("lat"),
-        "address_lng": address.get("lng"),
-        "description": record.get("description"),
-        "external_id": record.get("external_id"),
-        "manager_id": record.get("manager_id"),
-        "purchase_date": record.get("purchase_date"),
-        "purchase_price": record.get("purchase_price"),
-        "current_value": record.get("current_value"),
-        "bedroom_count": record.get("bedroom_count"),
-        "num_active_units": record.get("num_active_units"),
-        "created_at": record.get("created_at"),
-        "updated_at": record.get("updated_at"),
-        "raw_payload": record.get("_raw_payload"),
-    }
+headers = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
 
-def upsert_properties():
-    raw_props = fetch_raw_properties()
-    transformed = [transform_property(p) for p in raw_props]
-    if transformed:
-        supabase.table("normalized_properties").upsert(transformed).execute()
-        print(f"✅ Upserted {len(transformed)} properties")
-    else:
-        print("⚠️ No data to upsert.")
+def fetch_view_data(view_name):
+    url = f"{SUPABASE_URL}/rest/v1/{view_name}?select=*"
+    resp = requests.get(url, headers=headers)
+    if resp.status_code != 200:
+        raise Exception(f"Failed to fetch data from {view_name}: {resp.text}")
+    return resp.json()
+
+def upsert_data(table_name, records):
+    if not records:
+        print("No records to upsert.")
+        return
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?on_conflict=doorloop_id"
+    resp = requests.post(url, headers=headers, data=json.dumps(records))
+    if resp.status_code not in (200, 201):
+        raise Exception(f"Upsert failed: {resp.text}")
+    print(f"✅ Upserted {len(records)} records into {table_name}")
+
+def main():
+    print("📥 Fetching from view: get_full_properties_view")
+    data = fetch_view_data("get_full_properties_view")
+    print(f"📦 Records fetched: {len(data)}")
+    upsert_data("properties", data)
 
 if __name__ == "__main__":
-    upsert_properties()
+    main()
