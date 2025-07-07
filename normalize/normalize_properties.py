@@ -1,45 +1,35 @@
 
-import logging
 import os
+from doorloop_client import DoorLoopClient
 from supabase_ingest_client import SupabaseIngestClient
-from doorloop_client import get_raw_records
-from helpers.property_helpers import (
-    flatten_property_record,
-    extract_property_owners,
-    extract_property_pictures,
-)
+from helpers.property_helpers import extract_property_fields, extract_property_owners, extract_property_pictures
 
-logger = logging.getLogger(__name__)
-
+# Load secrets
+DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
+DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-client = SupabaseIngestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Initialize clients
+dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
+sb_client = SupabaseIngestClient(supabase_url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
 
 def normalize_properties():
-    logger.info("🔁 Normalizing properties from doorloop_raw_properties...")
+    print("🔄 Normalizing properties from DoorLoop API...")
 
-    raw_records = get_raw_records("doorloop_raw_properties")
-    if not raw_records:
-        logger.warning("⚠️ No raw property records found.")
+    raw_properties = dl_client.fetch_all("properties")
+    if not raw_properties:
+        print("⚠️ No property records fetched.")
         return
 
-    normalized_properties = []
-    property_owners_links = []
-    property_pictures_links = []
+    # Transform data
+    normalized_properties = [extract_property_fields(p) for p in raw_properties]
+    property_owners_links = [link for p in raw_properties for link in extract_property_owners(p)]
+    property_pictures_links = [link for p in raw_properties for link in extract_property_pictures(p)]
 
-    for record in raw_records:
-        try:
-            flattened = flatten_property_record(record)
-            normalized_properties.append(flattened)
+    # Upload to Supabase
+    sb_client.upsert_data("properties", normalized_properties)
+    sb_client.upsert_data("property_owners", property_owners_links)
+    sb_client.upsert_data("property_pictures", property_pictures_links)
 
-            property_owners_links.extend(extract_property_owners(record))
-            property_pictures_links.extend(extract_property_pictures(record))
-
-        except Exception as e:
-            logger.error(f"❌ Failed to normalize record ID={record.get('id')}: {e}")
-
-    client.upsert_data("properties", normalized_properties)
-    client.upsert_data("property_owners", property_owners_links)
-    client.upsert_data("property_pictures", property_pictures_links)
-
-    logger.info(f"✅ Normalized {len(normalized_properties)} properties.")
+    print("✅ Properties normalization and upload complete.")
