@@ -1,55 +1,63 @@
-
-import requests
 import os
-import json
-from datetime import datetime
+import logging
 from supabase import create_client, Client
+from dotenv import load_dotenv
 
+# ✅ Load environment variables from .env
+load_dotenv()
+
+# ✅ Supabase connection setup
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise ValueError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment variables.")
+
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def fetch_raw_properties():
+# ✅ Transformation logic from public.properties → normalized.properties
+def normalize_properties():
+    logging.info("🔄 Starting normalization from public.properties to normalized.properties...")
+
     response = supabase.table("public.properties").select("*").execute()
-    return response.data if response.data else []
+    if not response.data:
+        logging.warning("⚠️ No data found in public.properties.")
+        return
 
-def transform_property(record):
-    address = record.get("address_json", {}) or {}
-    return {
-        "doorloop_id": record.get("doorloop_id"),
-        "name": record.get("name"),
-        "property_type": record.get("type"),
-        "class": record.get("class"),
-        "active": record.get("active"),
-        "address_street1": address.get("street1"),
-        "address_street2": address.get("street2"),
-        "address_city": address.get("city"),
-        "address_state": address.get("state"),
-        "address_zip": address.get("zip"),
-        "address_country": address.get("country"),
-        "address_lat": address.get("lat"),
-        "address_lng": address.get("lng"),
-        "description": record.get("description"),
-        "external_id": record.get("external_id"),
-        "manager_id": record.get("manager_id"),
-        "purchase_date": record.get("purchase_date"),
-        "purchase_price": record.get("purchase_price"),
-        "current_value": record.get("current_value"),
-        "bedroom_count": record.get("bedroom_count"),
-        "num_active_units": record.get("num_active_units"),
-        "created_at": record.get("created_at"),
-        "updated_at": record.get("updated_at"),
-        "raw_payload": record.get("_raw_payload"),
-    }
+    records = []
+    for row in response.data:
+        transformed = {
+            "doorloop_id": row.get("doorloop_id"),
+            "name": row.get("name"),
+            "property_type": row.get("type"),
+            "class": row.get("class"),
+            "status": row.get("active"),
+            "address_street1": row.get("address_street1"),
+            "address_city": row.get("address_city"),
+            "address_state": row.get("address_state"),
+            "address_zip": row.get("address_zip"),
+            "address_country": row.get("address_country"),
+            "lat": row.get("address_lat"),
+            "lng": row.get("address_lng"),
+            "purchase_price": row.get("purchase_price"),
+            "purchase_date": row.get("purchase_date"),
+            "current_value": row.get("current_value"),
+            "unit_count": row.get("num_active_units"),
+            "bedroom_count": row.get("bedroom_count"),
+            "manager_id": row.get("manager_id"),
+            "external_id": row.get("external_id"),
+            "created_at_raw": row.get("created_at"),
+            "updated_at_raw": row.get("updated_at"),
+            "_raw_payload": row.get("_raw_payload"),
+        }
+        records.append(transformed)
 
-def upsert_properties():
-    raw_props = fetch_raw_properties()
-    transformed = [transform_property(p) for p in raw_props]
-    if transformed:
-        supabase.table("normalized_properties").upsert(transformed).execute()
-        print(f"✅ Upserted {len(transformed)} properties")
+    if records:
+        supabase.table("normalized.properties").upsert(records).execute()
+        logging.info(f"✅ Normalized {len(records)} properties into normalized.properties.")
     else:
-        print("⚠️ No data to upsert.")
+        logging.warning("⚠️ No records to upsert.")
 
 if __name__ == "__main__":
-    upsert_properties()
+    logging.basicConfig(level=logging.INFO)
+    normalize_properties()
