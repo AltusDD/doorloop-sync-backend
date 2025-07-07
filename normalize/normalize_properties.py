@@ -1,35 +1,10 @@
-
-import os
-from doorloop_client import DoorLoopClient
-from supabase_ingest_client import SupabaseIngestClient
-from helpers.property_helpers import flatten_property_record, extract_property_owners, extract_property_pictures
-
-# Load secrets
-DOORLOOP_API_KEY = os.environ["DOORLOOP_API_KEY"]
-DOORLOOP_API_BASE_URL = os.environ["DOORLOOP_API_BASE_URL"]
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
-
-# Initialize clients
-dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
-sb_client = SupabaseIngestClient(supabase_url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
+from supabase_ingest_client import upsert_records
+from doorloop_client import get_raw_records
+from helpers.property_helpers import extract_property_fields
 
 def normalize_properties():
-    print("🔄 Normalizing properties from DoorLoop API...")
-
-    raw_properties = dl_client.fetch_all("properties")
-    if not raw_properties:
-        print("⚠️ No property records fetched.")
-        return
-
-    # Transform data
-    normalized_properties = [flatten_property_record(p) for p in raw_properties]
-    property_owners_links = [link for p in raw_properties for link in extract_property_owners(p)]
-    property_pictures_links = [link for p in raw_properties for link in extract_property_pictures(p)]
-
-    # Upload to Supabase
-    sb_client.upsert_data("properties", normalized_properties)
-    sb_client.upsert_data("property_owners", property_owners_links)
-    sb_client.upsert_data("property_pictures", property_pictures_links)
-
-    print("✅ Properties normalization and upload complete.")
+    print("🔁 Normalizing properties...")
+    raw_records = get_raw_records("doorloop_raw_properties")
+    cleaned_records = [extract_property_fields(record) for record in raw_records if record]
+    print(f"✅ Extracted {len(cleaned_records)} cleaned property records")
+    upsert_records("properties", cleaned_records)
