@@ -1,20 +1,13 @@
+
 # normalize_properties.py
 
 import os
 import json
 import requests
-from dotenv import load_dotenv
 
-# Load environment variables (will find nothing locally without .env)
-load_dotenv()
-
-# --- DEBUG: Print loaded env vars (masked for security) ---
-print(f"DEBUG: SUPABASE_URL loaded: {'SET' if os.getenv('SUPABASE_URL') else 'NOT SET'}")
-print(f"DEBUG: SUPABASE_SERVICE_ROLE_KEY loaded: {'SET' if os.getenv('SUPABASE_SERVICE_ROLE_KEY') else 'NOT SET'}")
-# --- END DEBUG ---
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Environment variables should be injected via GitHub Actions or Azure
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise ValueError("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in environment variables.")
