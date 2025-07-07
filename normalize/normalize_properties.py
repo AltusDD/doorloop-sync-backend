@@ -2,7 +2,7 @@
 import os
 from doorloop_client import DoorLoopClient
 from supabase_ingest_client import SupabaseIngestClient
-from helpers.property_helpers import extract_property_fields, extract_property_owners, extract_property_pictures
+from helpers.property_helpers import flatten_property_record, extract_property_owners, extract_property_pictures
 
 # Load secrets
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
@@ -23,7 +23,7 @@ def normalize_properties():
         return
 
     # Transform data
-    normalized_properties = [extract_property_fields(p) for p in raw_properties]
+    normalized_properties = [flatten_property_record(p) for p in raw_properties]
     property_owners_links = [link for p in raw_properties for link in extract_property_owners(p)]
     property_pictures_links = [link for p in raw_properties for link in extract_property_pictures(p)]
 
