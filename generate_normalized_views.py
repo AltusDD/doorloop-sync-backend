@@ -4,7 +4,7 @@ import json
 import logging
 import requests
 
-# Logging setup
+# Setup
 logging.basicConfig(level=logging.INFO)
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -42,46 +42,52 @@ RAW_TABLES = [
     "doorloop_raw_activity_logs",
 ]
 
-def get_sample_payload(table):
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select=_raw_payload&limit=1"
-    r = requests.get(url, headers=HEADERS)
-    if r.status_code != 200:
-        raise Exception(f"Failed to fetch sample from {table}: {r.text}")
-    data = r.json()
-    if not data or "_raw_payload" not in data[0]:
-        raise Exception(f"No payload found in {table}")
-    return data[0]["_raw_payload"]
+def fetch_sample_payload(table):
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/{table}?select=payload_json&limit=1"
+        r = requests.get(url, headers=HEADERS)
+        r.raise_for_status()
+        items = r.json()
+        if items and "payload_json" in items[0]:
+            return items[0]["payload_json"]
+        raise ValueError(f"No payload found in {table}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to fetch sample from {table}: {e}")
 
-def build_view_sql(raw_table, keys):
-    view_name = raw_table.replace("doorloop_raw_", "")
-    lines = [f"DROP VIEW IF EXISTS public.{view_name} CASCADE;"]
-    lines.append(f"CREATE OR REPLACE VIEW public.{view_name} AS")
-    select_lines = [f"    {raw_table}.id AS id"]
-    for key in keys:
-        select_lines.append(f"    , {raw_table}._raw_payload->>'{key}' AS {key}")
-    lines.append("SELECT")
-    lines.extend(select_lines)
-    lines.append(f"FROM {raw_table};")
-    return "\n".join(lines)
+def extract_fields(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Expected JSON object")
+    clean_keys = []
+    for key in payload.keys():
+        if key.isidentifier() and key.lower() not in ["processorfee", "leasedeposititem"]:
+            clean_keys.append(key)
+    return clean_keys
 
-def execute_sql(sql):
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    r = requests.post(url, headers=HEADERS, json={"sql": sql})
-    if r.status_code != 200:
-        raise Exception(f"SQL execution failed: {r.text}")
-    return r.text
+def generate_view_sql(table, fields):
+    view_name = table.replace("doorloop_raw_", "")
+    select_clause = ",\n    ".join([f"raw.payload_json->>'{f}' AS \"{f}\"" for f in fields])
+    return f"""CREATE OR REPLACE VIEW public.{view_name} AS
+SELECT
+    raw.id AS id,
+    {select_clause}
+FROM public.{table} AS raw;
+"""
 
-def main():
+
+def run():
     for table in RAW_TABLES:
         try:
             logging.info(f"🔧 Processing view for: {table}")
-            payload = get_sample_payload(table)
-            keys = [k for k in payload.keys() if k not in ['id', 'processorFee', 'leaseDepositItem']]
-            sql = build_view_sql(table, keys)
-            logging.info(f"📤 Executing SQL for view: {table}")
-            execute_sql(sql)
+            sample = fetch_sample_payload(table)
+            fields = extract_fields(sample)
+            sql = generate_view_sql(table, fields)
+            url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
+            r = requests.post(url, headers=HEADERS, json={"sql": sql})
+            if r.status_code != 200:
+                raise RuntimeError(f"SQL execution failed: {r.text}")
+            logging.info(f"✅ View created for {table}")
         except Exception as e:
             logging.error(f"❌ Failed for {table}: {e}")
 
 if __name__ == "__main__":
-    main()
+    run()
