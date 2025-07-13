@@ -1,44 +1,15 @@
-
 import os
-import json
 import logging
-import requests
+import psycopg2
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-def fetch_sample_payload(table):
-    url = f"{SUPABASE_URL}/rest/v1/{table}?select=payload_json&limit=1"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
-    }
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json()
-    if not data or 'payload_json' not in data[0]:
-        raise ValueError(f"No payload found in {table}")
-    return data[0]['payload_json']
-
-def generate_view_sql(table, columns):
-    view_name = table.replace("doorloop_raw_", "")
-    column_exprs = [f"payload_json->>'{col}' AS "{col}"" for col in columns]
-    column_sql = ",
-    ".join(column_exprs)
-    return f"""CREATE OR REPLACE VIEW public.{view_name} AS
-SELECT
-    id,
-    doorloop_id,
-    {column_sql}
-FROM {table};
-"""
-
-
-def main():
-    tables = [
+def get_table_names():
+    return [
         "doorloop_raw_properties",
         "doorloop_raw_units",
         "doorloop_raw_tenants",
@@ -64,19 +35,57 @@ def main():
         "doorloop_raw_activity_logs"
     ]
 
-    for table in tables:
+def connect_db():
+    return psycopg2.connect(DATABASE_URL)
+
+def fetch_sample_payload(cursor, table_name):
+    cursor.execute(f"SELECT payload_json FROM {table_name} WHERE payload_json IS NOT NULL LIMIT 1")
+    row = cursor.fetchone()
+    if not row:
+        raise Exception(f"No payload found in {table_name}")
+    return row[0]
+
+def generate_view_sql(table_name, sample_payload):
+    columns = []
+    for key in sample_payload.keys():
+        if key.lower() in ("id", "doorloop_id", "payload_json", "created_at"):
+            continue
+        col = f"payload_json->>'{key}' AS {key}"
+        columns.append(col)
+    column_sql = ",
+  ".join(columns)
+    view_name = table_name.replace("doorloop_raw_", "")
+    sql = f"""
+    CREATE OR REPLACE VIEW {view_name} AS
+    SELECT
+      id,
+      doorloop_id,
+      created_at,
+      {column_sql}
+    FROM {table_name};
+    """
+    return sql
+
+def main():
+    logger.info("Starting normalized view generation...")
+    conn = connect_db()
+    cur = conn.cursor()
+
+    for table in get_table_names():
+        logger.info(f"🔧 Processing view for: {table}")
         try:
-            logger.info(f"🔧 Processing view for: {table}")
-            payload = fetch_sample_payload(table)
-            if not isinstance(payload, dict):
-                raise ValueError(f"Expected JSON object, got {type(payload)}")
-
-            columns = list(payload.keys())
-            view_sql = generate_view_sql(table, columns)
-
-            logger.info(f"📤 Executing SQL: {view_sql}")
+            sample = fetch_sample_payload(cur, table)
+            sql = generate_view_sql(table, sample)
+            logger.info(f"📤 Executing SQL: {sql.strip().splitlines()[0]}")
+            cur.execute(sql)
+            conn.commit()
         except Exception as e:
             logger.error(f"❌ Failed for {table}: {e}")
+            conn.rollback()
+
+    cur.close()
+    conn.close()
+    logger.info("✅ View generation completed.")
 
 if __name__ == "__main__":
     main()
