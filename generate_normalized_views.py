@@ -1,113 +1,150 @@
 import os
-import logging
 import requests
+import json
+import logging
 
-# Setup
-logging.basicConfig(level=logging.INFO)
+# Load environment variables
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise EnvironmentError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
 
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json",
+    "Content-Type": "application/json"
 }
 
-RAW_TABLES_TO_VIEW = [
-    "doorloop_raw_properties",
-    "doorloop_raw_units",
-    "doorloop_raw_tenants",
-    "doorloop_raw_owners",
-    "doorloop_raw_leases",
-    "doorloop_raw_lease_payments",
-    "doorloop_raw_lease_charges",
-    "doorloop_raw_lease_credits",
-    "doorloop_raw_vendors",
-    "doorloop_raw_tasks",
-    "doorloop_raw_files",
-    "doorloop_raw_notes",
-    "doorloop_raw_communications",
-    "doorloop_raw_applications",
-    "doorloop_raw_inspections",
-    "doorloop_raw_insurance_policies",
-    "doorloop_raw_recurring_charges",
-    "doorloop_raw_recurring_credits",
-    "doorloop_raw_accounts",
-    "doorloop_raw_users",
-    "doorloop_raw_portfolios",
-    "doorloop_raw_reports",
-    "doorloop_raw_activity_logs",
-]
+logging.basicConfig(level=logging.INFO)
 
-def get_table_columns(table_name):
-    url = f"{SUPABASE_URL}/rest/v1/rpc/get_table_columns_rpc"
-    payload = {
-        "schema_name": "public",
-        "table_name": table_name
+def get_doorloop_raw_tables():
+    sql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name LIKE 'doorloop_raw_%';
+    """
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers=HEADERS,
+        data=json.dumps({"sql": sql})
+    )
+    try:
+        data = response.json()
+        return [row["table_name"] for row in data]
+    except Exception:
+        logging.error("❌ Supabase returned an empty response body for get_doorloop_raw_tables.")
+        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
+        return []
+
+def get_columns_for_table(table_name):
+    sql = f"""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = '{table_name}'
+        ORDER BY ordinal_position;
+    """
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers=HEADERS,
+        data=json.dumps({"sql": sql})
+    )
+
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        logging.error(f"❌ Supabase returned an empty response body for table {table_name}.")
+        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
+        return []
+
+    if not data:
+        logging.warning(f"⚠️ No columns found for table {table_name}.")
+        return []
+
+    # Exclude bad columns
+    columns_to_exclude = {
+        "data", "leaseDepositItem", "updatedAt", "createdAt", "date", "totalBalance", "register",
+        "tags", "taxable", "openedAt", "linkedResource", "defaultAccountFor", "sentAt", "bouncedAt",
+        "lines", "bcc", "acceptedOnTOS", "dueDate", "portalInfo", "rank", "conversationWelcomeSmsSentAt",
+        "from", "prospectInfo", "pets", "metadata", "amountNotAppliedToCharges", "autoApplyPaymentOnCharges",
+        "isSharedWithTenant", "ePayInfo", "clickedAt", "intercomTemplateId", "linkedCharges", "linkedCredits",
+        "checkInfo", "isFilesSharedWithTenant", "size", "amountAppliedToCredits", "amountReceived", "amount",
+        "reversedPaymentDate", "isVoidedCheck", "properties", "totalAmount", "lastLateFeesProcessedDate",
+        "active", "boardMembers", "amenities", "petsPolicy", "address", "owners", "settings", "emails",
+        "numActiveUnits", "dependants", "primaryAddress", "pictures", "emergencyContacts", "phones",
+        "company", "vehicles", "workOrder", "marketRent", "propertyGroups", "currentBalance",
+        "proofOfInsuranceProvided", "evictionPending", "totalRecurringRent", "totalRecurringCharges",
+        "totalRecurringCredits", "proofOfInsuranceProvidedAt", "outgoingEPayEnabled", "start", "end",
+        "outgoingEPay", "totalDepositsHeld", "proofOfInsuranceExpirationDate", "managementStartDate",
+        "owner", "services", "upcomingBalance", "proofOfInsuranceEffectiveDate", "balance", "units",
+        "to", "accounts", "source_endpoint", "paymentMethod", "memo", "createdBy", "reference",
+        "batch", "payToResourceId", "payToResourceType", "payFromAccount", "updatedBy", "externalId",
+        "conversationMessage", "subjectType", "intercomReceiptId", "bodyPreview", "announcement",
+        "conversation", "failedReason", "subject", "intercomContactId", "status", "title", "body",
+        "unit", "property", "typeDescription", "createdByType", "notes", "mimeType", "createdByName",
+        "downloadUrl", "term", "recurringRentStatus", "depositStatus", "leasePayment", "reason",
+        "depositEntry", "reversedPaymentMemo", "receivedFromTenant", "depositToAccount",
+        "reversedPayment", "recurringTransaction", "lateFeeForLeaseCharge", "entryNotes",
+        "entryPermission", "requestedByTenant", "requestedByUser", "tenantRequestMaintenanceCategory",
+        "tenantRequestType", "priority", "requestedByOwner", "jobTitle", "e164PhoneMobileNumber",
+        "role", "timezone", "loginEmail", "middleName", "otherScreeningService", "stripeCustomerId",
+        "screeningService", "gender", "invitationLastSentAt", "systemAccount", "fullyQualifiedName",
+        "cashFlowActivity", "companyName", "firstName", "fullName", "name", "email", "phone", "trade",
+        "display_name"
     }
 
-    logging.info(f"🔍 Fetching columns for {table_name} via RPC...")
-    try:
-        response = requests.post(url, headers=HEADERS, json=payload, timeout=30)
-        response.raise_for_status()
+    essential_columns = {
+        "id", "doorloop_id", "payload_json", "created_at", "updated_at", "_raw_payload"
+    }
 
-        columns_data = response.json()
-        if isinstance(columns_data, list) and all("column_name" in col for col in columns_data):
-            return [col["column_name"] for col in columns_data]
-        else:
-            logging.error(f"⚠️ Unexpected response structure: {columns_data}")
-            return []
-    except requests.exceptions.RequestException as e:
-        logging.error(f"❌ Request error: {e}")
-        raise
-    except Exception as e:
-        logging.error(f"❌ Unexpected error in get_table_columns: {e}")
-        raise
+    filtered = [
+        row["column_name"] for row in data
+        if row["column_name"].lower() not in columns_to_exclude
+    ]
 
-def build_view_sql(raw_table_name, columns):
-    view_name = raw_table_name.replace("doorloop_raw_", "")
-    select_clause = ",\n    ".join([f'"{col}"' for col in columns])
-    return f"""
-CREATE OR REPLACE VIEW public."{view_name}" AS
-SELECT
-    {select_clause}
-FROM public."{raw_table_name}";
-"""
+    final_columns = list(set(filtered) | essential_columns)
+    final_columns.sort()
+    logging.info(f"✅ Columns used in view for {table_name}: {final_columns}")
+    return final_columns
 
-def execute_sql_via_rpc(sql_command):
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    payload = {"sql": sql_command}
+def build_create_view_sql(table_name, columns):
+    entity = table_name.replace("doorloop_raw_", "")
+    select_clause = ", ".join(f'"{col}"' for col in columns)
+    return f'CREATE OR REPLACE VIEW public.{entity} AS SELECT {select_clause} FROM public.{table_name};'
 
-    logging.info("📤 Executing SQL via RPC...")
-    try:
-        response = requests.post(url, headers=HEADERS, json=payload, timeout=60)
-        response.raise_for_status()
-        logging.info(f"✅ RPC executed: {response.status_code} -> {response.text[:100]}")
-        return response.text
-    except requests.exceptions.RequestException as e:
-        logging.error(f"❌ SQL RPC error: {e}")
-        raise
+def execute_sql(sql):
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers=HEADERS,
+        data=json.dumps({"sql": sql})
+    )
+    if not response.ok:
+        logging.error(f"❌ Failed to execute SQL:\n{sql}")
+        logging.error(f"🔻 Error: {response.status_code} — {response.text}")
+    else:
+        logging.info("✅ View successfully created.")
 
-def run():
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        logging.error("❌ Missing required environment variables.")
-        raise EnvironmentError("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.")
+def main():
+    logging.info("🔍 Fetching raw tables...")
+    tables = get_doorloop_raw_tables()
 
-    for table in RAW_TABLES_TO_VIEW:
+    if not tables:
+        logging.warning("⚠️ No raw tables found. Exiting.")
+        return
+
+    for table in tables:
         try:
-            logging.info(f"🔧 Processing: {table}")
-            columns = get_table_columns(table)
-
+            logging.info(f"🔄 Processing table: {table}")
+            columns = get_columns_for_table(table)
             if not columns:
-                logging.warning(f"⚠️ Skipping {table} — no columns found.")
+                logging.warning(f"⚠️ Skipping table {table} due to missing or invalid columns.")
                 continue
-
-            view_sql = build_view_sql(table, columns)
-            execute_sql_via_rpc(view_sql)
-            logging.info(f"✅ View created for {table}")
+            sql = build_create_view_sql(table, columns)
+            execute_sql(sql)
         except Exception as e:
-            logging.error(f"❌ Failed to generate view for {table}: {e}")
+            logging.error(f"❌ Failed to process {table}: {e}")
 
 if __name__ == "__main__":
-    run()
+    main()
