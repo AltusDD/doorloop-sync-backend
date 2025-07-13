@@ -28,7 +28,7 @@ def get_doorloop_raw_tables():
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
     payload = {"sql": sql}
     response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-    
+
     try:
         data = response.json()
     except requests.exceptions.JSONDecodeError:
@@ -36,11 +36,18 @@ def get_doorloop_raw_tables():
         logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
         return []
 
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception as e:
+            logging.error(f"❌ Failed to parse stringified JSON: {e}")
+            return []
+
     if not data:
         logging.warning("⚠️ No raw tables found in schema.")
         return []
 
-    return [row["table_name"] for row in data]
+    return [row["table_name"] for row in data if "table_name" in row]
 
 def get_columns_for_table(table_name):
     sql = f"""
@@ -59,6 +66,13 @@ def get_columns_for_table(table_name):
         logging.error(f"❌ Supabase returned an empty response body for table {table_name}.")
         logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
         return []
+
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception as e:
+            logging.error(f"❌ Failed to parse stringified JSON for {table_name}: {e}")
+            return []
 
     if not data:
         logging.warning(f"⚠️ No columns found for table {table_name}.")
