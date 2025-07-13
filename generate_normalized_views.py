@@ -2,12 +2,11 @@ import os
 import json
 import logging
 import requests
-from urllib.parse import urljoin
 
-# Logging
+# Logging setup
 logging.basicConfig(level=logging.INFO)
 
-# Supabase configuration
+# Environment: Supabase config via GitHub Actions or Azure environment
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -17,12 +16,12 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# Target raw table(s)
+# Table(s) to process
 RAW_TABLES = [
     "doorloop_raw_properties",
 ]
 
-# Known nested field mappings
+# Known nested structures to flatten
 NESTED_FIELDS = {
     "address": ["street1", "street2", "city", "state", "zip"],
 }
@@ -33,7 +32,7 @@ def get_sample_json(table_name):
     res.raise_for_status()
     data = res.json()
     if not data or not isinstance(data[0], dict) or "data" not in data[0]:
-        raise Exception(f"No valid 'data' field found in {table_name}")
+        raise Exception(f"No valid 'data' found in {table_name}")
     return data[0]["data"]
 
 def extract_fields(data_json):
@@ -43,34 +42,34 @@ def extract_fields(data_json):
             for subkey in NESTED_FIELDS[key]:
                 fields.append((f"{key}->{subkey}", f"{key}_{subkey}"))
         elif isinstance(value, (str, int, float, bool, type(None))):
-            fields.append((key, key))
+            if key == "id":  # Avoid duplicate column name with raw.id
+                fields.append((key, "doorloop_id"))  # alias it
+            else:
+                fields.append((key, key))
     return fields
 
 def build_view_sql(raw_table, fields):
     view_name = raw_table.replace("doorloop_raw_", "normalized_")
-    sql_lines = [f"DROP VIEW IF EXISTS public.{view_name} CASCADE;"]
-    sql_lines.append(f"CREATE VIEW public.{view_name} AS")
-    sql_lines.append("SELECT")
-    sql_lines.append("    raw.id,")
-    sql_lines.append("    raw.data->>'id' AS doorloop_id,")
+    sql = [f"DROP VIEW IF EXISTS public.{view_name} CASCADE;"]
+    sql.append(f"CREATE VIEW public.{view_name} AS")
+    sql.append("SELECT")
+    sql.append("    raw.id AS sync_id,")
 
     for path, alias in fields:
         if "->" in path:
             outer, inner = path.split("->")
-            sql_lines.append(f"    raw.data->'{outer}'->>'{inner}' AS {alias},")
+            sql.append(f"    raw.data->'{outer}'->>'{inner}' AS {alias},")
         else:
-            sql_lines.append(f"    raw.data->>'{path}' AS {alias},")
+            sql.append(f"    raw.data->>'{path}' AS {alias},")
 
-    sql_lines.append("    raw.data AS _raw_payload")
-    sql_lines.append(f"FROM public.{raw_table} raw")
-    sql_lines.append("WHERE raw.data IS NOT NULL;")
-
-    return "\n".join(sql_lines)
+    sql.append("    raw.data AS _raw_payload")
+    sql.append(f"FROM public.{raw_table} raw")
+    sql.append("WHERE raw.data IS NOT NULL;")
+    return "\n".join(sql)
 
 def execute_sql(sql):
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    payload = {"sql": sql}
-    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
+    response = requests.post(url, headers=HEADERS, data=json.dumps({"sql": sql}))
     if response.status_code != 200:
         raise Exception(f"Failed to execute SQL: {response.text}")
     return response.text
@@ -79,12 +78,12 @@ def main():
     for table in RAW_TABLES:
         try:
             logging.info(f"🔍 Inspecting table: {table}")
-            sample_json = get_sample_json(table)
-            fields = extract_fields(sample_json)
+            data_json = get_sample_json(table)
+            fields = extract_fields(data_json)
             sql = build_view_sql(table, fields)
             logging.info(f"📤 Executing view creation for {table}...")
-            response = execute_sql(sql)
-            logging.info(f"✅ View created for {table}: {response}")
+            result = execute_sql(sql)
+            logging.info(f"✅ View created for {table}: {result}")
         except Exception as e:
             logging.error(f"❌ Failed to process {table}: {e}")
 
