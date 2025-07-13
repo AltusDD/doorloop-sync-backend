@@ -3,7 +3,7 @@ import requests
 import json
 import logging
 
-# Load secrets from GitHub Actions or Azure Key Vault
+# Load secrets from GitHub or Azure
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -28,8 +28,19 @@ def get_doorloop_raw_tables():
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
     payload = {"sql": sql}
     response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-    response.raise_for_status()
-    return [row["table_name"] for row in response.json()]
+    
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        logging.error("❌ Supabase returned an empty response body for get_doorloop_raw_tables.")
+        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
+        return []
+
+    if not data:
+        logging.warning("⚠️ No raw tables found in schema.")
+        return []
+
+    return [row["table_name"] for row in data]
 
 def get_columns_for_table(table_name):
     sql = f"""
@@ -41,8 +52,19 @@ def get_columns_for_table(table_name):
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
     payload = {"sql": sql}
     response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-    response.raise_for_status()
-    return response.json()
+
+    try:
+        data = response.json()
+    except requests.exceptions.JSONDecodeError:
+        logging.error(f"❌ Supabase returned an empty response body for table {table_name}.")
+        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
+        return []
+
+    if not data:
+        logging.warning(f"⚠️ No columns found for table {table_name}.")
+        return []
+
+    return data
 
 def build_create_view_sql(table_name, columns):
     entity = table_name.replace("doorloop_raw_", "")
@@ -67,12 +89,16 @@ def main():
     logging.info("🔍 Fetching raw tables...")
     tables = get_doorloop_raw_tables()
 
+    if not tables:
+        logging.warning("⚠️ No raw tables found. Exiting.")
+        return
+
     for table in tables:
         try:
             logging.info(f"🔄 Processing table: {table}")
             columns = get_columns_for_table(table)
             if not columns:
-                logging.warning(f"⚠️ No columns found for {table}, skipping.")
+                logging.warning(f"⚠️ Skipping table {table} due to missing columns.")
                 continue
             sql = build_create_view_sql(table, columns)
             execute_sql(sql)
