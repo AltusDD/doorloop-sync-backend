@@ -19,12 +19,20 @@ class SupabaseIngestClient:
             if not isinstance(record, dict):
                 continue
 
-            # 🔄 Normalize and store full raw payload
+            # 🔒 Strictly enforce expected keys: id (str), data (JSONB), batch (optional)
             normalized_record = {
-                "id": str(record.get("id")),  # ID must be text, Supabase expects string key
-                "data": record,               # full original payload under 'data' jsonb field
-                "batch": "default"            # optional: useful for batch tracking
+                "id": str(record.get("id")),
+                "data": record,
+                "batch": "default"
             }
+
+            # Strip unexpected top-level keys (if any)
+            normalized_record = {
+                key: normalized_record[key]
+                for key in ["id", "data", "batch"]
+                if key in normalized_record
+            }
+
             normalized_records.append(normalized_record)
 
         url = f"{self.supabase_url}/rest/v1/{table_name}?on_conflict=id"
