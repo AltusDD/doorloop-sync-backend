@@ -3,6 +3,7 @@ import requests
 import json
 import logging
 
+# Load secrets from GitHub Actions or Azure Key Vault
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -18,15 +19,28 @@ HEADERS = {
 logging.basicConfig(level=logging.INFO)
 
 def get_doorloop_raw_tables():
-    url = f"{SUPABASE_URL}/rest/v1/information_schema.tables?select=table_name&table_schema=public"
-    response = requests.get(url, headers=HEADERS)
+    sql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name LIKE 'doorloop_raw_%';
+    """
+    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
+    payload = {"sql": sql}
+    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
     response.raise_for_status()
-    tables = response.json()
-    return [t["table_name"] for t in tables if t["table_name"].startswith("doorloop_raw_")]
+    return [row["table_name"] for row in response.json()]
 
 def get_columns_for_table(table_name):
-    url = f"{SUPABASE_URL}/rest/v1/information_schema.columns?select=column_name,data_type&table_name=eq.{table_name}"
-    response = requests.get(url, headers=HEADERS)
+    sql = f"""
+        SELECT column_name, data_type
+        FROM information_schema.columns
+        WHERE table_name = '{table_name}'
+        ORDER BY ordinal_position;
+    """
+    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
+    payload = {"sql": sql}
+    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
     response.raise_for_status()
     return response.json()
 
@@ -44,7 +58,7 @@ def execute_sql(sql):
     payload = {"sql": sql}
     response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
     if not response.ok:
-        logging.error(f"❌ Failed to execute SQL: {sql}")
+        logging.error(f"❌ Failed to execute SQL:\n{sql}")
         logging.error(f"🔻 Error: {response.status_code} — {response.text}")
     else:
         logging.info("✅ View successfully created.")
