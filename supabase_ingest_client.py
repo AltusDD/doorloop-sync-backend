@@ -1,12 +1,13 @@
-
-import requests
+import json
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class SupabaseIngestClient:
     def __init__(self, url: str, api_key: str):
-        self.base_url = url.rstrip("/")
+        self.url = url.rstrip("/")
         self.api_key = api_key
         self.headers = {
             "apikey": self.api_key,
@@ -20,20 +21,20 @@ class SupabaseIngestClient:
             logger.warning(f"⚠️ No records to upsert for {table}")
             return
 
-        # ✅ Normalize: Ensure all dicts have the same keys
-        all_keys = set().union(*(record.keys() for record in records if isinstance(record, dict)))
-        normalized_records = [
-            {key: record.get(key, None) for key in all_keys}
-            for record in records if isinstance(record, dict)
-        ]
-
-        url = f"{self.base_url}/{table}?on_conflict=id"
+        endpoint = f"{self.url}/rest/v1/{table}"
         try:
-            response = requests.post(url, headers=self.headers, json=normalized_records)
+            response = requests.post(
+                endpoint,
+                headers=self.headers,
+                params={"on_conflict": "id"},
+                data=json.dumps(records),
+                timeout=60,
+            )
             if response.status_code >= 400:
                 logger.error(f"❌ Supabase insert failed for {table}: {response.status_code} → {response.text}")
                 response.raise_for_status()
-            logger.info(f"✅ Upsert successful for {table}")
-        except requests.RequestException as e:
+            else:
+                logger.info(f"✅ Upsert successful for {table}")
+        except Exception as e:
             logger.error(f"🔥 Exception during upsert → {e}")
             raise
