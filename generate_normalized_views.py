@@ -28,13 +28,13 @@ NESTED_FIELDS = {
 }
 
 def get_sample_json(table_name):
-    url = f"{SUPABASE_URL}/rest/v1/{table_name}?select=data_json&limit=1"
+    url = f"{SUPABASE_URL}/rest/v1/{table_name}?select=data&limit=1"
     res = requests.get(url, headers=HEADERS)
     res.raise_for_status()
     data = res.json()
     if not data or not isinstance(data[0], dict):
-        raise Exception(f"No valid data_json found in {table_name}")
-    return data[0]["data_json"]
+        raise Exception(f"No valid data found in {table_name}")
+    return data[0]["data"]
 
 def extract_fields(data_json):
     fields = []
@@ -51,18 +51,18 @@ def build_view_sql(raw_table, fields):
     sql_lines = [f"DROP VIEW IF EXISTS {view_name} CASCADE;", f"CREATE VIEW {view_name} AS", "SELECT", "    raw.id,"]
     sql_lines.append("    raw.inserted_at,")
     sql_lines.append("    raw.updated_at,")
-    sql_lines.append("    raw.data_json->>'id' AS doorloop_id,")
+    sql_lines.append("    raw.data->>'id' AS doorloop_id,")
 
     for path, alias in fields:
         if "->" in path:
             outer, inner = path.split("->")
-            sql_lines.append(f"    raw.data_json->'{outer}'->>'{inner}' AS {alias},")
+            sql_lines.append(f"    raw.data->'{outer}'->>'{inner}' AS {alias},")
         else:
-            sql_lines.append(f"    raw.data_json->>'{path}' AS {alias},")
+            sql_lines.append(f"    raw.data->>'{path}' AS {alias},")
 
-    sql_lines.append("    raw.data_json AS _raw_payload")
+    sql_lines.append("    raw.data AS _raw_payload")
     sql_lines.append(f"FROM {raw_table} raw")
-    sql_lines.append("WHERE raw.data_json IS NOT NULL;")
+    sql_lines.append("WHERE raw.data IS NOT NULL;")
 
     return "\n".join(sql_lines)
 
