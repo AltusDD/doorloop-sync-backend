@@ -17,7 +17,7 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# Only normalize properties for now
+# Target raw table(s)
 RAW_TABLES = [
     "doorloop_raw_properties",
 ]
@@ -32,8 +32,8 @@ def get_sample_json(table_name):
     res = requests.get(url, headers=HEADERS)
     res.raise_for_status()
     data = res.json()
-    if not data or not isinstance(data[0], dict):
-        raise Exception(f"No valid data found in {table_name}")
+    if not data or not isinstance(data[0], dict) or "data" not in data[0]:
+        raise Exception(f"No valid 'data' field found in {table_name}")
     return data[0]["data"]
 
 def extract_fields(data_json):
@@ -48,9 +48,10 @@ def extract_fields(data_json):
 
 def build_view_sql(raw_table, fields):
     view_name = raw_table.replace("doorloop_raw_", "normalized_")
-    sql_lines = [f"DROP VIEW IF EXISTS {view_name} CASCADE;", f"CREATE VIEW {view_name} AS", "SELECT", "    raw.id,"]
-    sql_lines.append("    raw.inserted_at,")
-    sql_lines.append("    raw.updated_at,")
+    sql_lines = [f"DROP VIEW IF EXISTS public.{view_name} CASCADE;"]
+    sql_lines.append(f"CREATE VIEW public.{view_name} AS")
+    sql_lines.append("SELECT")
+    sql_lines.append("    raw.id,")
     sql_lines.append("    raw.data->>'id' AS doorloop_id,")
 
     for path, alias in fields:
@@ -61,7 +62,7 @@ def build_view_sql(raw_table, fields):
             sql_lines.append(f"    raw.data->>'{path}' AS {alias},")
 
     sql_lines.append("    raw.data AS _raw_payload")
-    sql_lines.append(f"FROM {raw_table} raw")
+    sql_lines.append(f"FROM public.{raw_table} raw")
     sql_lines.append("WHERE raw.data IS NOT NULL;")
 
     return "\n".join(sql_lines)
