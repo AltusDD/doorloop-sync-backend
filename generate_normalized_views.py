@@ -24,7 +24,7 @@ def get_doorloop_raw_tables():
         FROM information_schema.tables
         WHERE table_schema = 'public'
         AND table_name LIKE 'doorloop_raw_%'
-        AND table_type = 'BASE TABLE';
+        AND table_type = 'BASE TABLE'
     """
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
