@@ -1,35 +1,32 @@
 import os
-import json
-import logging
 import requests
+import logging
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-HEADERS = {
-    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json"
-}
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_table_columns(table_name):
-    """Fetches the list of columns for a given table using Supabase RPC execute_sql."""
-    sql_query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}';"
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    response = requests.post(url, headers=HEADERS, json={"sql": sql_query})
+    query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={"sql": query}
+    )
     response.raise_for_status()
-    try:
-        return [row['column_name'] for row in response.json()]
-    except json.JSONDecodeError as e:
-        raise RuntimeError(f"Non-JSON response from Supabase: {response.text}") from e
+    result = response.json()
+    return [row['column_name'] for row in result]
 
-def create_view_sql(raw_table):
-    columns = get_table_columns(raw_table)
-    if 'payload_json' not in columns:
-        raise ValueError(f"payload_json column missing from table {raw_table}")
-
+def generate_view_sql(raw_table):
     view_name = raw_table.replace("doorloop_raw_", "")
+    columns = get_table_columns(raw_table)
+
     select_parts = [f"payload_json->>'{col}' AS "{col}"" for col in columns if col not in ['id', 'doorloop_id', 'payload_json', 'created_at']]
     select_parts.insert(0, "id")
     if 'doorloop_id' in columns:
@@ -43,32 +40,37 @@ def create_view_sql(raw_table):
         {select_clause}
     FROM {raw_table};
     """.strip()
+
     return sql
 
-def create_view(raw_table):
-    sql = create_view_sql(raw_table)
-    logging.info(f"📤 Executing SQL for {raw_table}: {sql}")
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    response = requests.post(url, headers=HEADERS, json={"sql": sql})
-    if not response.ok:
-        raise RuntimeError(f"Failed to execute SQL: {response.text}")
-    logging.info(f"✅ View created or replaced for {raw_table}")
-
 def main():
-    raw_tables = [
+    target_tables = [
         "doorloop_raw_properties",
         "doorloop_raw_units",
         "doorloop_raw_tenants",
-        "doorloop_raw_leases",
         "doorloop_raw_owners",
-        "doorloop_raw_vendors"
+        "doorloop_raw_leases"
     ]
-    for table in raw_tables:
+
+    for table in target_tables:
         try:
-            logging.info(f"🔧 Processing view for: {table}")
-            create_view(table)
+            logger.info(f"🔧 Processing view for: {table}")
+            sql = generate_view_sql(table)
+            logger.info(f"📤 Executing SQL: {sql}")
+
+            response = requests.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+                headers={
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"sql": sql}
+            )
+            response.raise_for_status()
+            logger.info(f"✅ View created/replaced successfully: {table}")
         except Exception as e:
-            logging.error(f"❌ Failed for {table}: {e}")
+            logger.error(f"❌ Failed for {table}: {e}")
 
 if __name__ == "__main__":
     main()
