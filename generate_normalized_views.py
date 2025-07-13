@@ -6,7 +6,6 @@ import requests
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
-# --- Environment Variables ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
@@ -16,7 +15,6 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# --- List of DoorLoop raw tables to generate views for ---
 RAW_TABLES = [
     "doorloop_raw_properties",
     "doorloop_raw_units",
@@ -49,10 +47,6 @@ RAW_TABLES = [
 ]
 
 def get_table_columns(table_name):
-    """
-    Uses Supabase RPC to query column names from information_schema for a given table.
-    Fixes JSON decode errors by wrapping SQL in json_agg().
-    """
     sql = f"""
         SELECT json_agg(t) FROM (
             SELECT column_name
@@ -68,13 +62,14 @@ def get_table_columns(table_name):
     logging.info(f"📡 Fetching columns for: {table_name}")
     try:
         response = requests.post(url, headers=HEADERS, json=payload, timeout=30)
-        logging.debug(f"🔎 Raw response text: {response.text}")
         response.raise_for_status()
         data = response.json()
 
-        # Response should be a list with one item: a list of dicts
-        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], list):
-            column_list = data[0]
+        if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict) and "json_agg" in data[0]:
+            column_list = data[0]["json_agg"]
+            if column_list is None:
+                logging.warning(f"⚠️ No columns returned in json_agg for {table_name}")
+                return []
         else:
             logging.warning(f"⚠️ Unexpected response format for {table_name}: {data}")
             return []
@@ -88,9 +83,6 @@ def get_table_columns(table_name):
         return []
 
 def build_view_sql(table_name, columns):
-    """
-    Builds CREATE OR REPLACE VIEW SQL using the given column names.
-    """
     view_name = table_name.replace("doorloop_raw_", "")
     quoted_columns = [f'"{col}"' for col in columns]
     select_clause = ",\n    ".join(quoted_columns)
@@ -103,16 +95,13 @@ FROM public."{table_name}";
     return sql
 
 def execute_sql_via_rpc(sql_command):
-    """
-    Executes raw SQL via Supabase RPC.
-    """
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
     payload = {"sql": sql_command}
     try:
         logging.debug(f"📤 Executing SQL: {sql_command.strip().splitlines()[0]}")
         response = requests.post(url, headers=HEADERS, json=payload, timeout=60)
         response.raise_for_status()
-        logging.info(f"✅ SQL executed successfully.")
+        logging.info("✅ SQL executed successfully.")
     except Exception as e:
         logging.error(f"❌ SQL execution failed: {type(e).__name__}: {e}")
 
