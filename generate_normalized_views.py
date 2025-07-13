@@ -1,5 +1,3 @@
-# generate_normalized_views.py
-
 import os
 import logging
 import requests
@@ -58,7 +56,7 @@ def get_table_columns(table_name):
     response = requests.post(url, headers=HEADERS, json=payload)
     if response.status_code != 200:
         raise Exception(f"Failed to fetch columns: {response.text}")
-    
+
     columns_data = response.json()
     return [col['column_name'] for col in columns_data if col['column_name'] not in EXCLUDED_COLUMNS]
 
