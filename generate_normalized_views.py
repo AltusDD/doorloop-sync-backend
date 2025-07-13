@@ -23,7 +23,8 @@ def get_doorloop_raw_tables():
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'public'
-        AND table_name LIKE 'doorloop_raw_%';
+        AND table_name LIKE 'doorloop_raw_%'
+        AND table_type = 'BASE TABLE';
     """
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
@@ -63,37 +64,8 @@ def get_columns_for_table(table_name):
         logging.warning(f"⚠️ No columns found for table {table_name}.")
         return []
 
-    # Exclude bad columns
-    columns_to_exclude = {
-        "data", "leaseDepositItem", "updatedAt", "createdAt", "date", "totalBalance", "register",
-        "tags", "taxable", "openedAt", "linkedResource", "defaultAccountFor", "sentAt", "bouncedAt",
-        "lines", "bcc", "acceptedOnTOS", "dueDate", "portalInfo", "rank", "conversationWelcomeSmsSentAt",
-        "from", "prospectInfo", "pets", "metadata", "amountNotAppliedToCharges", "autoApplyPaymentOnCharges",
-        "isSharedWithTenant", "ePayInfo", "clickedAt", "intercomTemplateId", "linkedCharges", "linkedCredits",
-        "checkInfo", "isFilesSharedWithTenant", "size", "amountAppliedToCredits", "amountReceived", "amount",
-        "reversedPaymentDate", "isVoidedCheck", "properties", "totalAmount", "lastLateFeesProcessedDate",
-        "active", "boardMembers", "amenities", "petsPolicy", "address", "owners", "settings", "emails",
-        "numActiveUnits", "dependants", "primaryAddress", "pictures", "emergencyContacts", "phones",
-        "company", "vehicles", "workOrder", "marketRent", "propertyGroups", "currentBalance",
-        "proofOfInsuranceProvided", "evictionPending", "totalRecurringRent", "totalRecurringCharges",
-        "totalRecurringCredits", "proofOfInsuranceProvidedAt", "outgoingEPayEnabled", "start", "end",
-        "outgoingEPay", "totalDepositsHeld", "proofOfInsuranceExpirationDate", "managementStartDate",
-        "owner", "services", "upcomingBalance", "proofOfInsuranceEffectiveDate", "balance", "units",
-        "to", "accounts", "source_endpoint", "paymentMethod", "memo", "createdBy", "reference",
-        "batch", "payToResourceId", "payToResourceType", "payFromAccount", "updatedBy", "externalId",
-        "conversationMessage", "subjectType", "intercomReceiptId", "bodyPreview", "announcement",
-        "conversation", "failedReason", "subject", "intercomContactId", "status", "title", "body",
-        "unit", "property", "typeDescription", "createdByType", "notes", "mimeType", "createdByName",
-        "downloadUrl", "term", "recurringRentStatus", "depositStatus", "leasePayment", "reason",
-        "depositEntry", "reversedPaymentMemo", "receivedFromTenant", "depositToAccount",
-        "reversedPayment", "recurringTransaction", "lateFeeForLeaseCharge", "entryNotes",
-        "entryPermission", "requestedByTenant", "requestedByUser", "tenantRequestMaintenanceCategory",
-        "tenantRequestType", "priority", "requestedByOwner", "jobTitle", "e164PhoneMobileNumber",
-        "role", "timezone", "loginEmail", "middleName", "otherScreeningService", "stripeCustomerId",
-        "screeningService", "gender", "invitationLastSentAt", "systemAccount", "fullyQualifiedName",
-        "cashFlowActivity", "companyName", "firstName", "fullName", "name", "email", "phone", "trade",
-        "display_name"
-    }
+    # Minimal exclusions: these fields are known to not be real SQL columns
+    columns_to_exclude = {"data"}
 
     essential_columns = {
         "id", "doorloop_id", "payload_json", "created_at", "updated_at", "_raw_payload"
