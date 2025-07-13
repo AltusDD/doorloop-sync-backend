@@ -1,123 +1,110 @@
+
 import os
-import requests
 import json
 import logging
+import requests
 
-# Load secrets from GitHub or Azure
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Setup
+logging.basicConfig(level=logging.INFO)
 
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise EnvironmentError("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
-logging.basicConfig(level=logging.INFO)
+# List of all doorloop_raw_* tables for which to generate views
+RAW_TABLES_TO_VIEW = [
+    "doorloop_raw_properties",
+    "doorloop_raw_units",
+    "doorloop_raw_tenants",
+    "doorloop_raw_owners",
+    "doorloop_raw_leases",
+    "doorloop_raw_lease_payments",
+    "doorloop_raw_lease_charges",
+    "doorloop_raw_lease_credits",
+    "doorloop_raw_vendors",
+    "doorloop_raw_tasks",
+    "doorloop_raw_files",
+    "doorloop_raw_notes",
+    "doorloop_raw_communications",
+    "doorloop_raw_applications",
+    "doorloop_raw_inspections",
+    "doorloop_raw_insurance_policies",
+    "doorloop_raw_recurring_charges",
+    "doorloop_raw_recurring_credits",
+    "doorloop_raw_accounts",
+    "doorloop_raw_users",
+    "doorloop_raw_portfolios",
+    "doorloop_raw_reports",
+    "doorloop_raw_activity_logs",
+]
 
-def get_doorloop_raw_tables():
-    sql = """
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public'
-        AND table_name LIKE 'doorloop_raw_%';
-    """
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    payload = {"sql": sql}
-    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-
+def get_table_columns(table_name):
+    url = f"{SUPABASE_URL}/rest/v1/columns?table_schema=eq.public&table_name=eq.{table_name}&select=column_name"
+    logging.info(f"DEBUG: Fetching columns for {table_name} from {url}")
     try:
-        data = response.json()
-    except requests.exceptions.JSONDecodeError:
-        logging.error("❌ Supabase returned an empty response body for get_doorloop_raw_tables.")
-        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
-        return []
-
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except Exception as e:
-            logging.error(f"❌ Failed to parse stringified JSON: {e}")
+        response = requests.get(url, headers=HEADERS, timeout=30)
+        response.raise_for_status()
+        columns_data = response.json()
+        if isinstance(columns_data, list) and all(isinstance(col, dict) and 'column_name' in col for col in columns_data):
+            return [col['column_name'] for col in columns_data]
+        else:
+            logging.error(f"ERROR: Unexpected API response format for columns from {table_name}: {columns_data}")
             return []
+    except requests.exceptions.RequestException as e:
+        logging.error(f"ERROR: Failed to fetch columns for {table_name} via direct API: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
+        raise
+    except Exception as e:
+        logging.error(f"ERROR: Unexpected error in get_table_columns for {table_name}: {e}")
+        raise
 
-    if not data:
-        logging.warning("⚠️ No raw tables found in schema.")
-        return []
+def build_view_sql(raw_table_name, columns):
+    view_name = raw_table_name.replace("doorloop_raw_", "")
+    quoted_columns = [f'"{col}"' for col in columns]
+    select_clause = ", ".join(quoted_columns)
+    sql = f'''
+CREATE OR REPLACE VIEW public."{view_name}" AS
+SELECT
+    {select_clause}
+FROM public."{raw_table_name}";
+'''
+    return sql
 
-    return [row["table_name"] for row in data if "table_name" in row]
-
-def get_columns_for_table(table_name):
-    sql = f"""
-        SELECT column_name, data_type
-        FROM information_schema.columns
-        WHERE table_name = '{table_name}'
-        ORDER BY ordinal_position;
-    """
+def execute_sql_via_rpc(sql_command):
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    payload = {"sql": sql}
-    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-
+    payload = {"sql": sql_command}
+    logging.info(f"DEBUG_EXEC_SQL: Executing SQL via RPC: {sql_command.splitlines()[0].strip()}...")
     try:
-        data = response.json()
-    except requests.exceptions.JSONDecodeError:
-        logging.error(f"❌ Supabase returned an empty response body for table {table_name}.")
-        logging.error(f"🔻 Status Code: {response.status_code} — Text: {response.text}")
-        return []
+        response = requests.post(url, headers=HEADERS, json=payload, timeout=60)
+        response.raise_for_status()
+        logging.info(f"DEBUG_EXEC_SQL: SQL RPC response: {response.status_code} -> {response.text[:200]}...")
+        return response.text
+    except requests.exceptions.RequestException as e:
+        logging.error(f"ERROR_EXEC_SQL: Failed to execute SQL via RPC: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
+        raise
 
-    if isinstance(data, str):
+def run():
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        logging.error("❌ CRITICAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
+        raise ValueError("Missing Supabase environment variables.")
+
+    for table in RAW_TABLES_TO_VIEW:
         try:
-            data = json.loads(data)
-        except Exception as e:
-            logging.error(f"❌ Failed to parse stringified JSON for {table_name}: {e}")
-            return []
-
-    if not data:
-        logging.warning(f"⚠️ No columns found for table {table_name}.")
-        return []
-
-    return data
-
-def build_create_view_sql(table_name, columns):
-    entity = table_name.replace("doorloop_raw_", "")
-    select_clause = ""
-    for col in columns:
-        col_name = col["column_name"]
-        select_clause += f'"{col_name}", '
-    select_clause = select_clause.rstrip(", ")
-    return f'CREATE OR REPLACE VIEW public.{entity} AS SELECT {select_clause} FROM public.{table_name};'
-
-def execute_sql(sql):
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    payload = {"sql": sql}
-    response = requests.post(url, headers=HEADERS, data=json.dumps(payload))
-    if not response.ok:
-        logging.error(f"❌ Failed to execute SQL:\n{sql}")
-        logging.error(f"🔻 Error: {response.status_code} — {response.text}")
-    else:
-        logging.info("✅ View successfully created.")
-
-def main():
-    logging.info("🔍 Fetching raw tables...")
-    tables = get_doorloop_raw_tables()
-
-    if not tables:
-        logging.warning("⚠️ No raw tables found. Exiting.")
-        return
-
-    for table in tables:
-        try:
-            logging.info(f"🔄 Processing table: {table}")
-            columns = get_columns_for_table(table)
+            logging.info(f"🔧 Processing view for: {table}")
+            columns = get_table_columns(table)
             if not columns:
-                logging.warning(f"⚠️ Skipping table {table} due to missing columns.")
+                logging.warning(f"⚠️ No columns found for {table}. Skipping view creation.")
                 continue
-            sql = build_create_view_sql(table, columns)
-            execute_sql(sql)
+            sql_view_create = build_view_sql(table, columns)
+            logging.info(f"📤 Executing view creation for {table}...")
+            execute_sql_via_rpc(sql_view_create)
+            logging.info(f"✅ View 'public.{table.replace('doorloop_raw_', '')}' created/replaced successfully for {table}.")
         except Exception as e:
-            logging.error(f"❌ Failed to process {table}: {e}")
+            logging.error(f"❌ Failed to process {table} for view generation: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
-    main()
+    run()
