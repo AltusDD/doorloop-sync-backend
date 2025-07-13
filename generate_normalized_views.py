@@ -1,74 +1,72 @@
+
 import os
 import requests
 import logging
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+HEADERS = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_table_columns(table_name):
-    query = f"SELECT column_name FROM information_schema.columns WHERE table_name = '{table_name}' ORDER BY ordinal_position;"
+    sql = f"""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = '{table_name}'
+        ORDER BY ordinal_position;
+    """
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
-        headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={"sql": query}
+        headers=HEADERS,
+        json={"sql": sql}
     )
     response.raise_for_status()
-    result = response.json()
-    return [row['column_name'] for row in result]
+    return [row["column_name"] for row in response.json() if row["column_name"] != "payload_json"]
 
-def generate_view_sql(raw_table):
-    view_name = raw_table.replace("doorloop_raw_", "")
-    columns = get_table_columns(raw_table)
-
-    select_parts = [f"payload_json->>'{col}' AS "{col}"" for col in columns if col not in ['id', 'doorloop_id', 'payload_json', 'created_at']]
-    select_parts.insert(0, "id")
-    if 'doorloop_id' in columns:
-        select_parts.insert(1, "doorloop_id")
+def generate_view_sql(raw_table, columns):
     select_clause = ",
-    ".join(select_parts)
-
-    sql = f"""
-    CREATE OR REPLACE VIEW public.{view_name} AS
+    ".join([f"{raw_table}.{col}" for col in columns])
+    return f"""
+    CREATE OR REPLACE VIEW public.{raw_table.replace('doorloop_raw_', '')} AS
     SELECT
         {select_clause}
-    FROM {raw_table};
-    """.strip()
-
-    return sql
+    FROM
+        public.{raw_table} AS {raw_table};
+    """
 
 def main():
-    target_tables = [
+    raw_tables = [
         "doorloop_raw_properties",
         "doorloop_raw_units",
         "doorloop_raw_tenants",
         "doorloop_raw_owners",
-        "doorloop_raw_leases"
+        "doorloop_raw_leases",
+        "doorloop_raw_lease_payments",
+        "doorloop_raw_lease_charges",
+        "doorloop_raw_lease_credits"
     ]
 
-    for table in target_tables:
+    for table in raw_tables:
         try:
             logger.info(f"🔧 Processing view for: {table}")
-            sql = generate_view_sql(table)
+            columns = get_table_columns(table)
+            logger.info(f"✅ Columns used in view: {columns}")
+            sql = generate_view_sql(table, columns)
             logger.info(f"📤 Executing SQL: {sql}")
-
             response = requests.post(
                 f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
-                headers={
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json"
-                },
+                headers=HEADERS,
                 json={"sql": sql}
             )
             response.raise_for_status()
-            logger.info(f"✅ View created/replaced successfully: {table}")
+            logger.info(f"✅ View {table.replace('doorloop_raw_', '')} created/replaced successfully.")
         except Exception as e:
             logger.error(f"❌ Failed for {table}: {e}")
 
