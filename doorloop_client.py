@@ -9,7 +9,7 @@ class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
         """
         Initializes the DoorLoop API client.
-        API key and base URL are passed as arguments, not read directly from os.getenv here.
+        API key and base URL are passed as arguments.
         """
         self.api_key = api_key.strip()
         self.base_url = base_url.strip()
@@ -30,6 +30,9 @@ class DoorLoopClient:
         logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
 
     def fetch_all(self, endpoint: str, params=None):
+        """
+        Handles pagination and retrieves all records from a DoorLoop endpoint.
+        """
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
         results = []
@@ -41,14 +44,12 @@ class DoorLoopClient:
             current_time = time.time()
             elapsed_since_last_call = current_time - self.last_api_call_time
             if elapsed_since_last_call < RATE_LIMIT_DELAY:
-                logger.debug(f"⏱️ Rate limiting active, sleeping for {RATE_LIMIT_DELAY - elapsed_since_last_call:.2f} seconds")
                 time.sleep(RATE_LIMIT_DELAY - elapsed_since_last_call)
             self.last_api_call_time = time.time()
 
             full_params = {"page_number": page, "page_size": 100}
             if params:
                 full_params.update(params)
-            logger.debug(f"📄 Request params for page {page}: {full_params}")
 
             response = requests.get(url, headers=self.headers, params=full_params)
             logger.debug(f"📥 HTTP {response.status_code} from {url}")
@@ -79,12 +80,20 @@ class DoorLoopClient:
             if not data_list or not isinstance(data_list, list):
                 logger.debug("🛑 No more data or malformed response (expected list of dicts)")
                 break
+
             results.extend(data_list)
             logger.debug(f"✅ Fetched {len(data_list)} items from page {page}")
 
             if len(data_list) < 100:
                 break
+
             page += 1
 
         return results
 
+    def get_all_records(self, category: str):
+        """
+        Backward-compatible alias to fetch all records for a given category.
+        This supports sync_all_doorloop_to_supabase.py without requiring changes.
+        """
+        return self.fetch_all(category)
