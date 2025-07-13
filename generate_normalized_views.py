@@ -16,7 +16,6 @@ HEADERS = {
     "Content-Type": "application/json",
 }
 
-# List of all doorloop_raw_* tables for which to generate views
 RAW_TABLES_TO_VIEW = [
     "doorloop_raw_properties",
     "doorloop_raw_units",
@@ -44,19 +43,24 @@ RAW_TABLES_TO_VIEW = [
 ]
 
 def get_table_columns(table_name):
-    url = f"{SUPABASE_URL}/rest/v1/columns?table_schema=eq.public&table_name=eq.{table_name}&select=column_name"
-    logging.info(f"DEBUG: Fetching columns for {table_name} from {url}")
+    url = f"{SUPABASE_URL}/rest/v1/rpc/get_table_columns_rpc"
+    payload = {
+        "schema_name": "public",
+        "table_name": table_name
+    }
+
+    logging.info(f"DEBUG: Fetching columns for {table_name} via RPC from {url}")
     try:
-        response = requests.get(url, headers=HEADERS, timeout=30)
+        response = requests.post(url, headers=HEADERS, json=payload, timeout=30)
         response.raise_for_status()
         columns_data = response.json()
         if isinstance(columns_data, list) and all(isinstance(col, dict) and 'column_name' in col for col in columns_data):
             return [col['column_name'] for col in columns_data]
         else:
-            logging.error(f"ERROR: Unexpected API response format for columns from {table_name}: {columns_data}")
+            logging.error(f"ERROR: Unexpected RPC response format for {table_name}: {columns_data}")
             return []
     except requests.exceptions.RequestException as e:
-        logging.error(f"ERROR: Failed to fetch columns for {table_name} via direct API: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
+        logging.error(f"ERROR: Failed to fetch columns for {table_name} via RPC: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
         raise
     except Exception as e:
         logging.error(f"ERROR: Unexpected error in get_table_columns for {table_name}: {e}")
@@ -66,12 +70,12 @@ def build_view_sql(raw_table_name, columns):
     view_name = raw_table_name.replace("doorloop_raw_", "")
     quoted_columns = [f'"{col}"' for col in columns]
     select_clause = ", ".join(quoted_columns)
-    sql = f'''
+    sql = f"""
 CREATE OR REPLACE VIEW public."{view_name}" AS
 SELECT
     {select_clause}
 FROM public."{raw_table_name}";
-'''
+""".strip()
     return sql
 
 def execute_sql_via_rpc(sql_command):
@@ -89,7 +93,7 @@ def execute_sql_via_rpc(sql_command):
 
 def run():
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        logging.error("❌ CRITICAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
+        logging.error("❌ CRITICAL: Missing Supabase environment variables.")
         raise ValueError("Missing Supabase environment variables.")
 
     for table in RAW_TABLES_TO_VIEW:
@@ -102,9 +106,9 @@ def run():
             sql_view_create = build_view_sql(table, columns)
             logging.info(f"📤 Executing view creation for {table}...")
             execute_sql_via_rpc(sql_view_create)
-            logging.info(f"✅ View 'public.{table.replace('doorloop_raw_', '')}' created/replaced successfully for {table}.")
+            logging.info(f"✅ View 'public.{table.replace('doorloop_raw_', '')}' created/replaced successfully.")
         except Exception as e:
-            logging.error(f"❌ Failed to process {table} for view generation: {type(e).__name__}: {e}")
+            logging.error(f"❌ Failed to process {table}: {type(e).__name__}: {e}")
 
 if __name__ == "__main__":
     run()
