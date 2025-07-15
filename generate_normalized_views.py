@@ -49,22 +49,26 @@ def get_raw_table_names():
     return [row["table_name"] for row in result]
 
 def get_columns_for_table(table_name: str):
-    sql = f"""
+    sql = f\"\"
         SELECT column_name
         FROM information_schema.columns
         WHERE table_name = '{table_name}'
         ORDER BY ordinal_position;
-    """
+    \"\"
     result = execute_sql_query(sql)
     return [row["column_name"] for row in result if row["column_name"] not in EXCLUDED_COLUMNS]
 
+def quote_identifier(identifier: str) -> str:
+    """Wrap SQL identifiers like column names in double quotes"""
+    return f'"{identifier}"'
+
 def create_view_sql(raw_table: str, columns: list):
     normalized_table = raw_table.replace("doorloop_raw_", "doorloop_normalized_")
-    col_str = ", ".join(columns)
-    return f"""
-        CREATE OR REPLACE VIEW {normalized_table} AS
-        SELECT {col_str} FROM {raw_table};
-    """
+    quoted_columns = ", ".join([quote_identifier(col) for col in columns])
+    return f\"\"
+        CREATE OR REPLACE VIEW "{normalized_table}" AS
+        SELECT {quoted_columns} FROM "{raw_table}";
+    \"\"
 
 def main():
     logger.info("🔍 Starting view generation from raw tables...")
