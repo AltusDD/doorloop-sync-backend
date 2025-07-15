@@ -7,10 +7,20 @@ import requests
 
 # Setup
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__) # Use logger instance
+logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+# --- DEBUG: Log Environment Variables ---
+_supabase_url_val = os.environ.get("SUPABASE_URL")
+_supabase_key_val = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+
+logger.info(f"DEBUG_ENV: SUPABASE_URL: {'SET' if _supabase_url_val else 'NOT SET'}")
+logger.info(f"DEBUG_ENV: SUPABASE_SERVICE_ROLE_KEY: {'SET' if _supabase_key_val else 'NOT SET'}")
+if _supabase_key_val:
+    logger.info(f"DEBUG_ENV: SUPABASE_SERVICE_ROLE_KEY (first 5 chars): {_supabase_key_val[:5]}...")
+# --- END DEBUG ---
+
+SUPABASE_URL = _supabase_url_val
+SUPABASE_SERVICE_ROLE_KEY = _supabase_key_val
 
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -46,14 +56,27 @@ RAW_TABLES_TO_VIEW = [
 ]
 
 def get_raw_table_names():
-    # This function is now correctly defined at the global scope
-    return RAW_TABLES_TO_VIEW
-
-
-def get_table_columns(table_name):
+    sql = """
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name LIKE 'doorloop_raw_%'
+    ORDER BY table_name;
     """
-    Fetches column names for a given table from information_schema.columns via RPC.
-    """
+    try:
+        table_rows = execute_sql_query(sql)
+        return [row[0] for row in table_rows]
+    except Exception as e:
+        logger.warning(f"⚠️ Falling back to hardcoded table list due to error fetching raw table names: {e}")
+        return [
+            "doorloop_raw_properties", "doorloop_raw_units", "doorloop_raw_leases", "doorloop_raw_tenants",
+            "doorloop_raw_lease_payments", "doorloop_raw_lease_charges", "doorloop_raw_owners", "doorloop_raw_vendors",
+            "doorloop_raw_tasks", "doorloop_raw_files", "doorloop_raw_notes", "doorloop_raw_communications",
+            "doorloop_raw_applications", "doorloop_raw_inspections", "doorloop_raw_insurance_policies",
+            "doorloop_raw_recurring_charges", "doorloop_raw_recurring_credits", "doorloop_raw_accounts",
+            "doorloop_raw_users", "doorloop_raw_portfolios", "doorloop_raw_reports", "doorloop_raw_activity_logs",
+        ]
+
+def get_table_columns(table_name: str):
     sql = f"""
     SELECT column_name
     FROM information_schema.columns
@@ -61,17 +84,8 @@ def get_table_columns(table_name):
     ORDER BY ordinal_position;
     """
     try:
-        response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
-            headers=HEADERS,
-            json={"sql": sql},
-            timeout=30
-        )
-        response.raise_for_status()
+        data = execute_sql_query(sql)
 
-        data = response.json() # This will be a list of lists or list of dicts
-
-        # --- CRITICAL FIX: Filter columns ---
         columns_to_exclude = {
             "data", "leaseDepositItem", "leasechargeitem", "totalbalance", "register", "tags", "taxable", 
             "openedat", "linkedresource", "defaultaccountfor", "sentat", "bouncedat", "lines", "bcc", 
@@ -109,22 +123,19 @@ def get_table_columns(table_name):
             "active", "display_name", "created_at", "updated_at", "doorloop_id", "id", "_raw_payload", "payload_json"
         }
 
-        # Filter out columns that are not in the expected base schema or are problematic
         filtered_columns = []
         if isinstance(data, list) and data:
-            # Handle both list of lists and list of dicts from RPC
-            if isinstance(data[0], list): # [['col1'], ['col2']]
+            if isinstance(data[0], list): 
                 filtered_columns = [
                     row[0] for row in data
                     if row[0].lower() not in columns_to_exclude
                 ]
-            elif isinstance(data[0], dict) and 'column_name' in data[0]: # [{'column_name': 'col1'}]
+            elif isinstance(data[0], dict) and 'column_name' in data[0]: 
                 filtered_columns = [
                     row['column_name'] for row in data
                     if row['column_name'].lower() not in columns_to_exclude
                 ]
 
-        # Ensure essential columns are always included
         essential_columns = {"id", "doorloop_id", "payload_json", "created_at", "updated_at", "_raw_payload"}
 
         final_columns = list(set(filtered_columns) | essential_columns) 
@@ -164,9 +175,7 @@ def execute_sql_via_rpc(sql_command):
         logger.error(f"ERROR_EXEC_SQL: Failed to execute SQL via RPC: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
         raise
 
-# --- FIX: Define main() at the global level ---
-def main():
-    # --- Environment Variable Check ---
+def run():
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         logger.error("❌ CRITICAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
         raise ValueError("Missing Supabase environment variables.")
@@ -188,7 +197,7 @@ def main():
             create_or_replace_view(table, columns)
         except Exception as e:
             logger.error(f"❌ Failed to process {table} for view generation: {type(e).__name__}: {e}")
-            continue # Do not raise, continue to next table to process all possible views.
+            continue 
 
 if __name__ == "__main__":
-    main()
+    run()
