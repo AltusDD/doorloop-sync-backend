@@ -1,34 +1,30 @@
-
-# generate_normalized_views.py
-
 import os
 import sys
-import json
 import logging
 import requests
-import traceback
 
+# Setup logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load from environment variables
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    logger.critical("❌ SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set in environment.")
+    sys.exit(1)
+
+# Try importing Supabase client
 try:
     from supabase import create_client, Client
     SUPABASE_CLIENT_AVAILABLE = True
 except ImportError:
     SUPABASE_CLIENT_AVAILABLE = False
-    logging.warning("Supabase client not installed. Falling back to requests-based method.")
-
-# Setup logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-# Supabase Configuration
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    logger.error("❌ CRITICAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
-    raise ValueError("Missing Supabase environment variables.")
+    logger.warning("Supabase client not installed. Falling back to requests-based method.")
 
 def execute_sql_query_requests(sql: str):
+    """Execute SQL using raw HTTP POST."""
     url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -39,31 +35,28 @@ def execute_sql_query_requests(sql: str):
     payload = {"sql_text": sql}
 
     try:
-        logger.info(f"📤 Executing SQL via requests: {sql.splitlines()[0]}...")
+        logger.info(f"📤 Executing SQL via requests: {sql.strip().splitlines()[0]}...")
         response = requests.post(url, headers=headers, json=payload, timeout=60)
         response.raise_for_status()
         data = response.json()
-        logger.info(f"✅ SQL execution succeeded: {sql.splitlines()[0]}...")
+        logger.info("✅ SQL executed successfully (requests)")
         return data
-
     except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Error executing SQL: {type(e).__name__} - {str(e)}")
-        if hasattr(e, 'response'):
-            logger.error(f"🔽 Response status: {e.response.status_code}")
-            logger.error(f"🔽 Response body: {e.response.text}")
-        traceback.print_exc()
+        logger.error(f"❌ HTTP error ({type(e).__name__}): {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            logger.error(f"Response text: {e.response.text}")
         raise
 
 def execute_sql_query_supabase(sql: str):
+    """Execute SQL using Supabase client."""
     try:
-        logger.info(f"📤 Executing SQL via Supabase client: {sql.splitlines()[0]}...")
-        supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-        response = supabase.rpc('execute_sql', {'sql_text': sql}).execute()
-        logger.info(f"✅ SQL execution succeeded: {sql.splitlines()[0]}...")
+        logger.info(f"📤 Executing SQL via Supabase client: {sql.strip().splitlines()[0]}...")
+        client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+        response = client.rpc("execute_sql", {"sql_text": sql}).execute()
+        logger.info("✅ SQL executed successfully (supabase client)")
         return response.data
     except Exception as e:
-        logger.error(f"❌ Error executing SQL via Supabase client: {type(e).__name__} - {str(e)}")
-        traceback.print_exc()
+        logger.error(f"❌ Supabase client error ({type(e).__name__}): {e}")
         raise
 
 def execute_sql_query(sql: str):
@@ -72,16 +65,49 @@ def execute_sql_query(sql: str):
     else:
         return execute_sql_query_requests(sql)
 
-def main():
+def run():
+    logger.info("🔍 Starting view generation from raw tables...")
+
     try:
-        logger.info("🔍 Starting view generation from raw tables...")
-        sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE 'doorloop_raw_%' ORDER BY table_name;"
-        tables = execute_sql_query(sql)
-        logger.info(f"📦 Tables found: {[t['table_name'] for t in tables]}")
+        result = execute_sql_query("""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name LIKE 'doorloop_raw_%'
+        ORDER BY table_name;
+        """)
+        raw_tables = [row["table_name"] for row in result]
     except Exception as e:
-        logger.critical(f"🔥 Fatal error in main(): {e}")
-        traceback.print_exc()
-        sys.exit(1)
+        logger.warning(f"⚠️ Failed to fetch raw table list dynamically. Using fallback list. Reason: {e}")
+        raw_tables = [
+            "doorloop_raw_properties",
+            "doorloop_raw_units",
+            "doorloop_raw_leases",
+            "doorloop_raw_tenants",
+            "doorloop_raw_lease_payments",
+            "doorloop_raw_lease_charges",
+            "doorloop_raw_owners",
+            "doorloop_raw_vendors",
+        ]
+
+    for table in raw_tables:
+        try:
+            logger.info(f"🔄 Processing {table}...")
+            result = execute_sql_query(f"""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = '{table}'
+            ORDER BY ordinal_position;
+            """)
+            column_names = [row["column_name"] for row in result]
+            logger.info(f"🧱 {table}: {len(column_names)} columns found")
+        except Exception as e:
+            logger.error(f"❌ Failed to fetch columns for {table}: {e}")
 
 if __name__ == "__main__":
-    main()
+    try:
+        run()
+    except Exception as e:
+        logger.critical(f"❌ Unhandled fatal error: {type(e).__name__} - {e}")
+        if hasattr(e, "response"):
+            logger.error(f"Response text: {e.response.text}")
+        sys.exit(1)
