@@ -9,24 +9,43 @@ import requests
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- DEBUG: Log Environment Variables ---
-_supabase_url_val = os.environ.get("SUPABASE_URL")
-_supabase_key_val = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-logger.info(f"DEBUG_ENV: SUPABASE_URL: {'SET' if _supabase_url_val else 'NOT SET'}")
-logger.info(f"DEBUG_ENV: SUPABASE_SERVICE_ROLE_KEY: {'SET' if _supabase_key_val else 'NOT SET'}")
-if _supabase_key_val:
-    logger.info(f"DEBUG_ENV: SUPABASE_SERVICE_ROLE_KEY (first 5 chars): {_supabase_key_val[:5]}...")
-# --- END DEBUG ---
-
-SUPABASE_URL = _supabase_url_val
-SUPABASE_SERVICE_ROLE_KEY = _supabase_key_val
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
     "Content-Type": "application/json",
 }
+
+# --- FIX: Ensure execute_sql_query is defined at the top-level (global scope) ---
+def execute_sql_query(sql: str):
+    """
+    Executes SQL queries via Supabase's /rpc/execute_sql endpoint.
+    Returns the JSON response.
+    """
+    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
+    payload = {"sql": sql.strip()} 
+
+    logger.info(f"📤 Executing SQL: {payload['sql'].splitlines()[0]}...")
+    try:
+        response = requests.post(url, headers=HEADERS, json=payload, timeout=60)
+        response.raise_for_status() 
+
+        json_response = response.json()
+
+        logger.info(f"✅ SQL execution succeeded: {payload['sql'].splitlines()[0]}...")
+        return json_response
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"❌ Error calling execute_sql RPC: {e.response.status_code} {e.response.reason} for url: {url}")
+        logger.error(f"Response text: {e.response.text}")
+        raise 
+    except json.JSONDecodeError as e:
+        logger.error(f"❌ JSONDecodeError from RPC response: {e}. Response text: {response.text}")
+        raise 
+    except Exception as e:
+        logger.error(f"❌ Generic error during RPC call: {type(e).__name__}: {e}")
+        raise
 
 # List of all doorloop_raw_* tables for which to generate views
 RAW_TABLES_TO_VIEW = [
@@ -63,7 +82,7 @@ def get_raw_table_names():
     ORDER BY table_name;
     """
     try:
-        table_rows = execute_sql_query(sql)
+        table_rows = execute_sql_query(sql) # This call is now in scope
         return [row[0] for row in table_rows]
     except Exception as e:
         logger.warning(f"⚠️ Falling back to hardcoded table list due to error fetching raw table names: {e}")
@@ -84,7 +103,7 @@ def get_table_columns(table_name: str):
     ORDER BY ordinal_position;
     """
     try:
-        data = execute_sql_query(sql)
+        data = execute_sql_query(sql) # This call is now in scope
 
         columns_to_exclude = {
             "data", "leaseDepositItem", "leasechargeitem", "totalbalance", "register", "tags", "taxable", 
