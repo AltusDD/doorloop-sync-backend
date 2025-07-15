@@ -45,6 +45,11 @@ RAW_TABLES_TO_VIEW = [
     "doorloop_raw_activity_logs",
 ]
 
+def get_raw_table_names():
+    # This function is now correctly defined at the global scope
+    return RAW_TABLES_TO_VIEW
+
+
 def get_table_columns(table_name):
     """
     Fetches column names for a given table from information_schema.columns via RPC.
@@ -59,20 +64,14 @@ def get_table_columns(table_name):
         response = requests.post(
             f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
             headers=HEADERS,
-            json={"sql": sql}, # Corrected payload format
+            json={"sql": sql},
             timeout=30
         )
         response.raise_for_status()
-        data = response.json()
+
+        data = response.json() # This will be a list of lists or list of dicts
 
         # --- CRITICAL FIX: Filter columns ---
-        # These are common columns that might appear from previous failed migrations,
-        # or if 'data' was a column, or if a view/function is being introspected.
-        # We only want actual base table columns.
-
-        # List of columns to explicitly exclude from view generation
-        # Populate this set with ALL column names that caused "does not exist" errors
-        # or are clearly not part of your base doorloop_raw_* table schema.
         columns_to_exclude = {
             "data", "leaseDepositItem", "leasechargeitem", "totalbalance", "register", "tags", "taxable", 
             "openedat", "linkedresource", "defaultaccountfor", "sentat", "bouncedat", "lines", "bcc", 
@@ -111,10 +110,19 @@ def get_table_columns(table_name):
         }
 
         # Filter out columns that are not in the expected base schema or are problematic
-        filtered_columns = [
-            row[0] for row in data 
-            if row[0].lower() not in columns_to_exclude
-        ]
+        filtered_columns = []
+        if isinstance(data, list) and data:
+            # Handle both list of lists and list of dicts from RPC
+            if isinstance(data[0], list): # [['col1'], ['col2']]
+                filtered_columns = [
+                    row[0] for row in data
+                    if row[0].lower() not in columns_to_exclude
+                ]
+            elif isinstance(data[0], dict) and 'column_name' in data[0]: # [{'column_name': 'col1'}]
+                filtered_columns = [
+                    row['column_name'] for row in data
+                    if row['column_name'].lower() not in columns_to_exclude
+                ]
 
         # Ensure essential columns are always included
         essential_columns = {"id", "doorloop_id", "payload_json", "created_at", "updated_at", "_raw_payload"}
@@ -126,7 +134,7 @@ def get_table_columns(table_name):
         return final_columns
     except Exception as e:
         logger.error(f"❌ Failed to fetch columns for {table_name}: {e}")
-        return []
+        raise
 
 def build_view_sql(raw_table_name, columns):
     view_name = raw_table_name.replace("doorloop_raw_", "") 
@@ -156,7 +164,9 @@ def execute_sql_via_rpc(sql_command):
         logger.error(f"ERROR_EXEC_SQL: Failed to execute SQL via RPC: {e.response.status_code if e.response else ''} -> {e.response.text if e.response else str(e)}")
         raise
 
-def run():
+# --- FIX: Define main() at the global level ---
+def main():
+    # --- Environment Variable Check ---
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         logger.error("❌ CRITICAL: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
         raise ValueError("Missing Supabase environment variables.")
