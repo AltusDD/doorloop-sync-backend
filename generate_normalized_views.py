@@ -1,7 +1,6 @@
 import os
 import requests
 import logging
-import time
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -16,7 +15,6 @@ HEADERS = {
 }
 
 def fetch_table_list():
-    """Fetch all tables starting with 'doorloop_raw_'"""
     sql = """
         SELECT table_name
         FROM information_schema.tables
@@ -37,7 +35,6 @@ def fetch_table_list():
     return [row['table_name'] for row in response.json()]
 
 def fetch_column_names(table_name):
-    """Fetch exact column names for given table"""
     sql = f"""
         SELECT column_name
         FROM information_schema.columns
@@ -57,17 +54,18 @@ def fetch_column_names(table_name):
     return [f'"{row["column_name"]}"' for row in response.json()]
 
 def create_normalized_view(table_name):
-    """Generate normalized view using exact column names"""
-    normalized_view_name = table_name.replace("doorloop_raw_", "doorloop_normalized_")
+    view_name = table_name.replace("doorloop_raw_", "doorloop_normalized_")
     columns = fetch_column_names(table_name)
 
     if not columns:
         logger.warning(f"⚠️ Skipping {table_name}, no columns found.")
         return
 
+    column_list = ", ".join(columns)
     sql = f"""
-        CREATE OR REPLACE VIEW {normalized_view_name} AS
-        SELECT {', '.join(columns)} FROM {table_name};
+        CREATE OR REPLACE VIEW {view_name} AS
+        SELECT {column_list}
+        FROM {table_name};
     """
 
     response = requests.post(
@@ -77,7 +75,7 @@ def create_normalized_view(table_name):
     )
 
     if response.status_code == 200:
-        logger.info(f"✅ View created: {normalized_view_name}")
+        logger.info(f"✅ View created: {view_name}")
     else:
         logger.error(f"❌ Error creating view for {table_name}: {response.text}")
 
