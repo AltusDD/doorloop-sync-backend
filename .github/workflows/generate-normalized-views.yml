@@ -21,21 +21,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install psycopg2-binary
 
-      - name: 🔐 Export Supabase secrets as environment variables
-        run: echo "✅ Environment variables ready"
-        env:
-          DB_HOST: ${{ secrets.SUPABASE_DB_URL }}
-          DB_NAME: postgres
-          DB_USER: postgres
-          DB_PASSWORD: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          DB_PORT: 5432
-
       - name: 🚀 Run Normalized View Generator
+        run: python generate_normalized_views.py
         env:
-          DB_HOST: ${{ secrets.SUPABASE_DB_URL }}
-          DB_NAME: postgres
-          DB_USER: postgres
-          DB_PASSWORD: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          DB_PORT: 5432
-        run: |
-          python generate_normalized_views.py
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
