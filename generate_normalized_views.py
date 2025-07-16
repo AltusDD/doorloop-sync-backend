@@ -27,18 +27,16 @@ def fetch_table_list():
         headers=HEADERS,
         json={"sql_text": sql}
     )
-
     if response.status_code != 200:
         logger.error(f"Failed to fetch table list: {response.text}")
         return []
-
     return [row['table_name'] for row in response.json()]
 
-def fetch_column_names(table_name):
+def fetch_column_names_exact(table_name):
     sql = f"""
         SELECT column_name
         FROM information_schema.columns
-        WHERE table_name = '{table_name}'
+        WHERE table_name = '{table_name}' AND table_schema = 'public'
         ORDER BY ordinal_position;
     """
     response = requests.post(
@@ -46,28 +44,24 @@ def fetch_column_names(table_name):
         headers=HEADERS,
         json={"sql_text": sql}
     )
-
     if response.status_code != 200:
         logger.error(f"Failed to fetch columns for {table_name}: {response.text}")
         return []
-
     return [f'"{row["column_name"]}"' for row in response.json()]
 
-def create_normalized_view(table_name):
-    view_name = table_name.replace("doorloop_raw_", "doorloop_normalized_")
-    columns = fetch_column_names(table_name)
-
+def create_view_safe(raw_table):
+    view_name = raw_table.replace("doorloop_raw_", "doorloop_normalized_")
+    columns = fetch_column_names_exact(raw_table)
     if not columns:
-        logger.warning(f"⚠️ Skipping {table_name}, no columns found.")
+        logger.warning(f"⚠️ Skipping {raw_table}, no columns found.")
         return
 
-    column_list = ", ".join(columns)
+    select_clause = ", ".join(columns)
     sql = f"""
         CREATE OR REPLACE VIEW {view_name} AS
-        SELECT {column_list}
-        FROM {table_name};
+        SELECT {select_clause}
+        FROM {raw_table};
     """
-
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
         headers=HEADERS,
@@ -77,14 +71,14 @@ def create_normalized_view(table_name):
     if response.status_code == 200:
         logger.info(f"✅ View created: {view_name}")
     else:
-        logger.error(f"❌ Error creating view for {table_name}: {response.text}")
+        logger.error(f"❌ Error creating view for {raw_table}: {response.text}")
 
 def main():
     logger.info("🔍 Starting view generation from raw tables...")
     tables = fetch_table_list()
     for table in tables:
         logger.info(f"🔄 Processing {table}...")
-        create_normalized_view(table)
+        create_view_safe(table)
 
 if __name__ == "__main__":
     main()
