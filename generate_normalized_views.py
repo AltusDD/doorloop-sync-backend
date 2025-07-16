@@ -1,92 +1,83 @@
+
+import psycopg2
+from psycopg2 import sql
 import os
-import sys
-import requests
 import logging
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Environment Variables
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-# Safety Check
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    logger.critical("❌ SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
-    sys.exit(1)
-
-EXCLUDED_COLUMNS = {"_links", "created_at", "updated_at"}
-
-def execute_sql_query(sql: str):
-    url = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
-    }
-    payload = {"sql_text": sql}
+def get_db_connection():
     try:
-        logger.info(f"📤 Executing SQL via requests: {sql.splitlines()[0]}...")
-        response = requests.post(url, headers=headers, json=payload, timeout=60)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        logger.error(f"❌ Error executing SQL: {type(e).__name__} - {str(e)}")
-        if hasattr(e, 'response'):
-            logger.error(f"Response text: {e.response.text}")
+        conn = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT", 5432)
+        )
+        logging.info("Connected to the database.")
+        return conn
+    except psycopg2.Error as e:
+        logging.error(f"Database connection error: {e}")
         raise
 
-def get_raw_table_names():
-    sql = """
-        SELECT table_name
-        FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name LIKE 'doorloop_raw_%'
-        ORDER BY table_name;
-    """
-    result = execute_sql_query(sql)
-    return [row["table_name"] for row in result]
+def get_table_columns(cursor, schema, table):
+    cursor.execute(
+        sql.SQL("""
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position
+        """),
+        [schema, table]
+    )
+    return [row[0] for row in cursor.fetchall()]
 
-def get_columns_for_table(table_name: str):
-    sql = f"""
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_name = '{table_name}'
-        ORDER BY ordinal_position;
-    """
-    result = execute_sql_query(sql)
-    return [row["column_name"] for row in result if row["column_name"] not in EXCLUDED_COLUMNS]
+def generate_create_view_sql(schema, raw_table, view_name, columns):
+    quoted_columns = [sql.Identifier(col) for col in columns]
+    select_clause = sql.SQL(', ').join(quoted_columns)
+    return sql.SQL("""
+        CREATE OR REPLACE VIEW {view} AS
+        SELECT {fields}
+        FROM {table};
+    """).format(
+        view=sql.Identifier(schema, view_name),
+        fields=select_clause,
+        table=sql.Identifier(schema, raw_table)
+    )
 
-def create_view_sql(raw_table: str, columns: list):
-    normalized_table = raw_table.replace("doorloop_raw_", "doorloop_normalized_")
-    col_str = ", ".join(columns)
-    return f"""
-        CREATE OR REPLACE VIEW {normalized_table} AS
-        SELECT {col_str} FROM {raw_table};
-    """
-
-def main():
-    logger.info("🔍 Starting view generation from raw tables...")
+def execute_sql(conn, statement):
     try:
-        raw_tables = get_raw_table_names()
+        with conn.cursor() as cursor:
+            cursor.execute(statement)
+        conn.commit()
+        logging.info("Executed view creation SQL.")
     except Exception as e:
-        logger.critical(f"❌ Failed to fetch raw tables: {e}")
-        return
+        conn.rollback()
+        logging.error(f"Failed SQL execution: {e}")
 
-    for raw_table in raw_tables:
-        logger.info(f"🔄 Processing {raw_table}...")
-        try:
-            columns = get_columns_for_table(raw_table)
-            if not columns:
-                logger.warning(f"⚠️ No usable columns found for {raw_table}. Skipping...")
-                continue
-            logger.info(f"🧱 {raw_table}: {len(columns)} columns found")
-            view_sql = create_view_sql(raw_table, columns)
-            execute_sql_query(view_sql)
-            logger.info(f"✅ View created: doorloop_normalized_{raw_table.split('_')[-1]}")
-        except Exception as e:
-            logger.error(f"❌ Failed to process {raw_table}: {e}")
+def automate_view_creation(schema, mappings):
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            for raw_table, view_name in mappings.items():
+                logging.info(f"Processing {raw_table} -> {view_name}")
+                columns = get_table_columns(cursor, schema, raw_table)
+                if columns:
+                    view_sql = generate_create_view_sql(schema, raw_table, view_name, columns)
+                    execute_sql(conn, view_sql)
+                else:
+                    logging.warning(f"No columns found for {raw_table}")
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
-    main()
+    schema = "public"
+    mappings = {
+        "doorloop_raw_properties": "doorloop_normalized_properties",
+        "doorloop_raw_units": "doorloop_normalized_units",
+        # add more raw->normalized mappings here
+    }
+    automate_view_creation(schema, mappings)
+    

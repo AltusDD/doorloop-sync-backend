@@ -1,4 +1,5 @@
-name: Get Normalized Views
+
+name: Generate Normalized Views
 
 on:
   workflow_dispatch:
@@ -7,23 +8,27 @@ on:
       - 'generate_normalized_views.py'
 
 jobs:
-  generate-views:
+  build:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.11
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      - name: 📦 Install dependencies
-        run: pip install requests
+    - name: Install dependencies
+      run: pip install psycopg2-binary
 
-      - name: 🧱 Run generate_normalized_views.py
-        run: python generate_normalized_views.py
+    - name: Run view generator
+      env:
+        DB_HOST: ${{ secrets.DB_HOST }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+      run: python generate_normalized_views.py
+    
