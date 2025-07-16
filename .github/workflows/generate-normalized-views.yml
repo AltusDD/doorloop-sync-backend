@@ -1,4 +1,3 @@
-
 name: Database View Generation
 
 on: [push, pull_request]
@@ -24,41 +23,25 @@ jobs:
       env:
         DATABASE_URL: ${{ secrets.DATABASE_URL }}
       run: |
-        python -c "
-import os
-import socket
-import ssl
-
-def diagnose_network():
-    host = 'db.ssexobxvtuxwnblwplzh.supabase.co'
-    port = 5432
-
-    print(f'Diagnosing connection to {host}:{port}')
-
-    try:
-        # DNS Resolution
-        ip_addresses = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
-        print(f'✅ DNS Resolution: Found {len(ip_addresses)} IP addresses')
-
-        # TCP Connection
-        for family, socktype, proto, canonname, sockaddr in ip_addresses:
-            try:
-                with socket.create_connection((sockaddr[0], port), timeout=5) as sock:
-                    print(f'✅ TCP Connection successful to {sockaddr[0]}')
-            except Exception as e:
-                print(f'❌ TCP Connection to {sockaddr[0]} failed: {e}')
-
-        # SSL Handshake
-        context = ssl.create_default_context()
-        with socket.create_connection((host, port), timeout=5) as sock:
-            with context.wrap_socket(sock, server_hostname=host) as secure_sock:
-                print('✅ SSL Handshake successful')
-
-    except Exception as e:
-        print(f'❌ Network diagnosis failed: {e}')
-
-diagnose_network()
-"
+        python -c 'import socket, ssl
+host = "db.ssexobxvtuxwnblwplzh.supabase.co"
+port = 5432
+print(f"Diagnosing {host}:{port}")
+try:
+    ip_addresses = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
+    print(f"✅ DNS Resolution: {len(ip_addresses)} IPs found")
+    for fam, st, pr, cn, sa in ip_addresses:
+        try:
+            with socket.create_connection((sa[0], port), timeout=5) as s:
+                print(f"✅ TCP OK to {sa[0]}")
+        except Exception as e:
+            print(f"❌ TCP Fail to {sa[0]}: {e}")
+    ctx = ssl.create_default_context()
+    with socket.create_connection((host, port), timeout=5) as sock:
+        with ctx.wrap_socket(sock, server_hostname=host) as ssock:
+            print("✅ SSL OK")
+except Exception as e:
+    print(f"❌ NetDiag failed: {e}")'
 
     - name: Generate Normalized Views
       env:
