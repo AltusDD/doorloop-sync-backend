@@ -1,79 +1,92 @@
-
 import os
 import requests
 import logging
+import time
 
+# Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-SCHEMA = "public"
-
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 HEADERS = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
     "Content-Type": "application/json"
 }
 
-def execute_sql(sql: str):
-    logging.info("📤 Executing SQL via requests: ...")
-    try:
-        response = requests.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
-            headers=HEADERS,
-            json={"sql_text": sql}
-        )
-        response.raise_for_status()
-        logging.info("✅ SQL executed successfully.")
-        return response.json()
-    except requests.exceptions.HTTPError as e:
-        logging.error(f"❌ Error executing SQL: HTTPError - {e}")
-        logging.error(f"Response text: {response.text}")
-    except Exception as e:
-        logging.error(f"❌ Unexpected error: {e}")
-
-def get_column_names(table_name):
-    query = f'''
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_schema = '{SCHEMA}' AND table_name = '{table_name}'
-        ORDER BY ordinal_position;
-    '''
-    result = requests.post(
+def fetch_table_list():
+    """Fetch all tables starting with 'doorloop_raw_'"""
+    sql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name LIKE 'doorloop_raw_%'
+        ORDER BY table_name;
+    """
+    response = requests.post(
         f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
         headers=HEADERS,
-        json={"sql_text": query}
+        json={"sql_text": sql}
     )
-    if result.status_code == 200:
-        return [row['column_name'] for row in result.json()]
-    else:
-        logging.error(f"⚠️ Failed to fetch columns for {table_name}. Response: {result.text}")
+
+    if response.status_code != 200:
+        logger.error(f"Failed to fetch table list: {response.text}")
         return []
 
-def automate_view_creation(schema_name, table_mappings):
-    for raw_table, view_name in table_mappings.items():
-        logging.info(f"🔄 Processing {raw_table}...")
-        columns = get_column_names(raw_table)
-        if not columns:
-            logging.warning(f"⚠️ Skipping {raw_table}, no columns found.")
-            continue
+    return [row['table_name'] for row in response.json()]
 
-        col_list = ", ".join(columns)
-        sql = f'''
-            CREATE OR REPLACE VIEW {view_name} AS
-            SELECT {col_list} FROM {raw_table};
-        '''
-        execute_sql(sql)
+def fetch_column_names(table_name):
+    """Fetch exact column names for given table"""
+    sql = f"""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name = '{table_name}'
+        ORDER BY ordinal_position;
+    """
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers=HEADERS,
+        json={"sql_text": sql}
+    )
+
+    if response.status_code != 200:
+        logger.error(f"Failed to fetch columns for {table_name}: {response.text}")
+        return []
+
+    return [f'"{row["column_name"]}"' for row in response.json()]
+
+def create_normalized_view(table_name):
+    """Generate normalized view using exact column names"""
+    normalized_view_name = table_name.replace("doorloop_raw_", "doorloop_normalized_")
+    columns = fetch_column_names(table_name)
+
+    if not columns:
+        logger.warning(f"⚠️ Skipping {table_name}, no columns found.")
+        return
+
+    sql = f"""
+        CREATE OR REPLACE VIEW {normalized_view_name} AS
+        SELECT {', '.join(columns)} FROM {table_name};
+    """
+
+    response = requests.post(
+        f"{SUPABASE_URL}/rest/v1/rpc/execute_sql",
+        headers=HEADERS,
+        json={"sql_text": sql}
+    )
+
+    if response.status_code == 200:
+        logger.info(f"✅ View created: {normalized_view_name}")
+    else:
+        logger.error(f"❌ Error creating view for {table_name}: {response.text}")
+
+def main():
+    logger.info("🔍 Starting view generation from raw tables...")
+    tables = fetch_table_list()
+    for table in tables:
+        logger.info(f"🔄 Processing {table}...")
+        create_normalized_view(table)
 
 if __name__ == "__main__":
-    logging.info("🔍 Starting view generation from raw tables...")
-    schema = "public"
-    mappings = {
-        "doorloop_raw_properties": "doorloop_normalized_properties",
-        "doorloop_raw_units": "doorloop_normalized_units",
-        "doorloop_raw_leases": "doorloop_normalized_leases",
-        "doorloop_raw_tenants": "doorloop_normalized_tenants",
-        "doorloop_raw_owners": "doorloop_normalized_owners",
-        "doorloop_raw_payments": "doorloop_normalized_payments"
-    }
-    automate_view_creation(schema, mappings)
+    main()
