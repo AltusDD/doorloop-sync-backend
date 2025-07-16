@@ -25,4 +25,4 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          python path/to/your/ea55ceb6-586a-4fab-9bd6-b77d581fb955.py
+          python path/to/your/generate_normalized_views.py
