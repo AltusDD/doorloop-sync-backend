@@ -1,74 +1,85 @@
 import os
-import json
-import requests
+import psycopg2
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-HEADERS = {
-    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json"
-}
+def get_raw_tables(cursor):
+    cursor.execute("""
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name LIKE 'doorloop_raw_%';
+    """)
+    return [row[0] for row in cursor.fetchall()]
 
-SQL_ENDPOINT = f"{SUPABASE_URL}/rest/v1/rpc/execute_sql"
+def get_column_names(cursor, table_name):
+    cursor.execute(f"""
+        SELECT jsonb_object_keys(data) AS key
+        FROM {table_name}
+        LIMIT 100
+    """)
+    return list(set(row[0] for row in cursor.fetchall() if row[0]))
 
-RAW_TABLES = [
-    "doorloop_raw_properties",
-    "doorloop_raw_units",
-    "doorloop_raw_leases",
-    "doorloop_raw_tenants",
-    "doorloop_raw_payments",
-    "doorloop_raw_owners"
-]
+def generate_view_sql(table_name, column_names):
+    view_name = table_name.replace("raw", "normalized")
+    select_parts = ["id"]
 
-def get_sql_for(table):
-    view_name = table.replace("raw", "normalized")
-    fallback_created = "data->>'createdAt' AS created_at"  # Safe fallback
-    fallback_updated = "data->>'updatedAt' AS updated_at"
-    
-    select_fields = [
-        "id",
-        fallback_created,
-        fallback_updated,
-        "data->>'name' AS name",
-        "data->>'status' AS status",
-        "data->>'type' AS type"
-    ]
-    
-    # Special case for units
-    if table == "doorloop_raw_units":
-        select_fields.append("data->>'createdAt' AS source_endpoint")
+    # Safe defaults
+    if "createdAt" in column_names:
+        select_parts.append("data->>'createdAt' AS created_at")
+    if "updatedAt" in column_names:
+        select_parts.append("data->>'updatedAt' AS updated_at")
 
-    select_clause = ",\n    ".join(select_fields)
+    for col in column_names:
+        if col in ["id", "createdAt", "updatedAt"]:
+            continue
+        if table_name == "doorloop_raw_properties" and col == "data":
+            continue  # skip full 'data' field
+        if table_name == "doorloop_raw_properties" and col == "name":
+            select_parts.append("data->>'name' AS property_name")  # rename to avoid conflict
+        elif table_name == "doorloop_raw_units" and col == "inserted_at":
+            select_parts.append("data->>'inserted_at' AS inserted_at_original")  # rename safely
+            select_parts.append("data->>'createdAt' AS source_endpoint")  # safe alias
+        else:
+            select_parts.append(f"data->>'{col}' AS {col}")
 
+    select_clause = ",\n    ".join(select_parts)
     return f"""
     CREATE OR REPLACE VIEW {view_name} AS
     SELECT
         {select_clause}
-    FROM {table};
+    FROM {table_name};
     """
 
-def run():
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        logger.error("❌ Missing environment variables SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.")
+def main():
+    if not DATABASE_URL:
+        logger.error("❌ DATABASE_URL is not set.")
         return
 
-    for table in RAW_TABLES:
-        sql = get_sql_for(table)
-        logger.info(f"📤 Sending SQL for {table}...")
+    conn = psycopg2.connect(DATABASE_URL)
+    cursor = conn.cursor()
 
-        payload = {"sql": sql}
-        response = requests.post(SQL_ENDPOINT, headers=HEADERS, data=json.dumps(payload))
-
-        if response.status_code == 200:
-            logger.info(f"✅ View created for {table}")
-        else:
-            logger.warning(f"⚠️ Failed to create view for {table}: {response.status_code} - {response.text}")
+    logger.info("🔍 Starting view generation from raw tables...")
+    try:
+        raw_tables = get_raw_tables(cursor)
+        for table in raw_tables:
+            column_names = get_column_names(cursor, table)
+            sql = generate_view_sql(table, column_names)
+            try:
+                cursor.execute(sql)
+                conn.commit()
+                logger.info(f"✅ View created: {table.replace('raw', 'normalized')}")
+            except Exception as e:
+                logger.warning(f"⚠️  Could not create view for {table}: {e}")
+    except Exception as e:
+        logger.error(f"💥 Fatal error: {e}")
+    finally:
+        cursor.close()
+        conn.close()
 
 if __name__ == "__main__":
-    run()
+    main()
