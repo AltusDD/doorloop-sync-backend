@@ -1,4 +1,4 @@
-name: Generate Normalized Views
+name: 🔄 Generate Normalized Views (Supabase Sync)
 
 on:
   push:
@@ -10,32 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
+      - name: 🐍 Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
           cache: 'pip'
 
-      - name: Install system dependencies
+      - name: 🧱 Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-dev libpq-dev build-essential
 
-      - name: Install Python dependencies
+      - name: 📦 Install Python requirements
         run: |
           python -m pip install --upgrade pip
           python -m pip install --no-cache-dir -r requirements.txt
 
-      - name: Verify psycopg2 installation and environment
-        run: |
-          python -c "import psycopg2; print('✅ psycopg2 version:', psycopg2.__version__)"
-          python -c "import sys; print('Python executable:', sys.executable); print('Python path:', sys.path)"
-
-      - name: Run Python script to generate views
+      - name: 🧪 Verify psycopg2 installation and environment
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          echo "DATABASE_URL is set: ${{ secrets.DATABASE_URL }}"
+          python -c "import psycopg2; print('✅ psycopg2 version:', psycopg2.__version__)"
+          python -c "import sys; print('Python executable:', sys.executable); print('Python path:', sys.path)"
+
+      - name: 🚀 Run Python script to generate views
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Running generate_normalized_views.py..."
           python generate_normalized_views.py
