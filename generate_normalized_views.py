@@ -1,58 +1,78 @@
 import os
-import psycopg2
+import sys
+import json
+import requests
+import glob
+from urllib.parse import urlparse
 
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SQL_PROXY_SECRET = os.environ.get("SQL_PROXY_SECRET")
+SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "normalized_sql")
 
-def get_connection():
-    # First try DATABASE_URL, then fall back to SUPABASE_DB_URL
-    database_url = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-    if not database_url:
-        raise Exception("❌ DATABASE_URL and SUPABASE_DB_URL are not set in environment variables.")
-    print(f"🔐 Using database connection string from {'DATABASE_URL' if os.getenv('DATABASE_URL') else 'SUPABASE_DB_URL'}")
-    return psycopg2.connect(database_url)
+def execute_sql_via_edge_function(sql_file, sql_content):
+    if not SUPABASE_URL:
+        print("❌ SUPABASE_URL environment variable is not set")
+        sys.exit(1)
 
+    if not SQL_PROXY_SECRET:
+        print("❌ SQL_PROXY_SECRET environment variable is not set")
+        sys.exit(1)
 
-def execute_sql(sql):
-    print(f"Executing SQL:\n{sql}")
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(sql)
-            conn.commit()
+    parsed_url = urlparse(SUPABASE_URL)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    edge_function_url = f"{base_url}/functions/v1/sql-proxy"
 
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {SQL_PROXY_SECRET}"
+    }
 
-def load_sql_file(path):
-    print(f"📂 Loading SQL file: {path}")
-    with open(path, "r") as f:
-        return f.read()
+    payload = {
+        "sql_file": os.path.basename(sql_file),
+        "sql_content": sql_content
+    }
 
+    print(f"🔐 Using Edge Function proxy to execute SQL")
+    try:
+        response = requests.post(edge_function_url, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
+        if result.get("success"):
+            print(f"✅ Successfully executed {os.path.basename(sql_file)}")
+            return True
+        else:
+            print(f"❌ Error executing {os.path.basename(sql_file)}: {result.get('error')}")
+            return False
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Error executing {os.path.basename(sql_file)}: {str(e)}")
+        return False
 
 def main():
     print("🚀 Starting normalized views generation...")
 
-    # Check both normalized_sql and normalize as valid fallback folders
-    valid_dirs = ["normalized_sql", "normalize"]
-    sql_dir = next(
-        (os.path.join(os.getcwd(), d) for d in valid_dirs if os.path.isdir(os.path.join(os.getcwd(), d))),
-        None
-    )
+    sql_files = glob.glob(os.path.join(SQL_DIR, "*.sql"))
 
-    if not sql_dir:
-        raise Exception(f"❌ No valid SQL directory found. Checked: {', '.join(valid_dirs)}")
-
-    sql_files = sorted(f for f in os.listdir(sql_dir) if f.endswith(".sql"))
     if not sql_files:
-        raise Exception(f"❌ No .sql files found in: {sql_dir}")
+        print("❌ No SQL files found in directory:", SQL_DIR)
+        sys.exit(1)
 
-    for filename in sql_files:
-        file_path = os.path.join(sql_dir, filename)
-        sql = load_sql_file(file_path)
+    success_count = 0
+
+    for sql_file in sql_files:
+        print(f"📂 Loading SQL file: {sql_file}")
         try:
-            execute_sql(sql)
-            print(f"✅ Executed: {filename}")
+            with open(sql_file, "r") as f:
+                sql_content = f.read()
+
+            print("Executing SQL:")
+            print(sql_content)
+
+            if execute_sql_via_edge_function(sql_file, sql_content):
+                success_count += 1
         except Exception as e:
-            print(f"❌ Error executing {filename}: {e}")
+            print(f"❌ Error processing {sql_file}: {str(e)}")
 
-    print("✅ All views processed.")
-
+    print(f"✅ Processed {len(sql_files)} files with {success_count} successful executions.")
 
 if __name__ == "__main__":
     main()
