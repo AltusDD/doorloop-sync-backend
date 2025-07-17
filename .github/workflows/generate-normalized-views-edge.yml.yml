@@ -1,41 +1,84 @@
-name: Generate Normalized Views via Edge Function
+import os
+import sys
+import json
+import requests
+import glob
+from urllib.parse import urlparse
 
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # Manual trigger enabled
+# Environment variables
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SQL_PROXY_SECRET = os.environ.get("SQL_PROXY_SECRET")
+SQL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'normalized_sql')
 
-jobs:
-  generate-normalized-views:
-    runs-on: ubuntu-latest
+def execute_sql_via_edge_function(sql_file, sql_content):
+    """Execute SQL via the Supabase Edge Function proxy."""
+    if not SUPABASE_URL:
+        print("❌ SUPABASE_URL environment variable is not set")
+        sys.exit(1)
+    if not SQL_PROXY_SECRET:
+        print("❌ SQL_PROXY_SECRET environment variable is not set")
+        sys.exit(1)
 
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v3
+    # Construct base Edge Function endpoint
+    parsed_url = urlparse(SUPABASE_URL)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+    edge_function_url = f"{base_url}/functions/v1/sql-proxy"
 
-      - name: 🐍 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    headers = {
+        "Authorization": f"Bearer {SQL_PROXY_SECRET}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "sql_file": os.path.basename(sql_file),
+        "sql_content": sql_content
+    }
 
-      - name: 📦 Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests
+    print("🔐 Using Edge Function proxy to execute SQL")
+    try:
+        response = requests.post(edge_function_url, headers=headers, json=payload)
+        response.raise_for_status()
+        result = response.json()
 
-      - name: 🌐 Network diagnostics
-        run: |
-          echo "Testing Supabase REST API..."
-          curl -s -o /dev/null -w "📡 Supabase API Status: %{http_code}\n" ${{ secrets.SUPABASE_URL }}/rest/v1/
-          echo "Testing Supabase Edge Function endpoint..."
-          curl -s -o /dev/null -w "⚡ Edge Function Status: %{http_code}\n" ${{ secrets.SUPABASE_URL }}/functions/v1/sql-proxy
+        if result.get("success"):
+            print(f"✅ Successfully executed {os.path.basename(sql_file)}")
+            return True
+        else:
+            print(f"❌ Error executing {os.path.basename(sql_file)}: {result.get('error')}")
+            return False
 
-      - name: 🧠 Generate Normalized Views via Edge Proxy
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
-        run: |
-          echo "📂 Running generate_normalized_views.py..."
-          python generate_normalized_views.py
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Request failed for {os.path.basename(sql_file)}: {str(e)}")
+        return False
+
+def main():
+    print("🚀 Starting normalized views generation...")
+
+    if not os.path.exists(SQL_DIR):
+        print(f"❌ normalized_sql directory not found at: {SQL_DIR}")
+        sys.exit(1)
+
+    sql_files = glob.glob(os.path.join(SQL_DIR, "*.sql"))
+    if not sql_files:
+        print("❌ No SQL files found to process.")
+        sys.exit(1)
+
+    success_count = 0
+
+    for sql_file in sql_files:
+        print(f"📂 Loading SQL file: {sql_file}")
+        try:
+            with open(sql_file, "r") as f:
+                sql_content = f.read()
+
+            print("Executing SQL:")
+            print(sql_content)
+            if execute_sql_via_edge_function(sql_file, sql_content):
+                success_count += 1
+
+        except Exception as e:
+            print(f"❌ Error processing {sql_file}: {str(e)}")
+
+    print(f"✅ Processed {len(sql_files)} files with {success_count} successful executions.")
+
+if __name__ == "__main__":
+    main()
