@@ -1,23 +1,29 @@
 import os
-import sys
-import psycopg2
+import requests
 
-def get_connection():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise Exception("DATABASE_URL not set")
-    return psycopg2.connect(database_url)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+HEADERS = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
 
-def main():
-    try:
-        conn = get_connection()
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            print("✅ Connected to database and executed test query")
-        conn.close()
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+def execute_sql(sql):
+    response = requests.post(f"{SUPABASE_URL}/rest/v1/rpc/execute_sql", headers=HEADERS, json={"sql": sql})
+    print(f"Executing SQL:
+{sql}
+Status: {response.status_code}, Response: {response.text}")
+    if not response.ok:
+        raise Exception(f"SQL execution failed: {response.text}")
 
 if __name__ == "__main__":
-    main()
+    normalize_dir = "normalize"
+    for filename in os.listdir(normalize_dir):
+        if filename.endswith(".sql"):
+            with open(os.path.join(normalize_dir, filename), "r") as f:
+                sql = f.read()
+            try:
+                execute_sql(sql)
+            except Exception as e:
+                print(f"❌ Failed to execute {filename}: {e}")
