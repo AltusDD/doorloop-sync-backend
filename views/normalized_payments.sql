@@ -1,1 +1,1 @@
-CREATE VIEW normalized_payments AS SELECT * FROM doorloop_raw_lease_payments;
+CREATE VIEW normalized_doorloop_raw_lease_payments AS SELECT * FROM doorloop_raw_lease_doorloop_raw_lease_payments;

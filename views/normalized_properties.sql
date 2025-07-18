@@ -1,1 +1,1 @@
-CREATE VIEW normalized_properties AS SELECT * FROM doorloop_raw_properties;
+CREATE VIEW normalized_doorloop_raw_properties AS SELECT * FROM doorloop_raw_doorloop_raw_properties;

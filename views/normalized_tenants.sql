@@ -1,1 +1,1 @@
-CREATE VIEW normalized_tenants AS SELECT * FROM doorloop_raw_tenants;
+CREATE VIEW normalized_doorloop_raw_tenants AS SELECT * FROM doorloop_raw_doorloop_raw_tenants;

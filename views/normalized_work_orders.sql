@@ -1,1 +1,1 @@
-CREATE VIEW normalized_work_orders AS SELECT * FROM doorloop_raw_work_orders;
+CREATE VIEW normalized_doorloop_raw_work_orders AS SELECT * FROM doorloop_raw_doorloop_raw_work_orders;

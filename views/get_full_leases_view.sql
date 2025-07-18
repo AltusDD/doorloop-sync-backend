@@ -1,1 +1,1 @@
-CREATE VIEW get_full_leases_view AS SELECT * FROM normalized_leases;
+CREATE VIEW get_full_leases_view AS SELECT * FROM doorloop_normalized_leases;
