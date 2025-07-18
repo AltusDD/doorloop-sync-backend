@@ -39,6 +39,6 @@ jobs:
           set -o allexport
           source .env.build
           set +o allexport
-          supabase functions deploy sql-proxy --no-verify-jwt --force
+          supabase functions deploy sql-proxy --no-verify-jwt
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
