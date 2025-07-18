@@ -1,50 +1,31 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3'
 
 Deno.serve(async (req) => {
-  console.log('--- Edge Function Request Received ---');
-  const authHeaderValue = req.headers.get('Authorization');
-  const token = authHeaderValue?.replace('Bearer ', '').trim();
+  const token = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
   const expectedSecret = Deno.env.get('SQL_PROXY_SECRET')?.trim();
 
   if (!token || token !== expectedSecret) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
   }
 
-  let requestBody;
+  let body;
   try {
-    requestBody = await req.json();
-  } catch (e) {
-    return new Response(JSON.stringify({ success: false, error: 'Invalid JSON body' }), { status: 400 });
+    body = await req.json();
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400 });
   }
 
-  const { sql_file, sql_content } = requestBody;
-
+  const { sql_file, sql_content } = body;
   if (!sql_content) {
-    return new Response(JSON.stringify({ success: false, error: 'Missing "sql_content" in body' }), { status: 400 });
+    return new Response(JSON.stringify({ error: 'Missing sql_content' }), { status: 400 });
   }
 
-  const lowerSqlContent = sql_content.toLowerCase().trimStart();
-  if (
-    !lowerSqlContent.startsWith('create or replace view') &&
-    !lowerSqlContent.startsWith('create table if not exists') &&
-    !lowerSqlContent.startsWith('alter table')
-  ) {
-    console.warn(`Unauthorized SQL: ${sql_content.substring(0, 100)}...`);
-  }
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ success: false, error: 'Supabase environment not configured' }), { status: 500 });
-  }
-
-  const client = createClient(supabaseUrl, serviceRoleKey);
+  const client = createClient(Deno.env.get('SUPABASE_URL'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
   const { data, error } = await client.rpc('execute_sql', { sql: sql_content });
 
   if (error) {
-    return new Response(JSON.stringify({ success: false, error: error.message, details: error.details }), { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500 });
   }
 
-  return new Response(JSON.stringify({ success: true, data: data }), { status: 200 });
+  return new Response(JSON.stringify({ success: true, data }), { status: 200 });
 });
