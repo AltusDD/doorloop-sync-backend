@@ -1,4 +1,4 @@
-name: 🚀 Deploy Normalized Views via SQL Proxy
+name: 🚀 Deploy Normalized Views
 
 on:
   workflow_dispatch:
@@ -6,23 +6,20 @@ on:
 jobs:
   deploy-views:
     runs-on: ubuntu-latest
+
     steps:
-      - name: ⬇️ Checkout code
+      - name: ⬇️ Checkout repository
         uses: actions/checkout@v3
 
-      - name: 🔐 Load environment variables
-        run: |
-          echo "${{ secrets.DOTENV_BUILD }}" > .env.build
-
-      - name: 🔄 Deploy all SQL views via sql-proxy
+      - name: 📁 Deploy Views to Supabase via SQL Proxy
         run: |
           echo "📁 Deploying views from /views folder..."
           for file in $(ls views/*.sql); do
             echo "🚀 Deploying $file"
-            curl -X POST "${{ secrets.SQL_PROXY_URL }}" \
-              -H "Authorization: Bearer ${{ secrets.SQL_PROXY_SECRET }}" \
+            curl -X POST "$SQL_PROXY_URL" \
+              -H "Authorization: $SQL_PROXY_SECRET" \
               -H "Content-Type: application/json" \
-              -d '{{"sql_file":"'$file'", "sql_content":"'"$(cat $file | sed ':a;N;$!ba;s/\n/ /g')"'"}}'
+              -d '{"sql_file":"'"$file"'", "sql_content":"'"$(cat "$file" | sed ':a;N;$!ba;s/\n/ /g')"'" }'
             echo ""
           done
         env:
