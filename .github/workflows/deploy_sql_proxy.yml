@@ -34,8 +34,12 @@ jobs:
           DOTENV_BUILD: ${{ secrets.DOTENV_BUILD }}
 
       - name: Deploy sql-proxy Edge Function
-        run: |
-          echo "🚀 Deploying..."
-          supabase functions deploy sql-proxy --no-verify-jwt --env-file .env.build --force
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      run: |
+        echo "🚀 Deploying sql-proxy Edge Function..."
+        set -o allexport
+        source .env.build
+        set +o allexport
+        supabase functions deploy sql-proxy --no-verify-jwt --force
+      env:
+        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
