@@ -1,4 +1,4 @@
-name: 🚀 Deploy Supabase Edge Function: sql-proxy
+name: Deploy Supabase Edge Function - sql-proxy
 
 on:
   workflow_dispatch:
@@ -8,27 +8,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 🧰 Setup Supabase CLI
+      - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: 🔗 Link to Supabase Project
+      - name: Link Supabase Project
         run: |
-          echo "🔗 Linking to Supabase project ref: ${{ secrets.SUPABASE_PROJECT_REF }}"
-          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+          printf "🔗 Linking project: $SUPABASE_PROJECT_REF\n"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
 
-      - name: 📦 Write .env.build for Deployment
+      - name: Write .env.build from Secret
         run: |
-          echo "${{ secrets.DOTENV_BUILD }}" > .env.build
+          printf "%s" "$DOTENV_BUILD" > .env.build
+          echo "--- .env.build contents ---"
+          cat .env.build
+          echo "--- End ---"
+        env:
+          DOTENV_BUILD: ${{ secrets.DOTENV_BUILD }}
 
-      - name: 🚀 Deploy sql-proxy Edge Function
+      - name: Deploy sql-proxy Edge Function
         run: |
+          echo "🚀 Deploying..."
           supabase functions deploy sql-proxy --no-verify-jwt --env-file .env.build --force
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
