@@ -1,1 +1,2 @@
--- SQL schema for doorloop_raw_leases
+-- SQL to create raw leases table
+CREATE TABLE doorloop_raw_leases (...);

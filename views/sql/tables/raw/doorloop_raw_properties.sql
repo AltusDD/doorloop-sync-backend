@@ -1,1 +1,2 @@
--- SQL schema for doorloop_raw_properties
+-- SQL to create raw properties table
+CREATE TABLE doorloop_raw_properties (...);

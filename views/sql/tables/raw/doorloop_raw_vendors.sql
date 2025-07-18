@@ -1,1 +1,2 @@
--- SQL schema for doorloop_raw_vendors
+-- SQL to create raw vendors table
+CREATE TABLE doorloop_raw_vendors (...);
