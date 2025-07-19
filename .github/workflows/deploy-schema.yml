@@ -1,40 +1,34 @@
-name: Deploy Database Schema
+name: 🚀 Deploy Supabase Schema
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   deploy-schema:
     runs-on: ubuntu-latest
+
     steps:
-      - name: ⬇️ Checkout repository
+      - name: 📁 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
+      - name: 🧰 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'
 
-      - name: Install Python dependencies
-        run: |
-          pip install -r requirements.txt
-
-      - name: Install jq
+      - name: 🔧 Install jq
         run: sudo apt-get install -y jq
 
-      - name: 🔄 Run Data Sync Script
-        run: python sync_all_doorloop_to_supabase.py
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          # add DoorLoop API keys if needed
-
-      - name: 🔐 Export SQL Proxy Secrets
+      - name: 🔐 Set SQL Proxy Secrets
         run: |
           echo "SQL_PROXY_URL=${{ secrets.SQL_PROXY_URL }}" >> $GITHUB_ENV
           echo "SQL_PROXY_SECRET=${{ secrets.SQL_PROXY_SECRET }}" >> $GITHUB_ENV
 
-      - name: 🚀 Deploy Schema (Tables & Views)
-        run: bash deploy_all.sh
+      - name: 📜 Make deploy_all.sh executable
+        run: chmod +x ./deploy_all.sh
+
+      - name: 🚀 Deploy schema via deploy_all.sh
+        run: ./deploy_all.sh
