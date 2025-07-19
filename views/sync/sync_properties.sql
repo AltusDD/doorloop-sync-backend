@@ -1,0 +1,1 @@
+-- SQL for sync_properties.sql

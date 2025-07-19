@@ -1,0 +1,1 @@
+-- SQL for get_full_owners_view.sql

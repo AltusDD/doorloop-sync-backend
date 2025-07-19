@@ -1,0 +1,1 @@
+-- SQL for get_full_leases_view.sql
