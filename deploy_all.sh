@@ -4,10 +4,10 @@
 deploy_sql_file() {
   local file="$1"
   local sql_content=$(cat "$file")
-  local json_payload=$(jq -n     --arg sql_file "$file"     --arg sql_content "$sql_content"     '{sql_file: $sql_file, sql_content: $sql_content}')
+  local json_payload=$(jq -n --arg sql_file "$file" --arg sql_content "$sql_content" '{sql_file: $sql_file, sql_content: $sql_content}')
 
   echo "🚀 Deploying $file"
-  RESPONSE=$(curl -s -X POST "$SQL_PROXY_URL"     -H "Authorization: Bearer $SQL_PROXY_SECRET"     -H "Content-Type: application/json"     -d "$json_payload")
+  RESPONSE=$(curl -s -X POST "$SQL_PROXY_URL" -H "Authorization: $SQL_PROXY_SECRET" -H "Content-Type: application/json" -d "$json_payload")
 
   local edge_fn_success=$(echo "$RESPONSE" | jq -r '.success // "false"')
   local db_error_status=$(echo "$RESPONSE" | jq -r '.data.status // "OK"')
@@ -32,6 +32,14 @@ deploy_sql_file() {
   fi
 }
 
+# Function to force PostgREST schema reload
+force_schema_reload() {
+  echo "♻️ Forcing PostgREST schema refresh..."
+  local payload='{"sql_file":"schema_refresh", "sql_content":"NOTIFY pgrst, ''reload schema'';"}'
+  curl -s -X POST "$SQL_PROXY_URL" -H "Authorization: $SQL_PROXY_SECRET" -H "Content-Type: application/json" -d "$payload"
+  echo ""
+}
+
 # Ensure jq is installed
 if ! command -v jq &> /dev/null; then
   echo "jq is not installed. Please install it to run this script."
@@ -44,13 +52,34 @@ for file in $(ls tables/*.sql | sort); do
 done
 
 echo "✅ All tables deployed. Forcing schema refresh and waiting 10 seconds..."
-curl -s "$SQL_PROXY_URL"   -H "Authorization: Bearer $SQL_PROXY_SECRET"   -H "Content-Type: application/json"   -d '{"sql_file":"schema_refresh", "sql_content":"SELECT * FROM public.doorloop_raw_leases LIMIT 1;"}' || true
-
+force_schema_reload
 sleep 10
 
 echo "📁 Deploying normalized views..."
-for file in $(ls views/normalized_*.sql | sort); do
-  deploy_sql_file "$file" || exit 1
+NORMALIZED_VIEW_FILES=$(ls views/normalized_*.sql | sort)
+MAX_RETRIES=3
+RETRY_DELAY_SECONDS=5
+
+for file in $NORMALIZED_VIEW_FILES; do
+  ATTEMPTS=0
+  SUCCESS=0
+  while [ $ATTEMPTS -lt $MAX_RETRIES ]; do
+    echo "🚀 Attempt $((ATTEMPTS + 1)) to deploy $file"
+    if deploy_sql_file "$file"; then
+      SUCCESS=1
+      break
+    else
+      ATTEMPTS=$((ATTEMPTS + 1))
+      echo "⚠️ Retrying $file in $RETRY_DELAY_SECONDS seconds..."
+      sleep $RETRY_DELAY_SECONDS
+      force_schema_reload
+    fi
+  done
+
+  if [ $SUCCESS -eq 0 ]; then
+    echo "❌ Failed to deploy $file after $MAX_RETRIES attempts. Exiting."
+    exit 1
+  fi
 done
 
 echo "📁 Deploying full views..."
@@ -62,3 +91,5 @@ echo "📁 Deploying sync views..."
 for file in $(ls views/sync_*.sql | sort); do
   deploy_sql_file "$file" || exit 1
 done
+
+echo "🎉 All schema deployment complete!"
