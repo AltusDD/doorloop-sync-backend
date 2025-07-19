@@ -1,6 +1,4 @@
-create table if not exists public.doorloop_raw_leases (
-  id text primary key,
-  data jsonb,
-  created_at timestamp with time zone default current_timestamp,
-  updated_at timestamp with time zone default current_timestamp
-);
+CREATE TABLE IF NOT EXISTS public.doorloop_raw_leases (
+            id TEXT PRIMARY KEY,
+            data JSONB
+        );
