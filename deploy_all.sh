@@ -1,16 +1,10 @@
 #!/bin/bash
 
-# Ensure jq is installed
-if ! command -v jq &> /dev/null
-then
-    echo "jq is not installed. Please install it (e.g., sudo apt-get install jq) to run this script."
-    exit 1
-fi
-
+# Function to deploy a SQL file and check its status
 deploy_sql_file() {
   local file="$1"
   local sql_content=$(cat "$file")
-  local json_payload=$(jq -n --arg sql_file "$file" --arg sql_content "$sql_content"     '{sql_file: $sql_file, sql_content: $sql_content}')
+  local json_payload=$(jq -n     --arg sql_file "$file"     --arg sql_content "$sql_content"     '{sql_file: $sql_file, sql_content: $sql_content}')
 
   echo "🚀 Deploying $file"
   RESPONSE=$(curl -s -X POST "$SQL_PROXY_URL"     -H "Authorization: Bearer $SQL_PROXY_SECRET"     -H "Content-Type: application/json"     -d "$json_payload")
@@ -38,14 +32,21 @@ deploy_sql_file() {
   fi
 }
 
+# Ensure jq is installed
+if ! command -v jq &> /dev/null; then
+  echo "jq is not installed. Please install it to run this script."
+  exit 1
+fi
+
 echo "📁 Deploying tables..."
 for file in $(ls tables/*.sql | sort); do
   deploy_sql_file "$file" || exit 1
 done
 
-echo "✅ All tables deployed. Forcing schema refresh..."
-sleep 5
-curl -s -X POST "$SQL_PROXY_URL"   -H "Authorization: Bearer $SQL_PROXY_SECRET"   -H "Content-Type: application/json"   -d '{"sql_file":"force_refresh", "sql_content":"SELECT 1 FROM public.doorloop_raw_leases LIMIT 1;"}'
+echo "✅ All tables deployed. Forcing schema refresh and waiting 10 seconds..."
+curl -s "$SQL_PROXY_URL"   -H "Authorization: Bearer $SQL_PROXY_SECRET"   -H "Content-Type: application/json"   -d '{"sql_file":"schema_refresh", "sql_content":"SELECT * FROM public.doorloop_raw_leases LIMIT 1;"}' || true
+
+sleep 10
 
 echo "📁 Deploying normalized views..."
 for file in $(ls views/normalized_*.sql | sort); do
