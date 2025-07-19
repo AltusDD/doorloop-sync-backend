@@ -1,48 +1,51 @@
 #!/bin/bash
-# Fix and deploy all normalized views with schema qualification from GitHub Actions
+# Fixed version using safe SQL escaping via jq -Rs
+set -e
 
-PROJECT_REF="${PROJECT_REF:-REPLACE_ME}"
-SQL_PROXY_SECRET="${SQL_PROXY_SECRET:-REPLACE_ME}"
-
-if [ "$PROJECT_REF" = "REPLACE_ME" ] || [ "$SQL_PROXY_SECRET" = "REPLACE_ME" ]; then
+if [[ -z "$PROJECT_REF" || -z "$SQL_PROXY_SECRET" ]]; then
   echo "❌ ERROR: PROJECT_REF or SQL_PROXY_SECRET is not set."
   exit 1
 fi
 
 echo "🔧 Starting fix for all normalized, full, and sync views..."
 
-# Deploy views with a specific prefix
-deploy_views() {
-  local pattern=$1
-  local label=$2
+deploy_sql_file() {
+  local file="$1"
+  local sql_content
+  sql_content=$(jq -Rs . < "$file")  # Safe JSON escape
 
-  for file in views/${pattern}_*.sql; do
-    if [ ! -f "$file" ]; then
-      echo "⚠️ View file not found: $file"
-      continue
+  local json_payload=$(jq -n     --arg sql_file "$file"     --argjson sql_content "$sql_content"     '{sql_file: $sql_file, sql_content: $sql_content}')
+
+  response=$(curl -s -X POST "https://$PROJECT_REF.supabase.co/functions/v1/sql-proxy" \
+    -H "Authorization: Bearer $SQL_PROXY_SECRET" \
+    -H "Content-Type: application/json" \
+    -d "$json_payload")
+
+  if echo "$response" | grep -q "error"; then
+    echo "❌ Failed to deploy $file:"
+    echo "$response"
+  else
+    echo "✅ Successfully deployed $file"
+  fi
+}
+
+process_view_type() {
+  local pattern="$1"
+  local label="$2"
+
+  for view_file in $pattern; do
+    if [[ -f "$view_file" ]]; then
+      echo "🚀 Fixing and deploying ($label): $view_file"
+      tmp_file="${view_file}.tmp"
+      sed 's/FROM doorloop_/FROM public.doorloop_/g; s/JOIN doorloop_/JOIN public.doorloop_/g' "$view_file" > "$tmp_file"
+      deploy_sql_file "$tmp_file"
+      rm -f "$tmp_file"
     fi
-
-    echo "🚀 Fixing and deploying ($label): $file"
-    temp_file="${file}.temp"
-    cat "$file" | sed 's/FROM doorloop_raw_/FROM public.doorloop_raw_/g' |                   sed 's/JOIN doorloop_raw_/JOIN public.doorloop_raw_/g' |                   sed 's/FROM doorloop_normalized_/FROM public.doorloop_normalized_/g' |                   sed 's/JOIN doorloop_normalized_/JOIN public.doorloop_normalized_/g' > "$temp_file"
-
-    sql_content=$(cat "$temp_file")
-
-    response=$(curl -s -X POST "https://${PROJECT_REF}.supabase.co/functions/v1/sql-proxy"       -H "Authorization: Bearer $SQL_PROXY_SECRET"       -H "Content-Type: application/json"       -d "{"sql_file": "$file", "sql_content": "$sql_content"}")
-
-    if echo "$response" | grep -q "error"; then
-      echo "❌ Failed to deploy $file:"
-      echo "$response"
-    else
-      echo "✅ Successfully deployed $file"
-    fi
-
-    rm -f "$temp_file"
   done
 }
 
-deploy_views "normalized" "Normalized View"
-deploy_views "get_full" "Full View"
-deploy_views "sync" "Sync View"
+process_view_type "views/normalized_*.sql" "Normalized View"
+process_view_type "views/get_full_*.sql" "Full View"
+process_view_type "views/sync_*.sql" "Sync View"
 
 echo "🎉 All views processed."
