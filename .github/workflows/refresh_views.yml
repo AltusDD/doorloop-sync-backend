@@ -1,0 +1,31 @@
+name: Refresh Materialized Views
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 3AM EST
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧾 Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: 🐘 Install PostgreSQL Client
+        run: sudo apt-get install postgresql-client -y
+
+      - name: 🔍 Parse DB URL into Components
+        id: parse
+        env:
+          DBURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "PGHOST=$(echo $DBURL | sed -E 's|.*@([^:/]+):.*||')" >> $GITHUB_ENV
+          echo "PGPORT=$(echo $DBURL | sed -E 's|.*:([0-9]+)/.*||')" >> $GITHUB_ENV
+          echo "PGDATABASE=$(echo $DBURL | sed -E 's|.*/([^?]+).*||')" >> $GITHUB_ENV
+          echo "PGUSER=$(echo $DBURL | sed -E 's|.*//([^:]+):.*||')" >> $GITHUB_ENV
+          echo "PGPASSWORD=$(echo $DBURL | sed -E 's|.*:([^@]+)@.*||')" >> $GITHUB_ENV
+
+      - name: 🔁 Refresh All Views
+        run: |
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f scripts/refresh_materialized_views.sql
