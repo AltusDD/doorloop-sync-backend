@@ -1,0 +1,23 @@
+# .github/workflows/materialized-healthcheck.yml
+name: Materialized View Healthcheck
+
+on:
+  schedule:
+    - cron: '5 7 * * *'  # 2:05am Central Time, 5 mins after refresh
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Run Healthcheck
+        run: python cron/verify_materialized_view_health.py
+        env:
+          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
