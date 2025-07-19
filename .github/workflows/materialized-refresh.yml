@@ -3,6 +3,7 @@ name: Refresh Materialized Views
 on:
   schedule:
     - cron: '0 7 * * *'  # 2am Central Time
+  workflow_dispatch:
 
 jobs:
   refresh:
