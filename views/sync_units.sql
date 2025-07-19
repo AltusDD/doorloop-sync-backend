@@ -1,1 +1,1 @@
-CREATE VIEW sync_units AS SELECT * FROM doorloop_normalized_units;
+CREATE OR REPLACE VIEW public.sync_units AS SELECT * FROM public.doorloop_normalized_units;

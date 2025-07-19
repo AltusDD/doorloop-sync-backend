@@ -1,1 +1,1 @@
-CREATE VIEW doorloop_normalized_leases AS SELECT * FROM doorloop_raw_leases;
+CREATE OR REPLACE VIEW public.normalized_leases AS SELECT * FROM public.doorloop_raw_leases;
