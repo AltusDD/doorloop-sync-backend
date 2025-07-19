@@ -18,15 +18,15 @@ jobs:
       - name: 🐘 Install PostgreSQL Client
         run: sudo apt-get install postgresql-client -y
 
-      - name: 🔐 Set up DB Connection Env Vars
+      - name: 🚀 Deploy SQL Views to Supabase
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: echo "Secrets loaded"
-
-      - name: 🚀 Deploy SQL Views
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
         run: |
           for file in scripts/*.sql; do
             echo "Applying $file..."
-            PGPASSWORD="${{ secrets.SUPABASE_DB_PASSWORD }}" \
-            psql "$SUPABASE_DB_URL" -f "$file" || exit 1
+            psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "$file" || exit 1
           done
