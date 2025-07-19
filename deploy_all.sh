@@ -1,6 +1,11 @@
 #!/bin/bash
 
-set -e
+# Ensure jq is installed
+if ! command -v jq &> /dev/null
+then
+    echo "jq is not installed. Please install it (e.g., sudo apt-get install jq) to run this script."
+    exit 1
+fi
 
 deploy_sql_file() {
   local file="$1"
@@ -18,7 +23,7 @@ deploy_sql_file() {
     local db_error_detail=$(echo "$RESPONSE" | jq -r '.data.detail')
     local db_error_code=$(echo "$RESPONSE" | jq -r '.data.code')
     echo "❌ Database SQL Error for $file:"
-    echo "  Code: $db_error_code"
+    echo "  Code: $db_error_code (SQLSTATE)"
     echo "  Message: $db_error_message"
     echo "  Detail: $db_error_detail"
     echo "  Full response: $RESPONSE"
@@ -37,6 +42,10 @@ echo "📁 Deploying tables..."
 for file in $(ls tables/*.sql | sort); do
   deploy_sql_file "$file" || exit 1
 done
+
+echo "✅ All tables deployed. Forcing schema refresh..."
+sleep 5
+curl -s -X POST "$SQL_PROXY_URL"   -H "Authorization: Bearer $SQL_PROXY_SECRET"   -H "Content-Type: application/json"   -d '{"sql_file":"force_refresh", "sql_content":"SELECT 1 FROM public.doorloop_raw_leases LIMIT 1;"}'
 
 echo "📁 Deploying normalized views..."
 for file in $(ls views/normalized_*.sql | sort); do
