@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS public.doorloop_raw_accounts (
-            id TEXT PRIMARY KEY,
-            data JSONB
-        );
+create table if not exists public.doorloop_raw_accounts (
+  id text primary key,
+  data jsonb,
+  created_at timestamp with time zone default current_timestamp,
+  updated_at timestamp with time zone default current_timestamp
+);
