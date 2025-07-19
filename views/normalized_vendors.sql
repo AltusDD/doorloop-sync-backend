@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW doorloop_normalized_vendors AS SELECT * FROM doorloop_raw_vendors;

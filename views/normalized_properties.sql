@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW doorloop_normalized_properties AS SELECT * FROM doorloop_raw_properties;
