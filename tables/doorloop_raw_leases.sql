@@ -1,4 +1,1 @@
-CREATE TABLE IF NOT EXISTS public.doorloop_raw_leases (
-            id TEXT PRIMARY KEY,
-            data JSONB
-        );
+CREATE TABLE IF NOT EXISTS public.doorloop_raw_leases (id uuid PRIMARY KEY, data jsonb);
