@@ -1,11 +1,6 @@
-CREATE OR REPLACE VIEW normalized_doorloop_raw_vendors AS
+CREATE OR REPLACE VIEW doorloop_normalized_vendors AS
 SELECT
-    id AS vendor_id,
-    companyName,
-    contactName,
-    email,
-    phone,
-    status,
-    created_at
-FROM doorloop_raw_doorloop_raw_vendors
-WHERE deleted IS DISTINCT FROM true;
+  v.id,
+  v.companyName,
+  v.phone
+FROM doorloop_raw_vendors v;

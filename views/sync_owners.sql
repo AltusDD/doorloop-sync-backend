@@ -1,4 +1,3 @@
-TRUNCATE TABLE owners RESTART IDENTITY CASCADE;
-INSERT INTO owners (doorloopid, name, email, phone, created_at, updated_at)
-SELECT doorloopid, name, email, phone, created_at, updated_at
-FROM normalized_owners;
+CREATE OR REPLACE VIEW sync_owners AS
+SELECT *
+FROM doorloop_normalized_owners;

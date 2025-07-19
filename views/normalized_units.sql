@@ -1,1 +1,7 @@
-CREATE VIEW normalized_doorloop_raw_units AS SELECT * FROM doorloop_raw_doorloop_raw_units;
+CREATE OR REPLACE VIEW doorloop_normalized_units AS
+SELECT
+  u.id,
+  u.name,
+  u.beds,
+  u.baths
+FROM doorloop_raw_units u;

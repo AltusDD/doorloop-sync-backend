@@ -1,4 +1,3 @@
-TRUNCATE TABLE work_orders RESTART IDENTITY CASCADE;
-INSERT INTO work_orders (doorloopid, property_id, unit_id, vendor_id, title, status, priority, created_at, updated_at)
-SELECT doorloopid, property_id, unit_id, vendor_id, title, status, priority, created_at, updated_at
-FROM normalized_work_orders;
+CREATE OR REPLACE VIEW sync_work_orders AS
+SELECT *
+FROM doorloop_normalized_work_orders;
