@@ -1,3 +1,1 @@
-CREATE OR REPLACE VIEW sync_tenants AS
-SELECT *
-FROM doorloop_normalized_tenants;
+CREATE VIEW sync_tenants AS SELECT * FROM doorloop_normalized_tenants;

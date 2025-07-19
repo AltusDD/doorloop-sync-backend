@@ -1,3 +1,1 @@
-CREATE OR REPLACE VIEW sync_properties AS
-SELECT *
-FROM doorloop_normalized_properties;
+CREATE VIEW sync_properties AS SELECT * FROM doorloop_normalized_properties;

@@ -1,3 +1,1 @@
-CREATE OR REPLACE VIEW sync_payments AS
-SELECT *
-FROM doorloop_normalized_payments;
+CREATE VIEW sync_payments AS SELECT * FROM doorloop_normalized_payments;
