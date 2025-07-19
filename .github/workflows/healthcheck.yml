@@ -1,0 +1,23 @@
+name: Nightly Materialized Healthcheck
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # Every day at 6:00 AM UTC
+  workflow_dispatch:     # Allow manual runs from GitHub UI
+
+jobs:
+  run-healthcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: Run SQL Healthcheck via Supabase SQL Proxy
+        uses: supabase-community/setup-cli@v1
+
+      - name: Execute Materialized Healthcheck SQL
+        run: supabase db execute .github/scripts/github_materialized_healthcheck.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
