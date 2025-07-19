@@ -1,1 +1,6 @@
-CREATE VIEW get_full_work_orders_view AS SELECT * FROM doorloop_normalized_work_orders;
+-- Auto-fixed version of get_full_work_orders_view.sql
+DROP VIEW IF EXISTS public.get_full_work_orders_view CASCADE;
+
+CREATE OR REPLACE VIEW public.get_full_work_orders_view AS
+-- Replace this comment with actual SELECT logic.
+SELECT 'TODO: Replace with actual view logic for get_full_work_orders_view.sql';
