@@ -18,13 +18,18 @@ jobs:
       - name: 🐘 Install PostgreSQL Client
         run: sudo apt-get install postgresql-client -y
 
-      - name: 🚀 Deploy SQL Views to Supabase
+      - name: 🔍 Parse DB URL into Components
+        id: parse
         env:
-          PGHOST: ${{ secrets.PGHOST }}
-          PGPORT: ${{ secrets.PGPORT }}
-          PGUSER: ${{ secrets.PGUSER }}
-          PGPASSWORD: ${{ secrets.PGPASSWORD }}
-          PGDATABASE: ${{ secrets.PGDATABASE }}
+          DBURL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          echo "PGHOST=$(echo $DBURL | sed -E 's|.*@([^:/]+):.*|\1|')" >> $GITHUB_ENV
+          echo "PGPORT=$(echo $DBURL | sed -E 's|.*:([0-9]+)/.*|\1|')" >> $GITHUB_ENV
+          echo "PGDATABASE=$(echo $DBURL | sed -E 's|.*/([^?]+).*|\1|')" >> $GITHUB_ENV
+          echo "PGUSER=$(echo $DBURL | sed -E 's|.*//([^:]+):.*|\1|')" >> $GITHUB_ENV
+          echo "PGPASSWORD=$(echo $DBURL | sed -E 's|.*:([^@]+)@.*|\1|')" >> $GITHUB_ENV
+
+      - name: 🚀 Deploy SQL Views
         run: |
           for file in scripts/*.sql; do
             echo "Applying $file..."
