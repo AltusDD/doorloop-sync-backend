@@ -1,0 +1,26 @@
+name: Deploy Views
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'views/**'
+      - 'fix_all_normalized_views.sh'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_REF: ${{ secrets.PROJECT_REF }}
+      SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set script permissions
+        run: chmod +x fix_all_normalized_views.sh
+
+      - name: Run fix & deploy
+        run: ./fix_all_normalized_views.sh
