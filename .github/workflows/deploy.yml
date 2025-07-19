@@ -5,22 +5,28 @@ on:
     branches:
       - main
     paths:
-      - 'views/**'
-      - 'fix_all_normalized_views.sh'
+      - 'scripts/*.sql'
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    env:
-      PROJECT_REF: ${{ secrets.PROJECT_REF }}
-      SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
-
     steps:
-      - name: Checkout repo
+      - name: 🧾 Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Set script permissions
-        run: chmod +x fix_all_normalized_views.sh
+      - name: 🐘 Install PostgreSQL Client
+        run: sudo apt-get install postgresql-client -y
 
-      - name: Run fix & deploy
-        run: ./fix_all_normalized_views.sh
+      - name: 🔐 Set up DB Connection Env Vars
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: echo "Secrets loaded"
+
+      - name: 🚀 Deploy SQL Views
+        run: |
+          for file in scripts/*.sql; do
+            echo "Applying $file..."
+            PGPASSWORD="${{ secrets.SUPABASE_DB_PASSWORD }}" \
+            psql "$SUPABASE_DB_URL" -f "$file" || exit 1
+          done
