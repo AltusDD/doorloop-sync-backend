@@ -1,4 +1,1 @@
-CREATE TABLE IF NOT EXISTS public.doorloop_raw_work_orders (
-            id TEXT PRIMARY KEY,
-            data JSONB
-        );
+CREATE TABLE IF NOT EXISTS doorloop_raw_work_orders (id uuid PRIMARY KEY, data jsonb);
