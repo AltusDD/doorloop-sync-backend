@@ -1,1 +1,0 @@
-CREATE VIEW doorloop_normalized_owners AS SELECT * FROM doorloop_raw_owners;

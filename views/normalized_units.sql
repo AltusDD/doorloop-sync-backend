@@ -1,1 +1,0 @@
-CREATE VIEW doorloop_normalized_units AS SELECT * FROM doorloop_raw_units;

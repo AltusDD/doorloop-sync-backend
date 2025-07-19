@@ -1,1 +1,0 @@
-CREATE VIEW doorloop_normalized_leases AS SELECT * FROM doorloop_raw_leases;

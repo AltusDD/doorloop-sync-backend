@@ -1,1 +1,0 @@
-CREATE VIEW doorloop_normalized_tenants AS SELECT * FROM doorloop_raw_tenants;
