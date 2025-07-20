@@ -5,7 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 Deno.serve(async (req) => {
   try {
     const authHeader = req.headers.get('Authorization') || '';
-    const expectedSecret = Deno.env.get('sql_proxy_secret')?.trim();
+    const expectedSecret = Deno.env.get('SQL_PROXY_SECRET')?.trim();
 
     if (authHeader !== expectedSecret) {
       return new Response(JSON.stringify({
