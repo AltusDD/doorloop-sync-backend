@@ -1,44 +1,30 @@
-name: Deploy Supabase Edge Function - sql-proxy
+name: 🚀 Deploy Normalized SQL via Proxy
 
 on:
   workflow_dispatch:
 
+env:
+  PROJECT_REF: ${{ secrets.PROJECT_REF }}
+  SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
+  SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
 jobs:
-  deploy-sql-proxy:
+  deploy-sql:
     runs-on: ubuntu-latest
+    name: Deploy SQL Scripts via Proxy
 
     steps:
-      - name: Checkout Repository
+      - name: ⬇️ Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: 🔑 Make deploy script executable
+        run: chmod +x ./deploy_all_sql_via_proxy.sh
 
-      - name: Link Supabase Project
-        run: |
-          printf "🔗 Linking project: $SUPABASE_PROJECT_REF\n"
-          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: 🚀 Run deploy script
+        run: ./deploy_all_sql_via_proxy.sh
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-
-      - name: Write .env.build from Secret
-        run: |
-          printf "%s" "$DOTENV_BUILD" > .env.build
-          echo "--- .env.build contents ---"
-          cat .env.build
-          echo "--- End ---"
-        env:
-          DOTENV_BUILD: ${{ secrets.DOTENV_BUILD }}
-
-      - name: Deploy sql-proxy Edge Function
-        run: |
-          echo "🚀 Deploying sql-proxy Edge Function..."
-          set -o allexport
-          source .env.build
-          set +o allexport
-          supabase functions deploy sql-proxy --no-verify-jwt
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+          SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
+          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
