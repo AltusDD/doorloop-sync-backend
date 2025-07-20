@@ -7,13 +7,13 @@ jobs:
   deploy-sql:
     runs-on: ubuntu-latest
     steps:
-      - name: 📥 Checkout repo
+      - name: ⬇️ Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 🛠️ Set up jq
-        run: sudo apt-get install jq -y
+      - name: 🛠️ Install jq
+        run: sudo apt-get install jq
 
-      - name: 🚀 Deploy SQL files via proxy
+      - name: 📤 Deploy SQL Files via Proxy
         run: |
           echo "📦 Deploying SQL files via proxy to Supabase project: $PROJECT_REF"
           echo "📁 Using SQL directory: ./scripts"
@@ -24,7 +24,7 @@ jobs:
             SQL_CONTENT=$(cat "$file" | jq -Rs .)
 
             RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SQL_PROXY_URL" \
-              -H "Authorization: ${SQL_PROXY_SECRET}" \
+              -H "Authorization: ${{ secrets.SQL_PROXY_SECRET }}" \
               -H "Content-Type: application/json" \
               -d "{\"sql\": $SQL_CONTENT}"
             )
@@ -40,7 +40,7 @@ jobs:
               exit 1
             fi
           done
+        shell: /usr/bin/bash -e {0}
         env:
           PROJECT_REF: ssexobxvtuxwnblwplzh
           SQL_PROXY_URL: https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy
-          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
