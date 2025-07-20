@@ -1,22 +1,28 @@
-name: Deploy Normalized SQL via Proxy
+#!/bin/bash
 
-on:
-  workflow_dispatch:
+echo "📦 Deploying SQL files via proxy to Supabase project: $PROJECT_REF"
 
-jobs:
-  deploy_sql:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+SQL_DIR="./scripts"
+echo "📁 Using SQL directory: $SQL_DIR"
 
-      - name: Setup environment
-        run: sudo apt-get update && sudo apt-get install -y jq
+for file in $(find "$SQL_DIR" -name "*.sql" | sort); do
+  echo "🚀 Applying: $file"
 
-      - name: Deploy SQL via Supabase Proxy
-        run: |
-          chmod +x ./deploy_all_sql_via_proxy.sh
-          ./deploy_all_sql_via_proxy.sh
-        env:
-          PROJECT_REF: ssexobxvtuxwnblwplzh
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  # Read the contents and escape it properly for JSON
+  sql_content=$(jq -Rs . < "$file")
+
+  # Send it to the Edge Function with the correct Authorization header
+  response=$(curl -s -X POST "$SQL_PROXY_URL" \
+    -H "Authorization: Bearer $SQL_PROXY_SECRET" \
+    -H "Content-Type: application/json" \
+    -d "{\"sql_file\": \"$(basename "$file")\", \"sql_content\": $sql_content}")
+
+  # Check response
+  if echo "$response" | grep -q "\"success\":true"; then
+    echo "✅ Success: $(basename "$file")"
+  else
+    echo "❌ Failed: $(basename "$file")"
+    echo "Response: $response"
+    exit 1
+  fi
+done
