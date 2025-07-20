@@ -1,20 +1,17 @@
-name: "🔄 DoorLoop → Supabase Sync"
-
+name: 🔄 DoorLoop → Supabase Sync
 on:
   workflow_dispatch:
-
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Run full DoorLoop → Supabase sync
+        uses: actions/checkout@v4
+      - name: Sync DoorLoop data
         run: |
-          chmod +x ./sync_all_doorloop_to_supabase.sh
-          ./sync_all_doorloop_to_supabase.sh
+          python sync_all_doorloop_to_supabase.py
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+          DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
