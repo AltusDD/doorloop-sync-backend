@@ -3,7 +3,7 @@ name: Refresh KPI Materialized View
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 * * * *'  # every hour on the hour
+    - cron: '0 * * * *'  # every hour
 
 jobs:
   refresh-view:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Refresh Materialized KPI View
         run: |
-          curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/execute_sql" \
+          curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy" \
           -H "Authorization: Bearer ${{ secrets.SQL_PROXY_SECRET }}" \
           -H "Content-Type: application/json" \
           -d '{ "sql": "REFRESH MATERIALIZED VIEW get_full_kpi_summary_view;" }'
