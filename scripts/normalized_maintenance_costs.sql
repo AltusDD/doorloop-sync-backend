@@ -1,0 +1,2 @@
+-- SQL for normalized_maintenance_costs.sql
+-- TODO: Define schema, logic, and joins.

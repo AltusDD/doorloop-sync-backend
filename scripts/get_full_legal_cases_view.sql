@@ -1,0 +1,2 @@
+-- SQL for get_full_legal_cases_view.sql
+-- TODO: Define schema, logic, and joins.

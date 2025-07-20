@@ -1,0 +1,2 @@
+-- SQL for normalized_portal_users.sql
+-- TODO: Define schema, logic, and joins.
