@@ -1,47 +1,44 @@
-name: 🚀 Deploy Normalized SQL via Proxy
+name: Deploy Supabase Edge Function - sql-proxy
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy-sql:
+  deploy-sql-proxy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 🧾 Checkout Repo
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 💾 Install jq (JSON parser)
-        run: sudo apt-get install jq
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
 
-      - name: 🚀 Deploy SQL via Proxy Function
-        env:
-          PROJECT_REF: ${{ secrets.PROJECT_REF }}
-          SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
-          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      - name: Link Supabase Project
         run: |
-          echo "📦 Deploying SQL files via proxy to Supabase project: $PROJECT_REF"
-          echo "📁 Using SQL directory: ./scripts"
-          
-          for file in ./scripts/*.sql; do
-            filename=$(basename "$file")
-            echo "🚀 Applying: $filename"
-            SQL_CONTENT=$(cat "$file" | jq -Rs .)
+          printf "🔗 Linking project: $SUPABASE_PROJECT_REF\n"
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
 
-            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SQL_PROXY_URL" \
-              -H "Authorization: Bearer $SQL_PROXY_SECRET" \  # ✅ This is now correct
-              -H "Content-Type: application/json" \
-              -d "{\"sql\": $SQL_CONTENT}"
-            )
+      - name: Write .env.build from Secret
+        run: |
+          printf "%s" "$DOTENV_BUILD" > .env.build
+          echo "--- .env.build contents ---"
+          cat .env.build
+          echo "--- End ---"
+        env:
+          DOTENV_BUILD: ${{ secrets.DOTENV_BUILD }}
 
-            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-            RESPONSE_BODY=$(echo "$RESPONSE" | sed '$ d')
-
-            if [ "$HTTP_STATUS" -eq 200 ]; then
-              echo "✅ Success: $filename"
-            else
-              echo "❌ Failed: $filename (HTTP $HTTP_STATUS)"
-              echo "Response: $RESPONSE_BODY"
-              exit 1
-            fi
-          done
+      - name: Deploy sql-proxy Edge Function
+        run: |
+          echo "🚀 Deploying sql-proxy Edge Function..."
+          set -o allexport
+          source .env.build
+          set +o allexport
+          supabase functions deploy sql-proxy --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
