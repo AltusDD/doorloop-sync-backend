@@ -1,22 +1,47 @@
-name: 🚀 Deploy SQL Proxy Function
+name: 🚀 Deploy Normalized SQL via Proxy
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy-sql-proxy:
+  deploy-sql:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: 🧾 Checkout Repo
+        uses: actions/checkout@v3
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      - name: 💾 Install jq (JSON parser)
+        run: sudo apt-get install jq
 
-      - name: Deploy Edge Function
+      - name: 🚀 Deploy SQL via Proxy Function
+        env:
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+          SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
+          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
-          supabase link --project-ref "${{ secrets.PROJECT_REF }}"
-          supabase functions deploy sql-proxy
+          echo "📦 Deploying SQL files via proxy to Supabase project: $PROJECT_REF"
+          echo "📁 Using SQL directory: ./scripts"
+          
+          for file in ./scripts/*.sql; do
+            filename=$(basename "$file")
+            echo "🚀 Applying: $filename"
+            SQL_CONTENT=$(cat "$file" | jq -Rs .)
+
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SQL_PROXY_URL" \
+              -H "Authorization: Bearer $SQL_PROXY_SECRET" \  # ✅ This is now correct
+              -H "Content-Type: application/json" \
+              -d "{\"sql\": $SQL_CONTENT}"
+            )
+
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+            RESPONSE_BODY=$(echo "$RESPONSE" | sed '$ d')
+
+            if [ "$HTTP_STATUS" -eq 200 ]; then
+              echo "✅ Success: $filename"
+            else
+              echo "❌ Failed: $filename (HTTP $HTTP_STATUS)"
+              echo "Response: $RESPONSE_BODY"
+              exit 1
+            fi
+          done
