@@ -24,7 +24,7 @@ jobs:
             SQL_CONTENT=$(cat "$file" | jq -Rs .)
 
             RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SQL_PROXY_URL" \
-              -H "Authorization: ${{ secrets.SQL_PROXY_SECRET }}" \
+              -H "Authorization: $SQL_PROXY_SECRET" \
               -H "Content-Type: application/json" \
               -d "{\"sql\": $SQL_CONTENT}"
             )
@@ -44,3 +44,4 @@ jobs:
         env:
           PROJECT_REF: ssexobxvtuxwnblwplzh
           SQL_PROXY_URL: https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy
+          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
