@@ -43,4 +43,4 @@ jobs:
         env:
           PROJECT_REF: ssexobxvtuxwnblwplzh
           SQL_PROXY_URL: https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy
-          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+          SQL_PROXY_SECRET: ${{ secrets.sql_proxy_secret }}
