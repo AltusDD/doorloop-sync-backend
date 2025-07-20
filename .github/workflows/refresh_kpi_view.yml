@@ -12,6 +12,6 @@ jobs:
       - name: Refresh Materialized KPI View
         run: |
           curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy" \
-          -H "Authorization: Bearer ${{ secrets.SQL_PROXY_SECRET }}" \
+          -H "Authorization: ${{ secrets.SQL_PROXY_SECRET }}" \
           -H "Content-Type: application/json" \
           -d '{ "sql": "REFRESH MATERIALIZED VIEW get_full_kpi_summary_view;" }'
