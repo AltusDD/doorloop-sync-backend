@@ -29,7 +29,7 @@ jobs:
             SQL_CONTENT=$(cat "$file" | jq -Rs .)
 
             RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$SQL_PROXY_URL" \
-              -H "Authorization: Bearer $SQL_PROXY_SECRET" \  # ✅ This is now correct
+              -H "Authorization: Bearer $SQL_PROXY_SECRET" \
               -H "Content-Type: application/json" \
               -d "{\"sql\": $SQL_CONTENT}"
             )
