@@ -1,0 +1,18 @@
+name: 🚀 Deploy Normalized SQL via Proxy
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up environment
+        run: |
+          chmod +x ./deploy_all_sql_via_proxy.sh
+          ./deploy_all_sql_via_proxy.sh
+        env:
+          PROJECT_REF: ${{ secrets.PROJECT_REF }}
+          SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
+          SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
