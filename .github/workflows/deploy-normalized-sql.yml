@@ -16,6 +16,7 @@ jobs:
       PROJECT_REF: ${{ secrets.PROJECT_REF }}
       SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
       SQL_PROXY_URL: ${{ secrets.SQL_PROXY_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Checkout repo
