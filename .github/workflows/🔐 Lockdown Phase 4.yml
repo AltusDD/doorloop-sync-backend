@@ -1,15 +1,19 @@
-name: 🔐 Lockdown Phase 4
+name: "🔐 Lockdown Phase 4"
+
 on:
   workflow_dispatch:
+
 jobs:
   lockdown:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Clean SQL functions and remove proxy
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Run lockdown script
         run: |
-          supabase functions delete sql-proxy || echo "Already deleted"
-          echo "✅ Lockdown complete."
+          chmod +x ./lockdown_phase4.sh
+          ./lockdown_phase4.sh
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
