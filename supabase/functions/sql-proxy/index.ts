@@ -3,7 +3,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3'
 Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
   const proxySecretHeader = req.headers.get('x-proxy-secret')?.trim();
-  const expectedSecret = Deno.env.get('SQL_PROXY_SECRET')?.trim();
+  const expectedSecret = Deno.env.get('sql_proxy_secert')?.trim();
 
   const isAuthorized =
     (authHeader && authHeader === expectedSecret) ||
