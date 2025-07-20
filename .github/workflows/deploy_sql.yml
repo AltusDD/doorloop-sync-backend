@@ -1,0 +1,37 @@
+name: 🚀 Deploy SQL Scripts to Supabase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**/*.sql'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ssexobxvtuxwnblwplzh
+
+    steps:
+      - name: ⬇️ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔐 Login to Supabase
+        run: supabase login --token "${{ secrets.SUPABASE_ACCESS_TOKEN }}"
+
+      - name: 🔗 Link to Supabase project
+        run: supabase link --project-ref $PROJECT_ID
+
+      - name: 📤 Deploy SQL Scripts
+        run: |
+          echo "🔎 Finding and applying scripts..."
+          for file in $(find scripts -name "*.sql" | sort); do
+            echo "📜 Applying $file..."
+            cat "$file" | supabase db execute
+          done
