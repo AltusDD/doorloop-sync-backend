@@ -1,13 +1,15 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3'
 
 Deno.serve(async (req) => {
-  // Accept Authorization: Bearer <token> OR x-proxy-secret
   const authHeader = req.headers.get('Authorization')?.replace('Bearer ', '').trim();
   const proxySecretHeader = req.headers.get('x-proxy-secret')?.trim();
   const expectedSecret = Deno.env.get('SQL_PROXY_SECRET')?.trim();
 
-  if ((!authHeader || authHeader !== expectedSecret) &&
-      (!proxySecretHeader || proxySecretHeader !== expectedSecret)) {
+  const isAuthorized =
+    (authHeader && authHeader === expectedSecret) ||
+    (proxySecretHeader && proxySecretHeader === expectedSecret);
+
+  if (!isAuthorized) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' }
