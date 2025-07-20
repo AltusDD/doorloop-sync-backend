@@ -6,21 +6,41 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
 Deno.serve(async (req) => {
   try {
+    console.log("📥 Incoming SQL Proxy request...");
+
+    // 🔐 1. Read Auth Header and Expected Secret
     const authHeader = req.headers.get('Authorization') || '';
     const expectedSecret = Deno.env.get('SQL_PROXY_SECRET')?.trim();
+
+    console.log("🔐 Provided Auth Header:", authHeader);
+    console.log("🔐 Expected Secret from Env:", expectedSecret);
+    console.log("🔐 Secrets match?", authHeader === expectedSecret ? "✅ YES" : "❌ NO");
+
+    if (!expectedSecret) {
+      return new Response(JSON.stringify({
+        code: 500,
+        message: 'Missing SQL_PROXY_SECRET in Edge Function Environment'
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     if (authHeader !== expectedSecret) {
       return new Response(JSON.stringify({
         code: 401,
-        message: `Auth header mismatch: received '${authHeader}', expected secret`
+        message: `Unauthorized - Auth header '${authHeader}' does not match expected secret`
       }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
+    // 📦 2. Parse Body
     const body = await req.json();
     const sqlContent = body.sql;
+
+    console.log("📦 Parsed Request Body:", JSON.stringify(body).slice(0, 500));
 
     if (!sqlContent) {
       return new Response(JSON.stringify({
@@ -32,13 +52,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 🔗 3. Connect to Supabase
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+
+    console.log("🔗 Supabase URL:", supabaseUrl);
+    console.log("🔗 Supabase Key Present:", !!supabaseKey);
 
     if (!supabaseUrl || !supabaseKey) {
       return new Response(JSON.stringify({
         code: 500,
-        message: 'Missing Supabase configuration'
+        message: 'Missing Supabase URL or Service Role Key'
       }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
@@ -46,12 +70,14 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 🚀 4. Execute SQL
     const { data, error } = await supabase.rpc('execute_sql', {
       sql: sqlContent
     });
 
     if (error) {
-      console.error('SQL execution error:', error);
+      console.error('❌ SQL execution error:', error);
       return new Response(JSON.stringify({
         code: 500,
         message: error.message
@@ -61,6 +87,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log("✅ SQL executed successfully.");
     return new Response(JSON.stringify({
       success: true,
       data
@@ -68,9 +95,8 @@ Deno.serve(async (req) => {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
-
   } catch (err) {
-    console.error('Function error:', err);
+    console.error('🔥 Function error:', err);
     return new Response(JSON.stringify({
       code: 500,
       message: err.message
