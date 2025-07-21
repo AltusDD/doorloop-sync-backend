@@ -1,36 +1,21 @@
-
-name: 🚀 Deploy Normalized Supabase Tables
+name: Deploy Normalized Schema
 
 on:
-  workflow_dispatch:  # ✅ Manual trigger from GitHub UI
-  push:
-    paths:
-      - deploy-database.sh
-      - supabase/**
+  workflow_dispatch:
 
 jobs:
-  deploy-normalized:
+  deploy-schema:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Checkout Repo
+      - name: Checkout Repo
         uses: actions/checkout@v3
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          python-version: 3.10
+          version: latest
 
-      - name: 📦 Install Supabase CLI
-        run: |
-          npm install -g supabase
-
-      - name: 🔐 Set Supabase Env Vars
-        run: |
-          echo "SUPABASE_ACCESS_TOKEN=${{ secrets.SUPABASE_ACCESS_TOKEN }}" >> $GITHUB_ENV
-          echo "SUPABASE_PROJECT_ID=${{ secrets.SUPABASE_PROJECT_ID }}" >> $GITHUB_ENV
-
-      - name: 🚀 Deploy Schema to Supabase
-        run: |
-          chmod +x deploy-database.sh
-          bash deploy-database.sh
+      - name: Deploy Supabase Schema
+        run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
