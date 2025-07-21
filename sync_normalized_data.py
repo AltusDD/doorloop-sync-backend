@@ -1,18 +1,3 @@
-import uuid
-from supabase import create_client
-import os
-
-url = os.environ.get("SUPABASE_URL")
-key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-supabase = create_client(url, key)
-
-def is_valid_uuid(val: str) -> bool:
-    try:
-        uuid.UUID(str(val))
-        return True
-    except:
-        return False
-
 def sync_table(raw_table, normalized_table, field_map):
     print(f"🔄 Syncing {raw_table} → {normalized_table}")
 
@@ -22,14 +7,16 @@ def sync_table(raw_table, normalized_table, field_map):
     for record in raw_data:
         new_record = {}
 
-        # Use a valid UUID for id or generate one
+        # ✅ ALWAYS generate a UUID for internal use
         new_record["id"] = str(uuid.uuid4())
 
-        # Always store the DoorLoop _id as doorloop_id
-        new_record["doorloop_id"] = record.get("_id", None)
+        # ✅ Store the DoorLoop _id separately
+        new_record["doorloop_id"] = record.get("_id")
 
+        # ✅ Populate mapped fields
         for raw_field, normalized_field in field_map.items():
-            new_record[normalized_field] = record.get(raw_field)
+            if normalized_field not in ("id", "doorloop_id"):
+                new_record[normalized_field] = record.get(raw_field)
 
         records_to_insert.append(new_record)
 
