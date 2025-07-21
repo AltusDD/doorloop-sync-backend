@@ -1,0 +1,20 @@
+
+# File: .github/workflows/refresh-views.yml
+
+name: Nightly Refresh Materialized Views
+
+on:
+  schedule:
+    - cron: "0 5 * * *"  # Every day at 5 AM UTC
+  workflow_dispatch:
+
+jobs:
+  refresh_views:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Supabase RPC to refresh materialized views
+        run: |
+          curl -X POST "https://YOUR_PROJECT.supabase.co/rest/v1/rpc/refresh_all_materialized_views" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json"
