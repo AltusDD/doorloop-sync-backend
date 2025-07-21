@@ -1,7 +1,7 @@
 import os
+import uuid
 from supabase import create_client, Client
 from dotenv import load_dotenv
-import uuid
 
 # Load environment variables
 load_dotenv()
@@ -10,80 +10,48 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def is_valid_uuid(val):
-    try:
-        uuid.UUID(str(val))
-        return True
-    except Exception:
-        return False
-
-def sync_table(raw_table, normalized_table, field_map):
+def sync_table(raw_table: str, normalized_table: str, field_map: dict):
     print(f"🔄 Syncing {raw_table} → {normalized_table}")
-    raw_data = supabase.table(raw_table).select("*").execute().data
+    try:
+        raw_records = supabase.table(raw_table).select("*").execute().data
+    except Exception as e:
+        print(f"❌ Failed to fetch from {raw_table}: {e}")
+        return
 
     records_to_insert = []
-    for record in raw_data:
-        normalized_record = {}
-        skip = False
-        for norm_field, raw_field in field_map.items():
-            value = record.get(raw_field)
-            if norm_field in ['id', 'property', 'unit', 'lease', 'tenant'] and value and not is_valid_uuid(value):
-                print(f"⚠️ Skipping record due to invalid UUID in {norm_field}: {value}")
-                skip = True
-                break
-            normalized_record[norm_field] = value
-        if not skip:
-            records_to_insert.append(normalized_record)
+    for record in raw_records:
+        new_record = {
+            db_field: record.get(raw_field)
+            for raw_field, db_field in field_map.items()
+        }
+        # Inject UUID for normalized id
+        new_record['id'] = str(uuid.uuid4())
 
-    if records_to_insert:
+        # Store DoorLoop original ID separately if present
+        if 'id' in record:
+            new_record['doorloop_id'] = record['id']
+        records_to_insert.append(new_record)
+
+    try:
         supabase.table(normalized_table).insert(records_to_insert, upsert=True).execute()
         print(f"✅ Inserted {len(records_to_insert)} records into {normalized_table}")
-    else:
-        print(f"⚠️ No valid records to insert for {normalized_table}")
+    except Exception as e:
+        print(f"🔥 Insert failed for {normalized_table}: {e}")
 
-# Define mappings
-mappings = {
-    "doorloop_normalized_properties": {
-        "id": "id",
-        "name": "name",
-        "address": "addressStreet1"
-    },
-    "doorloop_normalized_units": {
-        "id": "id",
-        "property": "propertyId",
-        "unit_number": "name",
-        "bedroom_count": "bedrooms"
-    },
-    "doorloop_normalized_owners": {
-        "id": "id",
-        "name": "name"
-    },
-    "doorloop_normalized_leases": {
-        "id": "id",
-        "property": "propertyId",
-        "unit": "unitId",
-        "monthly_rent": "rentAmount",
-        "status": "status"
-    },
-    "doorloop_normalized_tenants": {
-        "id": "id",
-        "first_name": "firstName",
-        "last_name": "lastName",
-        "email": "email"
-    },
-    "doorloop_normalized_lease_tenants": {
-        "lease": "leaseId",
-        "tenant": "tenantId"
-    },
-    "doorloop_normalized_payments": {
-        "id": "id",
-        "lease": "leaseId",
-        "amount": "amount",
-        "payment_date": "date"
+# Field mappings (example for properties, expand as needed)
+field_mappings = {
+    'doorloop_raw_properties': {
+        'name': 'name',
+        'addressStreet1': 'address_street_1',
+        'addressCity': 'address_city',
+        'addressState': 'address_state',
+        'zip': 'zip_code',
+        'propertyType': 'property_type',
+        'status': 'status'
     }
 }
 
-# Run syncs
-for normalized_table, field_map in mappings.items():
-    raw_table = normalized_table.replace("normalized", "raw")
-    sync_table(raw_table, normalized_table, field_map)
+if __name__ == "__main__":
+    for raw_table, field_map in field_mappings.items():
+        normalized_table = raw_table.replace("raw", "normalized")
+        sync_table(raw_table, normalized_table, field_map)
