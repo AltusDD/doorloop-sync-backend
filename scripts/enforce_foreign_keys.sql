@@ -1,4 +1,8 @@
--- ✅ Enforce foreign keys only on actual TABLEs, not views
 
-ALTER TABLE doorloop_normalized_units
-ADD CONSTRAINT fk_property_id FOREIGN KEY (property_id) REFERENCES doorloop_normalized_properties(id);
+-- ✅ Enforce Foreign Keys (Safe: Raw Tables Only)
+
+ALTER TABLE public.doorloop_raw_units
+ADD CONSTRAINT fk_property_id FOREIGN KEY (propertyId)
+REFERENCES public.doorloop_raw_properties(id);
+
+-- Add more constraints as needed, skipping views entirely.
