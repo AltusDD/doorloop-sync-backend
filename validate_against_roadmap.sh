@@ -2,12 +2,12 @@
 echo "🔍 Validating repo files against roadmap_backend_cleanup_plan.md..."
 
 PLAN_FILE="roadmap_backend_cleanup_plan.md"
-FILES_TO_KEEP=$(grep -oP '(?<=✅ KEEP: ).*' "$PLAN_FILE")
+KEEP_SECTION=$(awk '/^KEEP:/ {flag=1; next} /^---/ {flag=0} flag' "$PLAN_FILE")
 
 EXIT_CODE=0
 
 for file in $(git ls-files); do
-    if ! grep -q "$file" <<< "$FILES_TO_KEEP"; then
+    if ! grep -qx "$file" <<< "$KEEP_SECTION"; then
         echo "🛑 File '$file' is NOT listed in roadmap as KEEP. Please update roadmap or remove file."
         EXIT_CODE=1
     fi
