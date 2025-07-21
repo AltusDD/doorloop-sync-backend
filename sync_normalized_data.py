@@ -1,74 +1,40 @@
+import uuid
+from supabase import create_client
 import os
-from supabase import create_client, Client
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+supabase = create_client(url, key)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+def is_valid_uuid(val: str) -> bool:
+    try:
+        uuid.UUID(str(val))
+        return True
+    except:
+        return False
 
 def sync_table(raw_table, normalized_table, field_map):
     print(f"🔄 Syncing {raw_table} → {normalized_table}")
-    raw_data = supabase.table(raw_table).select("*").execute().data
 
+    raw_data = supabase.table(raw_table).select("*").execute().data
     records_to_insert = []
+
     for record in raw_data:
-        normalized_record = {}
-        for norm_field, raw_field in field_map.items():
-            normalized_record[norm_field] = record.get(raw_field)
-        records_to_insert.append(normalized_record)
+        new_record = {}
+
+        # Use a valid UUID for id or generate one
+        new_record["id"] = str(uuid.uuid4())
+
+        # Always store the DoorLoop _id as doorloop_id
+        new_record["doorloop_id"] = record.get("_id", None)
+
+        for raw_field, normalized_field in field_map.items():
+            new_record[normalized_field] = record.get(raw_field)
+
+        records_to_insert.append(new_record)
 
     if records_to_insert:
         supabase.table(normalized_table).insert(records_to_insert, upsert=True).execute()
-        print(f"✅ Inserted {len(records_to_insert)} records into {normalized_table}")
+        print(f"✅ Synced {len(records_to_insert)} records to {normalized_table}")
     else:
-        print(f"⚠️ No records to insert for {normalized_table}")
-
-# Define mappings
-mappings = {
-    "doorloop_normalized_properties": {
-        "id": "id",
-        "name": "name",
-        "address": "addressStreet1"
-    },
-    "doorloop_normalized_units": {
-        "id": "id",
-        "property": "propertyId",
-        "unit_number": "name",
-        "bedroom_count": "bedrooms"
-    },
-    "doorloop_normalized_owners": {
-        "id": "id",
-        "name": "name"
-    },
-    "doorloop_normalized_leases": {
-        "id": "id",
-        "property": "propertyId",
-        "unit": "unitId",
-        "monthly_rent": "rentAmount",
-        "status": "status"
-    },
-    "doorloop_normalized_tenants": {
-        "id": "id",
-        "first_name": "firstName",
-        "last_name": "lastName",
-        "email": "email"
-    },
-    "doorloop_normalized_lease_tenants": {
-        "lease": "leaseId",
-        "tenant": "tenantId"
-    },
-    "doorloop_normalized_payments": {
-        "id": "id",
-        "lease": "leaseId",
-        "amount": "amount",
-        "payment_date": "date"
-    }
-}
-
-# Run syncs
-for normalized_table, field_map in mappings.items():
-    raw_table = normalized_table.replace("normalized", "raw")
-    sync_table(raw_table, normalized_table, field_map)
+        print("⚠️ No records to sync.")
