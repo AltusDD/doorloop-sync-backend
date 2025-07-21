@@ -2,3 +2,4 @@ requests
 python-dotenv
 supabase
 psycopg2-binary==2.9.10
+supabase-py==1.0.3
