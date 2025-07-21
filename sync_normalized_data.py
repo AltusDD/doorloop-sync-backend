@@ -1,57 +1,63 @@
-import os
-import uuid
-from supabase import create_client, Client
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+import os
+import logging
+from supabase import create_client, Client
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def sync_table(raw_table: str, normalized_table: str, field_map: dict):
-    print(f"🔄 Syncing {raw_table} → {normalized_table}")
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+def is_valid_uuid(value):
     try:
-        raw_records = supabase.table(raw_table).select("*").execute().data
-    except Exception as e:
-        print(f"❌ Failed to fetch from {raw_table}: {e}")
-        return
+        from uuid import UUID
+        UUID(value)
+        return True
+    except Exception:
+        return False
+
+def sync_table(raw_table, normalized_table, field_map):
+    logging.info(f"🔄 Syncing {raw_table} → {normalized_table}")
+
+    raw_data = supabase.table(raw_table).select("*").execute().data
 
     records_to_insert = []
-    for record in raw_records:
-        new_record = {
-            db_field: record.get(raw_field)
-            for raw_field, db_field in field_map.items()
-        }
-        # Inject UUID for normalized id
-        new_record['id'] = str(uuid.uuid4())
+    for record in raw_data:
+        new_record = {}
 
-        # Store DoorLoop original ID separately if present
-        if 'id' in record:
-            new_record['doorloop_id'] = record['id']
+        # Generate valid UUID and preserve DoorLoop ID
+        original_id = str(record.get("id", ""))
+        new_record["doorloop_id"] = original_id
+
+        if is_valid_uuid(original_id):
+            new_record["id"] = original_id
+        else:
+            new_record["id"] = str(uuid4())
+
+        for raw_field, normalized_field in field_map.items():
+            new_record[normalized_field] = record.get(raw_field)
+
         records_to_insert.append(new_record)
 
-    try:
+    if records_to_insert:
         supabase.table(normalized_table).insert(records_to_insert, upsert=True).execute()
-        print(f"✅ Inserted {len(records_to_insert)} records into {normalized_table}")
-    except Exception as e:
-        print(f"🔥 Insert failed for {normalized_table}: {e}")
+        logging.info(f"✅ Synced {len(records_to_insert)} records to {normalized_table}")
 
-# Field mappings (example for properties, expand as needed)
-field_mappings = {
-    'doorloop_raw_properties': {
-        'name': 'name',
-        'addressStreet1': 'address_street_1',
-        'addressCity': 'address_city',
-        'addressState': 'address_state',
-        'zip': 'zip_code',
-        'propertyType': 'property_type',
-        'status': 'status'
+# Example: sync doorloop_raw_properties → doorloop_normalized_properties
+sync_table(
+    raw_table="doorloop_raw_properties",
+    normalized_table="doorloop_normalized_properties",
+    field_map={
+        "name": "name",
+        "addressStreet1": "address_street_1",
+        "addressCity": "address_city",
+        "addressState": "address_state",
+        "zip": "zip",
+        "propertyType": "property_type",
+        "class": "property_class",
+        "totalSqFt": "total_sq_ft",
+        "unitCount": "unit_count",
+        "status": "status"
     }
-}
-
-if __name__ == "__main__":
-    for raw_table, field_map in field_mappings.items():
-        normalized_table = raw_table.replace("raw", "normalized")
-        sync_table(raw_table, normalized_table, field_map)
+)
