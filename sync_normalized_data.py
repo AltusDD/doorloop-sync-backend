@@ -1,7 +1,5 @@
-
 import os
-import supabase_py
-from supabase_py import create_client
+from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -9,7 +7,7 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 def sync_table(raw_table, normalized_table, field_map):
     print(f"🔄 Syncing {raw_table} → {normalized_table}")
