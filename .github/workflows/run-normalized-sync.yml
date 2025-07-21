@@ -4,11 +4,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  sync-normalized:
+  sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -18,11 +19,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run Normalized Data Sync
+      - name: List Python files to verify script presence
+        run: ls -l
+
+      - name: Display script contents
+        run: cat sync_normalized_data_debug_patch.py
+
+      - name: Run Python Sync Script
+        run: python sync_normalized_data_debug_patch.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          python sync_normalized_data_debug_patch.py
-
-
