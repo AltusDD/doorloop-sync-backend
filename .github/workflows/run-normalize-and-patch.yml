@@ -4,23 +4,24 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "normalize_and_patch_all.py"
-      - ".github/workflows/run-normalize-and-patch.yml"
+      - '**/normalize_and_patch_all.py'
+      - '.github/workflows/run-normalize-and-patch.yml'
+  schedule:
+    - cron: '0 4 * * *' # every day at 4 AM UTC
 
 jobs:
   normalize_and_patch:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          check-latest: false
           cache: 'pip'
-
-      - name: Checkout repo
-        uses: actions/checkout@v3
 
       - name: Install dependencies
         run: |
@@ -28,5 +29,8 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run normalize_and_patch_all.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python normalize_and_patch_all.py
