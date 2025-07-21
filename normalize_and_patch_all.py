@@ -15,14 +15,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-tables = [
-    "doorloop_normalized_properties",
-    "doorloop_normalized_units",
-    "doorloop_normalized_tenants",
-    "doorloop_normalized_leases",
-    "doorloop_normalized_owners",
-]
-
 raw_sources = {
     "doorloop_raw_properties": "doorloop_normalized_properties",
     "doorloop_raw_units": "doorloop_normalized_units",
@@ -31,7 +23,7 @@ raw_sources = {
     "doorloop_raw_owners": "doorloop_normalized_owners",
 }
 
-def normalize_data(table_name, records):
+def normalize_data(records):
     normalized = []
 
     for record in records:
@@ -41,11 +33,9 @@ def normalize_data(table_name, records):
                 continue
             new_key = k.lower()
             if isinstance(v, (dict, list)):
-                val = json.dumps(v)
+                new_record[new_key] = json.dumps(v)
             else:
-                escaped = str(v).replace("'", "''")
-                val = f"'{escaped}'"
-            new_record[new_key] = val
+                new_record[new_key] = str(v) if v is not None else None
         normalized.append(new_record)
 
     return normalized
@@ -63,10 +53,10 @@ def run_normalization():
             continue
 
         logger.info(f"📊 Normalizing {len(records)} records from {raw_table} → {norm_table}")
-        normalized_records = normalize_data(norm_table, records)
+        normalized_records = normalize_data(records)
 
-        logger.info(f"🧹 Clearing existing data in {norm_table}...")
-        supabase.table(norm_table).delete().neq("id", "").execute()
+        logger.info(f"🧹 Deleting all data from {norm_table}...")
+        supabase.table(norm_table).delete().execute()
 
         logger.info(f"🆕 Inserting normalized records into {norm_table}...")
         for record in normalized_records:

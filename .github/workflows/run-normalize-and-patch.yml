@@ -1,36 +1,28 @@
-name: Normalize and Patch All
+name: Normalize and Patch Data
 
 on:
-  workflow_dispatch:
   push:
-    paths:
-      - '**/normalize_and_patch_all.py'
-      - '.github/workflows/run-normalize-and-patch.yml'
-  schedule:
-    - cron: '0 4 * * *' # every day at 4 AM UTC
+    branches:
+      - main  # Change if using a different default branch
 
 jobs:
-  normalize_and_patch:
+  normalize:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip'
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+        run: pip install supabase
 
-      - name: Run normalize_and_patch_all.py
+      - name: Run normalization script
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          python normalize_and_patch_all.py
+        run: python normalize_and_patch_all.py
