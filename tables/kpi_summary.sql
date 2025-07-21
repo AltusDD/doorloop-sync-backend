@@ -1,10 +1,12 @@
--- Create KPI Summary Table
 CREATE TABLE IF NOT EXISTS public.kpi_summary (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type TEXT NOT NULL,
-    entity_id UUID NOT NULL,
-    metric_name TEXT NOT NULL,
-    metric_value NUMERIC NOT NULL,
-    metric_unit TEXT,
-    recorded_at TIMESTAMPTZ DEFAULT now()
+    id SERIAL PRIMARY KEY,
+    property_id INTEGER NOT NULL,
+    unit_count INTEGER,
+    occupied_units INTEGER,
+    occupancy_rate NUMERIC,
+    total_rent NUMERIC,
+    vacancy_cost NUMERIC,
+    delinquency_count INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
