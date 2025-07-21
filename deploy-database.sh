@@ -1,42 +1,69 @@
 #!/bin/bash
-PROJECT_REF="your_project_ref"
-SQL_PROXY_SECRET="your_sql_proxy_secret"
+echo "🚀 Deploying full normalized schema to Supabase..."
 
-deploy_sql() {
-  local file=$1
-  echo "🚀 Deploying $file"
-  sql_content=$(cat "$file")
-  response=$(curl -s -X POST "https://$PROJECT_REF.supabase.co/functions/v1/sql-proxy"     -H "Authorization: Bearer $SQL_PROXY_SECRET"     -H "Content-Type: application/json"     -d "{"sql_file": "$file", "sql_content": "$sql_content"}")
-  echo "$response"
-  if echo "$response" | grep -q "error"; then
-    echo "❌ Failed to deploy $file"
-    return 1
-  else
-    echo "✅ Successfully deployed $file"
-    return 0
-  fi
-}
+psql "$SUPABASE_DB_URL" <<'EOF'
+-- Properties
+CREATE TABLE IF NOT EXISTS public.doorloop_normalized_properties (
+    id uuid PRIMARY KEY,
+    name text,
+    address text,
+    city text,
+    state text,
+    zip text,
+    active boolean DEFAULT true,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
+);
 
-mkdir -p deployment_logs
+-- Units
+CREATE TABLE IF NOT EXISTS public.doorloop_normalized_units (
+    id uuid PRIMARY KEY,
+    property_id uuid REFERENCES doorloop_normalized_properties(id),
+    unit_number text,
+    bedroom_count int,
+    bathroom_count int,
+    square_feet int,
+    rent numeric,
+    active boolean DEFAULT true,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
+);
 
-echo "📁 Step 1: Deploying base tables..."
-for table in tables/doorloop_raw_*.sql; do
-  [ -f "$table" ] && deploy_sql "$table" | tee -a deployment_logs/tables.log && sleep 1
-done
+-- Leases
+CREATE TABLE IF NOT EXISTS public.doorloop_normalized_leases (
+    id uuid PRIMARY KEY,
+    unit_id uuid REFERENCES doorloop_normalized_units(id),
+    lease_start date,
+    lease_end date,
+    rent numeric,
+    status text,
+    batch text,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
+);
 
-echo "📁 Step 2: Deploying normalized views..."
-for view in views/normalized_*.sql; do
-  [ -f "$view" ] && deploy_sql "$view" | tee -a deployment_logs/normalized_views.log && sleep 1
-done
+-- Tenants
+CREATE TABLE IF NOT EXISTS public.doorloop_normalized_tenants (
+    id uuid PRIMARY KEY,
+    lease_id uuid REFERENCES doorloop_normalized_leases(id),
+    full_name text,
+    email text,
+    phone text,
+    acceptedOnTOS boolean DEFAULT false,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
+);
 
-echo "📁 Step 3: Deploying full views..."
-for view in views/get_full_*.sql; do
-  [ -f "$view" ] && deploy_sql "$view" | tee -a deployment_logs/full_views.log && sleep 1
-done
+-- Owners
+CREATE TABLE IF NOT EXISTS public.doorloop_normalized_owners (
+    id uuid PRIMARY KEY,
+    name text,
+    email text,
+    phone text,
+    active boolean DEFAULT true,
+    created_at timestamp DEFAULT now(),
+    updated_at timestamp DEFAULT now()
+);
+EOF
 
-echo "📁 Step 4: Deploying sync views..."
-for view in views/sync_*.sql; do
-  [ -f "$view" ] && deploy_sql "$view" | tee -a deployment_logs/sync_views.log && sleep 1
-done
-
-echo "✅ Database deployment completed!"
+echo "✅ Supabase normalized schema deployed."
