@@ -1,4 +1,4 @@
-
+# this script is used to sync the normalized data from the raw data in the doorloop_raw_properties table to the doorloop_normalized_properties table
 import uuid
 import os
 from supabase import create_client, Client
