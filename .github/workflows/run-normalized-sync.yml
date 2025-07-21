@@ -1,26 +1,21 @@
-name: Run Normalized Data Sync
+import os
+from supabase import create_client, SupabaseException
 
-on:
-  workflow_dispatch:
+# Load secrets
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-jobs:
-  sync-normalized:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+# Debug output
+print("🧪 DEBUG: SUPABASE_URL =", supabase_url)
+print("🔐 DEBUG: SERVICE ROLE KEY is set =", bool(supabase_key))
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run Normalized Data Sync
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          python sync_normalized_data.py
+# Attempt to connect
+try:
+    supabase = create_client(supabase_url, supabase_key)
+    print("✅ Connection successful.")
+except SupabaseException as e:
+    print("❌ SupabaseException:", str(e))
+    raise
+except Exception as e:
+    print("❌ General Exception:", str(e))
+    raise
