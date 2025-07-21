@@ -1,0 +1,22 @@
+name: Run KPI Pipeline
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-kpi-remote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🔐 Call compute_and_store_all_kpis()
+        run: |
+          curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy" \
+          -H "Authorization: Bearer ${{ secrets.SQL_PROXY_SECRET }}" \
+          -H "Content-Type: application/json" \
+          -d '{ "sql": "SELECT compute_and_store_all_kpis();" }'
+
+      - name: 🔄 Refresh get_full_kpi_by_property_view
+        run: |
+          curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy" \
+          -H "Authorization: Bearer ${{ secrets.SQL_PROXY_SECRET }}" \
+          -H "Content-Type: application/json" \
+          -d '{ "sql": "REFRESH MATERIALIZED VIEW CONCURRENTLY get_full_kpi_by_property_view;" }'
