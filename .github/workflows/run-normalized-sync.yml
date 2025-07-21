@@ -26,7 +26,7 @@ jobs:
         run: cat sync_normalized_data_debug_patch.py
 
       - name: Run Python Sync Script
-        run: python sync_normalized_data_debug_patch.py
+        run: python sync_normalized_data.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
