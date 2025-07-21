@@ -1,103 +1,80 @@
-
-import psycopg2
+import os
 import json
 import logging
-from dateutil.parser import isoparse
-import os
+from supabase import create_client
+from supabase.client import Client
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    raise ValueError("❌ SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set as environment variables.")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-SUPABASE_DB_URL = os.getenv("SUPABASE_DB_URL")
-SUPABASE_DB_USER = os.getenv("SUPABASE_DB_USER")
-SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD")
-SUPABASE_DB_NAME = os.getenv("SUPABASE_DB_NAME")
-SUPABASE_DB_PORT = os.getenv("SUPABASE_DB_PORT", 5432)
-
-conn = psycopg2.connect(
-    host=SUPABASE_DB_URL,
-    dbname=SUPABASE_DB_NAME,
-    user=SUPABASE_DB_USER,
-    password=SUPABASE_DB_PASSWORD,
-    port=SUPABASE_DB_PORT
-)
-conn.autocommit = True
-cursor = conn.cursor()
-
-def infer_sql_type(value):
-    if isinstance(value, bool):
-        return "boolean"
-    elif isinstance(value, int):
-        return "bigint"
-    elif isinstance(value, float):
-        return "numeric"
-    elif isinstance(value, str):
-        try:
-            isoparse(value)
-            return "timestamp with time zone"
-        except:
-            return "text"
-    elif isinstance(value, (dict, list)):
-        return "jsonb"
-    elif value is None:
-        return "text"
-    else:
-        return "text"
-
-def normalize_table(raw_table, normalized_table):
-    logging.info(f"📦 Normalizing {raw_table} → {normalized_table}")
-    cursor.execute(f"SELECT id, data FROM {raw_table}")
-    rows = cursor.fetchall()
-
-    all_fields = {}
-    for row in rows:
-        data = row[1]
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if key not in all_fields:
-                    all_fields[key] = infer_sql_type(value)
-
-    for field, sql_type in all_fields.items():
-        try:
-            cursor.execute(f'''
-                ALTER TABLE {normalized_table}
-                ADD COLUMN IF NOT EXISTS "{field}" {sql_type}
-            ''')
-            logging.info(f"✅ Added column {field} → {sql_type}")
-        except Exception as e:
-            logging.warning(f"⚠️ Column {field} skipped: {e}")
-
-    for row in rows:
-        id_val = row[0]
-        data = row[1]
-        columns = ['id']
-        values = [f"'{id_val}'"]
-        for k, v in data.items():
-            if v is None:
-                continue
-            val = json.dumps(v) if isinstance(v, (dict, list)) else f"'{str(v).replace("'", "''")}'"
-            columns.append(f'"{k}"')
-            values.append(val)
-        insert_sql = f'''
-            INSERT INTO {normalized_table} ({", ".join(columns)})
-            VALUES ({", ".join(values)})
-            ON CONFLICT (id) DO NOTHING;
-        '''
-        try:
-            cursor.execute(insert_sql)
-        except Exception as e:
-            logging.warning(f"⚠️ Insert failed for id={id_val}: {e}")
-
-# List your normalization targets here
+# Normalized table list
 tables = [
-    ("doorloop_raw_properties", "properties"),
-    ("doorloop_raw_owners", "owners"),
-    ("doorloop_raw_units", "units"),
-    ("doorloop_raw_leases", "leases"),
-    ("doorloop_raw_tenants", "tenants"),
-    ("doorloop_raw_vendors", "vendors"),
-    ("doorloop_raw_lease_credits", "lease_credits"),
-    ("doorloop_raw_vendor_bills", "vendor_bills"),
+    "doorloop_normalized_properties",
+    "doorloop_normalized_units",
+    "doorloop_normalized_tenants",
+    "doorloop_normalized_leases",
+    "doorloop_normalized_owners",
 ]
 
-for raw, normalized in tables:
-    normalize_table(raw, normalized)
+# Raw → Normalized mapping
+raw_sources = {
+    "doorloop_raw_properties": "doorloop_normalized_properties",
+    "doorloop_raw_units": "doorloop_normalized_units",
+    "doorloop_raw_tenants": "doorloop_normalized_tenants",
+    "doorloop_raw_leases": "doorloop_normalized_leases",
+    "doorloop_raw_owners": "doorloop_normalized_owners",
+}
+
+def normalize_data(table_name, records):
+    normalized = []
+
+    for record in records:
+        new_record = {}
+        for k, v in record.items():
+            if k in ["id", "created_at", "updated_at"]:
+                continue  # skip raw IDs and Supabase timestamps
+            new_key = k.lower()
+            val = json.dumps(v) if isinstance(v, (dict, list)) else f"'{str(v).replace(\"'\", \"''\")}'"
+            new_record[new_key] = val
+        normalized.append(new_record)
+
+    return normalized
+
+def run_normalization():
+    logger.info("🚀 Starting normalization process...")
+
+    for raw_table, norm_table in raw_sources.items():
+        logger.info(f"📥 Fetching data from {raw_table}...")
+        response = supabase.table(raw_table).select("*").execute()
+        records = response.data
+
+        if not records:
+            logger.warning(f"⚠️ No data found in {raw_table}. Skipping.")
+            continue
+
+        logger.info(f"📊 Normalizing {len(records)} records from {raw_table} → {norm_table}")
+        normalized_records = normalize_data(norm_table, records)
+
+        # Clear the normalized table first
+        logger.info(f"🧹 Clearing existing data in {norm_table}...")
+        supabase.table(norm_table).delete().neq("id", "").execute()
+
+        # Insert normalized records
+        logger.info(f"🆕 Inserting normalized records into {norm_table}...")
+        for record in normalized_records:
+            supabase.table(norm_table).insert(record).execute()
+
+        logger.info(f"✅ Finished syncing {norm_table}")
+
+    logger.info("🎉 All normalized tables processed successfully.")
+
+if __name__ == "__main__":
+    run_normalization()
