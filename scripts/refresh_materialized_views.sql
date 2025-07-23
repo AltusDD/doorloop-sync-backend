@@ -1,1 +1,0 @@
--- refresh_materialized_views.sql SQL content goes here
