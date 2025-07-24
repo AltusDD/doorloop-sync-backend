@@ -1,1 +1,0 @@
-CREATE OR REPLACE VIEW normalized_units AS SELECT id, unit_name FROM doorloop_raw_units;

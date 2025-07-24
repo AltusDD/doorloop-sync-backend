@@ -1,1 +1,0 @@
-CREATE OR REPLACE VIEW public.normalized_owners AS SELECT * FROM public.doorloop_raw_owners;
