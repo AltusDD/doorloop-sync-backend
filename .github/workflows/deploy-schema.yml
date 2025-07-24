@@ -1,3 +1,4 @@
+
 name: 🧱 Deploy Normalized Schema
 
 on:
@@ -13,6 +14,15 @@ jobs:
 
       - name: 🧰 Setup Supabase CLI
         uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔗 Link to Supabase Project
+        run: |
+          echo "🔗 Linking to Supabase project ref: ${{ secrets.SUPABASE_PROJECT_REF }}"
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: 🚀 Push Normalized Schema to Supabase
         run: supabase db push
