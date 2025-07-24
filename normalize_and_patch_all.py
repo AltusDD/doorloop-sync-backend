@@ -56,6 +56,10 @@ def normalize(source_table, target_table):
     print(f"📊 Normalizing {len(raw_data)} records...")
 
     transformed_data = [transform_property(record) for record in raw_data]
+    from supabase_schema_manager import SupabaseSchemaManager
+    manager = SupabaseSchemaManager(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    manager.add_missing_columns(target_table, transformed_data)
+
     existing_columns = fetch_table_columns(target_table)
 
     safe_data = [{k: v for k, v in item.items() if k in existing_columns} for item in transformed_data]

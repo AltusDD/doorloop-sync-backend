@@ -52,6 +52,7 @@ class SupabaseSchemaManager:
 
         for record in records:
             for key, value in record.items():
+                key = self._to_snake_case(key)
                 if key in ['id', 'data', 'source_endpoint', 'inserted_at']:
                     continue
 
@@ -114,3 +115,8 @@ class SupabaseSchemaManager:
             return "text"
         else:
             return "text"
+
+
+    def _to_snake_case(self, name):
+        import re
+        return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
