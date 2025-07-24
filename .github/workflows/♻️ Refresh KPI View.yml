@@ -1,0 +1,17 @@
+name: Refresh KPI View
+
+on:
+  workflow_dispatch: # Manually triggerable from GitHub UI
+
+jobs:
+  refresh-kpi:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Call Supabase SQL Proxy to refresh KPI view
+        run: |
+          curl -X POST "https://ssexobxvtuxwnblwplzh.supabase.co/functions/v1/sql-proxy" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "apikey: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{ "sql": "REFRESH MATERIALIZED VIEW get_full_kpi_summary_view;" }'
