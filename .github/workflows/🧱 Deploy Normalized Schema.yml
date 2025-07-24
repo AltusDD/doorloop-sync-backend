@@ -1,21 +1,26 @@
-name: Deploy Normalized Schema
+name: 🧱 Deploy Normalized Schema
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy-schema:
+  deploy-normalized-schema:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repo
+      - name: 📥 Checkout Repo
         uses: actions/checkout@v3
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - name: 🧪 Set up Python
+        uses: actions/setup-python@v4
         with:
-          version: latest
+          python-version: '3.10'
 
-      - name: Deploy Supabase Schema
-        run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_ID }}
+      - name: 💾 Install Supabase CLI
+        run: |
+          npm install -g supabase
+
+      - name: 🚀 Deploy schema to Supabase
+        run: supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
