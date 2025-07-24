@@ -11,11 +11,17 @@ jobs:
       - name: 📥 Checkout Repo
         uses: actions/checkout@v3
 
-      - name: 🧰 Download Supabase CLI (binary)
+      - name: 🧰 Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🔗 Link to Supabase Project
         run: |
-          curl -sL https://github.com/supabase/cli/releases/latest/download/supabase-cli-linux-x64 -o supabase
-          chmod +x supabase
-          sudo mv supabase /usr/local/bin/supabase
+          echo "🔗 Linking to Supabase project ref: ${{ secrets.SUPABASE_PROJECT_REF }}"
+          supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: 🚀 Push Normalized Schema to Supabase
         run: supabase db push
