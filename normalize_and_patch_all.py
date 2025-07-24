@@ -4,49 +4,60 @@ from supabase import create_client, Client
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-def normalize_records(raw_records, required_fields):
-    """ Filter and prepare normalized records, ensuring required fields are present """
+def normalize(table_name: str, target_table: str, fields: list):
+    print(f"📥 Fetching data from {table_name}...")
+    response = supabase.table(table_name).select("*").execute()
+    records = response.data or []
+    print(f"📊 Normalizing {len(records)} records from {table_name} → {target_table}")
+
+    # Extract and normalize
     normalized = []
-    dropped = []
-    for record in raw_records:
-        if all(record.get(field) for field in required_fields):
-            normalized.append(record)
+    for record in records:
+        jsonb_data = record.get("data") or {}
+        if not isinstance(jsonb_data, dict):
+            try:
+                jsonb_data = json.loads(jsonb_data)
+            except Exception:
+                continue
+        norm = {}
+        missing_fields = []
+
+        # Always extract 'id' → 'doorloop_id'
+        raw_id = jsonb_data.get("id")
+        if raw_id:
+            norm["doorloop_id"] = raw_id
         else:
-            dropped.append(record)
-    return normalized, dropped
+            missing_fields.append("doorloop_id")
 
-def process_table(raw_table, norm_table, required_fields):
-    print(f"📥 Fetching data from {raw_table}...")
-    raw_data = supabase.table(raw_table).select("*").execute().data
-    print(f"📊 Normalizing {len(raw_data)} records from {raw_table} → {norm_table}")
+        for f in fields:
+            norm[f] = jsonb_data.get(f)
 
-    normalized, dropped = normalize_records(raw_data, required_fields)
+        if not missing_fields:
+            normalized.append(norm)
 
-    print(f"🧹 Deleting all data from {norm_table}...")
-    supabase.table(norm_table).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+    print(f"🧹 Deleting all data from {target_table}...")
+    supabase.table(target_table).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
 
-    print(f"📤 Inserting {len(normalized)} normalized records into {norm_table}")
+    print(f"📤 Inserting {len(normalized)} normalized records into {target_table}")
     if normalized:
-        response = supabase.table(norm_table).insert(normalized).execute()
-        if hasattr(response, 'data'):
-            print(f"✅ Inserted {len(response.data)} records into {norm_table}")
-        else:
-            print(f"⚠️ Unexpected response: {response}")
-    if dropped:
-        print(f"⚠️ Dropped {len(dropped)} records due to missing required fields: {required_fields}")
+        for chunk in [normalized[i:i+50] for i in range(0, len(normalized), 50)]:
+            supabase.table(target_table).insert(chunk).execute()
+    else:
+        print(f"⚠️ Dropped {len(records)} records due to missing required fields: ['doorloop_id']")
 
 def run_normalization():
-    try:
-        process_table("doorloop_raw_properties", "doorloop_normalized_properties", ["doorloop_id"])
-        process_table("doorloop_raw_units", "doorloop_normalized_units", ["doorloop_id"])
-        process_table("doorloop_raw_leases", "doorloop_normalized_leases", ["doorloop_id"])
-        process_table("doorloop_raw_tenants", "doorloop_normalized_tenants", ["doorloop_id"])
-        process_table("doorloop_raw_owners", "doorloop_normalized_owners", ["doorloop_id"])
-    except Exception as e:
-        print(f"❌ ERROR during normalization: {e}")
+    normalize("doorloop_raw_properties", "doorloop_normalized_properties",
+              ["name", "type", "class", "addressStreet1", "addressCity", "addressState"])
+    normalize("doorloop_raw_units", "doorloop_normalized_units",
+              ["name", "propertyId", "bedrooms", "bathrooms", "sqft", "marketRent"])
+    normalize("doorloop_raw_leases", "doorloop_normalized_leases",
+              ["unitId", "status", "startDate", "endDate"])
+    normalize("doorloop_raw_tenants", "doorloop_normalized_tenants",
+              ["firstName", "lastName", "email", "phone", "leaseId"])
+    normalize("doorloop_raw_owners", "doorloop_normalized_owners",
+              ["firstName", "lastName", "email", "phone"])
 
 if __name__ == "__main__":
     print("🚀 Starting normalization process...")
