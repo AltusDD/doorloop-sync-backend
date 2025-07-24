@@ -11,16 +11,13 @@ jobs:
       - name: 📥 Checkout Repo
         uses: actions/checkout@v3
 
-      - name: 🧪 Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: 💾 Install Supabase CLI
+      - name: 🧰 Download Supabase CLI
         run: |
-          npm install -g supabase
+          curl -L https://github.com/supabase/cli/releases/latest/download/supabase-cli-linux-x64 > supabase
+          chmod +x supabase
+          sudo mv supabase /usr/local/bin/supabase
 
-      - name: 🚀 Deploy schema to Supabase
+      - name: 🚀 Push Normalized Schema to Supabase
         run: supabase db push
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
