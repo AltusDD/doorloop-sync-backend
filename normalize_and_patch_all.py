@@ -5,18 +5,29 @@ import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import re
+import psycopg2
 
 # --- Set up Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 load_dotenv()
 
+# --- Database Connection Details ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     logging.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables.")
     exit(1)
+
+# Extract connection details from SUPABASE_URL for psycopg2
+# Example: "postgresql://postgres:password@db.xyz.supabase.co:5432/postgres"
+db_url_parts = SUPABASE_URL.split('@')[1].split(':')
+db_host = db_url_parts[0]
+db_port = db_url_parts[1].split('/')[0]
+db_name = db_url_parts[1].split('/')[1]
+db_user = SUPABASE_URL.split('//')[1].split(':')[0]
+db_password = SUPABASE_SERVICE_ROLE_KEY
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -33,6 +44,61 @@ def mongodb_id_to_uuid(mongo_id: str) -> str:
         return None
     return str(uuid.uuid5(uuid.NAMESPACE_OID, mongo_id))
 
+# --- Definitive Schema for doorloop_normalized_properties ---
+# This is the single source of truth. Your script will now enforce this.
+TARGET_SCHEMA = {
+    'doorloop_normalized_properties': {
+        'id': 'uuid',
+        'doorloop_id': 'text',
+        'name': 'text',
+        'property_type': 'text',
+        'address_street1': 'text',
+        'address_city': 'text',
+        'address_state': 'text',
+        'address_zip': 'text',
+        'manager_id': 'uuid',
+        'class': 'text',
+        'status': 'text',
+        'unit_count': 'integer',
+        'created_at': 'timestamp with time zone',
+        'updated_at': 'timestamp with time zone',
+        'pictures_json': 'jsonb',
+    }
+}
+
+def ensure_schema_is_correct(table_name: str):
+    """Checks and corrects schema for a given table using psycopg2."""
+    logging.info(f"🔍 Enforcing schema consistency for table: {table_name}")
+    try:
+        conn = psycopg2.connect(
+            host=db_host,
+            port=db_port,
+            dbname=db_name,
+            user=db_user,
+            password=db_password
+        )
+        cur = conn.cursor()
+
+        expected_columns = TARGET_SCHEMA[table_name]
+        cur.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name='{table_name}'")
+        existing_columns = [row[0] for row in cur.fetchall()]
+
+        for col, col_type in expected_columns.items():
+            if col not in existing_columns:
+                logging.warning(f"⚠️ Column '{col}' not found. Adding with type '{col_type}'.")
+                cur.execute(f"ALTER TABLE public.{table_name} ADD COLUMN {col} {col_type};")
+                conn.commit()
+                logging.info(f"✅ Successfully added column '{col}'.")
+        
+        cur.close()
+        conn.close()
+        logging.info("✅ Schema enforcement complete.")
+
+    except Exception as e:
+        logging.error(f"❌ Failed to enforce schema for {table_name}: {e}")
+        raise
+
+
 # --- Transformation Function for Properties ---
 def transform_property(row: dict) -> dict:
     data = row.get("data", {})
@@ -40,31 +106,30 @@ def transform_property(row: dict) -> dict:
         logging.warning(f"⚠️ Skipped row missing id: {row}")
         return None
 
-    # Programmatically convert all keys from camelCase to snake_case
     transformed_data = {camel_to_snake(k): v for k, v in data.items()}
 
-    # Special handling for ID fields to ensure correct types
     transformed_data["id"] = mongodb_id_to_uuid(transformed_data.get("id"))
     transformed_data["doorloop_id"] = transformed_data.get("id")
     if transformed_data.get("manager_id"):
         transformed_data["manager_id"] = mongodb_id_to_uuid(transformed_data.get("manager_id"))
     
-    # Add any fields from the API that need special handling or renaming
     transformed_data["status"] = "active" if transformed_data.get("active") else "inactive"
     
-    # Renaming `num_active_units` to `unit_count`
     if 'num_active_units' in transformed_data:
         transformed_data['unit_count'] = transformed_data.pop('num_active_units')
     
-    # Renaming `type` to `property_type`
     if 'type' in transformed_data:
         transformed_data['property_type'] = transformed_data.pop('type')
 
-    return transformed_data
+    # Remove any keys not in our target schema to prevent insertion errors
+    # This is the "bulletproof" part for data
+    return {k: v for k, v in transformed_data.items() if k in TARGET_SCHEMA['doorloop_normalized_properties']}
 
 
 # --- Normalization and Insertion Logic ---
 def normalize(source_table: str, target_table: str, transform_function: callable):
+    ensure_schema_is_correct(target_table)
+    
     logging.info(f"📥 Fetching data from {source_table}...")
     try:
         raw_data = supabase.table(source_table).select("*").execute().data
