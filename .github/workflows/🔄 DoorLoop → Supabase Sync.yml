@@ -1,29 +1,17 @@
-name: Chain Sync → Normalize
-
+name: 🔄 DoorLoop → Supabase Sync
 on:
-  workflow_run:
-    workflows: ["DoorLoop → Supabase Sync"]
-    types:
-      - completed
-
+  workflow_dispatch:
 jobs:
-  run_normalize:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  sync:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.10
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run normalize_and_patch_all.py
+        uses: actions/checkout@v4
+      - name: Sync DoorLoop data
+        run: |
+          python sync_all_doorloop_to_supabase.py
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+          DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python normalize_and_patch_all.py
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
