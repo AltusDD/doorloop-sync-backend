@@ -19,6 +19,13 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+# --- Helper Function to Convert from CamelCase to SnakeCase ---
+def camel_to_snake(name: str) -> str:
+    """Converts a CamelCase string to a snake_case string."""
+    import re
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
 # --- Helper Function for ID Conversion ---
 def mongodb_id_to_uuid(mongo_id: str) -> str:
     """Converts a MongoDB-style ObjectId to a UUIDv5 deterministically."""
@@ -30,30 +37,28 @@ def mongodb_id_to_uuid(mongo_id: str) -> str:
 
 # --- Transformation Function for Properties ---
 def transform_property(row: dict) -> dict:
-    data = row.get("data", {})
-    if not data.get("id"):
+    # Programmatically convert all keys from camelCase to snake_case
+    transformed_data = {camel_to_snake(k): v for k, v in row.get("data", {}).items()}
+
+    if not transformed_data.get("id"):
         logging.warning(f"⚠️ Skipped row missing id: {row}")
         return None
 
-    return {
-        "id": mongodb_id_to_uuid(data.get("id")),         # Generates UUIDv5 for primary key
-        "doorloop_id": data.get("id"),                    # Stores original MongoID
-        "name": data.get("name"),
-        # --- FIX: Corrected field name from 'propertyType' to 'property_type' ---
-        "property_type": data.get("type"),
-        # --- END FIX ---
-        "address_street1": data.get("address", {}).get("street1"),
-        "address_city": data.get("address", {}).get("city"),
-        "address_state": data.get("address", {}).get("state"),
-        "address_zip": data.get("address", {}).get("zip"),
-        "manager_id": mongodb_id_to_uuid(data.get("managerId")),
-        "class": data.get("class"),
-        "status": "active" if data.get("active") else "inactive",
-        "unitCount": data.get("numActiveUnits", 0),
-        "created_at": data.get("createdAt"),
-        "updated_at": data.get("updatedAt"),
-        "pictures_json": data.get("pictures", []),
-    }
+    # Special handling for ID fields to ensure correct types
+    transformed_data["id"] = mongodb_id_to_uuid(transformed_data.get("id"))
+    transformed_data["doorloop_id"] = transformed_data.get("id")
+    if transformed_data.get("manager_id"):
+        transformed_data["manager_id"] = mongodb_id_to_uuid(transformed_data.get("manager_id"))
+    
+    # You can remove the old explicit mappings for 'property_type', 'unit_count', etc.
+    # as they are now handled by the camel_to_snake function.
+    # We add back any fields from the API that need special handling.
+    
+    # Example of adding a field with a different name or a derived field
+    transformed_data["status"] = "active" if transformed_data.get("active") else "inactive"
+
+    return transformed_data
+
 
 # --- Normalization and Insertion Logic ---
 def normalize(source_table: str, target_table: str, transform_function: callable):
