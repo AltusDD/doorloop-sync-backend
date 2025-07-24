@@ -1,27 +1,71 @@
-import json
+
+# normalize_and_patch_all.py - Bulletproof Sync Engine
+import re
 import uuid
 import requests
-from supabase_client import supabase
-from utils import camel_to_snake_case, mongodb_id_to_uuid
+from supabase import create_client, Client
+
+# Connect to Supabase
+SUPABASE_URL = "https://your-project.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY = "your-secret-key"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# Canonical schema definition
+SCHEMA = {
+    "id": {"source": "id", "type": "uuid"},
+    "doorloop_id": {"source": "_id", "type": "text"},
+    "property_type": {"source": "propertyType", "type": "text"},
+    "unit_count": {"source": "unitCount", "type": "int"},
+    "occupied_units": {"source": "occupiedUnits", "type": "int"},
+    "occupancy_rate": {"source": "occupancyRate", "type": "float"},
+    "total_sqft": {"source": "totalSqft", "type": "float"},
+    "owner_id": {"source": "ownerId", "type": "uuid"},
+}
+
+# Convert camelCase to snake_case
+def camel_to_snake(name):
+    return re.sub(r'(?<!^)(?=[A-Z])', '_', name).lower()
+
+# Convert Mongo ObjectId to UUIDv5
+NAMESPACE = uuid.UUID("12345678-1234-5678-1234-567812345678")
+def mongodb_id_to_uuid(object_id: str) -> str:
+    return str(uuid.uuid5(NAMESPACE, object_id))
+
+def fetch_table_columns(table_name):
+    result = supabase.table(table_name).select("*").limit(1).execute()
+    if result.data:
+        return result.data[0].keys()
+    else:
+        # Fallback to fetch columns via Supabase REST if empty
+        return [col for col in SCHEMA]
 
 def transform_property(raw):
-    return {
-        'id': mongodb_id_to_uuid(raw['_id']),
-        'doorloop_id': raw['_id'],
-        **{
-            camel_to_snake_case(k): v
-            for k, v in raw.items()
-            if k not in ['_id']
-        }
-    }
+    transformed = {"id": mongodb_id_to_uuid(raw["_id"]), "doorloop_id": raw["_id"]}
+    for field, meta in SCHEMA.items():
+        source_key = meta["source"]
+        if source_key in raw:
+            value = raw[source_key]
+            if meta["type"] == "uuid":
+                value = mongodb_id_to_uuid(value) if value else None
+            transformed[field] = value
+    return transformed
 
-def normalize_properties():
-    resp = requests.get("https://api.doorloop.com/properties", headers={"Authorization": f"Bearer {os.getenv('DOORLOOP_API_KEY')}"})
-    raw_properties = resp.json().get('data', [])
+def normalize(source_table, target_table):
+    print(f"📥 Fetching from {source_table}...")
+    raw_data = supabase.table(source_table).select("*").execute().data
+    print(f"📊 Normalizing {len(raw_data)} records...")
 
-    transformed = [transform_property(p) for p in raw_properties]
-    for prop in transformed:
-        supabase.table("doorloop_normalized_properties").upsert(prop).execute()
+    transformed_data = [transform_property(record) for record in raw_data]
+    existing_columns = fetch_table_columns(target_table)
+
+    safe_data = [{k: v for k, v in item.items() if k in existing_columns} for item in transformed_data]
+
+    print(f"🧹 Clearing {target_table}...")
+    supabase.table(target_table).delete().neq("id", "").execute()
+
+    print(f"📤 Inserting into {target_table}...")
+    for chunk in [safe_data[i:i + 50] for i in range(0, len(safe_data), 50)]:
+        supabase.table(target_table).insert(chunk).execute()
 
 if __name__ == "__main__":
-    normalize_properties()
+    normalize("doorloop_raw_properties", "doorloop_normalized_properties")
