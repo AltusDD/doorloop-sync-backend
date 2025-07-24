@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS public.doorloop_normalized_properties (
   id UUID PRIMARY KEY,
   doorloop_id TEXT UNIQUE,
