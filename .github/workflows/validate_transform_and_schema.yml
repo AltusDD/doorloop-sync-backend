@@ -1,0 +1,14 @@
+name: Validate Transform and Schema
+on:
+  push:
+    paths:
+      - '**.py'
+      - 'sql/**'
+  workflow_dispatch:
+jobs:
+  validate_codebase:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Validate roadmap plan
+        run: python validate_against_roadmap.py
