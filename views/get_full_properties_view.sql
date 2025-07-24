@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW public.get_full_properties_view AS SELECT * FROM public.doorloop_normalized_properties;

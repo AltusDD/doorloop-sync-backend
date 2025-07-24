@@ -1,0 +1,1 @@
+-- normalized_payments.sql SQL content goes here

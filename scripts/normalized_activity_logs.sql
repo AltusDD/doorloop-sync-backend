@@ -1,0 +1,1 @@
+-- normalized_activity_logs.sql SQL content goes here

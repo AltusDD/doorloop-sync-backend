@@ -1,0 +1,1 @@
+-- SQL schema for doorloop_normalized_units

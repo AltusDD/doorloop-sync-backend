@@ -1,0 +1,1 @@
+-- normalized_leases.sql SQL content goes here

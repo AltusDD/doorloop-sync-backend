@@ -1,0 +1,1 @@
+-- normalized_documents.sql SQL content goes here

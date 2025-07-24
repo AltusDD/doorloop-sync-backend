@@ -1,0 +1,2 @@
+-- SQL for normalized_legal_cases.sql
+-- TODO: Define schema, logic, and joins.

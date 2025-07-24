@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW public.sync_units AS SELECT * FROM public.doorloop_normalized_units;

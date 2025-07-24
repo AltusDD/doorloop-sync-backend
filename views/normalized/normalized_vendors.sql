@@ -1,0 +1,1 @@
+-- SQL for normalized_vendors.sql
