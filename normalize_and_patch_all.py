@@ -4,6 +4,7 @@ import uuid
 import logging
 from supabase import create_client, Client
 from dotenv import load_dotenv
+import re
 
 # --- Set up Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -22,7 +23,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 # --- Helper Function to Convert from CamelCase to SnakeCase ---
 def camel_to_snake(name: str) -> str:
     """Converts a CamelCase string to a snake_case string."""
-    import re
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
@@ -30,19 +30,18 @@ def camel_to_snake(name: str) -> str:
 def mongodb_id_to_uuid(mongo_id: str) -> str:
     """Converts a MongoDB-style ObjectId to a UUIDv5 deterministically."""
     if not isinstance(mongo_id, str) or len(mongo_id) != 24:
-        # For cases where an ID field is null or not a valid MongoID,
-        # return None for the DB to handle as a nullable UUID.
         return None
     return str(uuid.uuid5(uuid.NAMESPACE_OID, mongo_id))
 
 # --- Transformation Function for Properties ---
 def transform_property(row: dict) -> dict:
-    # Programmatically convert all keys from camelCase to snake_case
-    transformed_data = {camel_to_snake(k): v for k, v in row.get("data", {}).items()}
-
-    if not transformed_data.get("id"):
+    data = row.get("data", {})
+    if not data.get("id"):
         logging.warning(f"⚠️ Skipped row missing id: {row}")
         return None
+
+    # Programmatically convert all keys from camelCase to snake_case
+    transformed_data = {camel_to_snake(k): v for k, v in data.items()}
 
     # Special handling for ID fields to ensure correct types
     transformed_data["id"] = mongodb_id_to_uuid(transformed_data.get("id"))
@@ -50,12 +49,16 @@ def transform_property(row: dict) -> dict:
     if transformed_data.get("manager_id"):
         transformed_data["manager_id"] = mongodb_id_to_uuid(transformed_data.get("manager_id"))
     
-    # You can remove the old explicit mappings for 'property_type', 'unit_count', etc.
-    # as they are now handled by the camel_to_snake function.
-    # We add back any fields from the API that need special handling.
-    
-    # Example of adding a field with a different name or a derived field
+    # Add any fields from the API that need special handling or renaming
     transformed_data["status"] = "active" if transformed_data.get("active") else "inactive"
+    
+    # Renaming `num_active_units` to `unit_count`
+    if 'num_active_units' in transformed_data:
+        transformed_data['unit_count'] = transformed_data.pop('num_active_units')
+    
+    # Renaming `type` to `property_type`
+    if 'type' in transformed_data:
+        transformed_data['property_type'] = transformed_data.pop('type')
 
     return transformed_data
 
