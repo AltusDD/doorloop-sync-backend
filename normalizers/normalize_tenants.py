@@ -2,19 +2,19 @@
 import time
 import traceback
 from audit_logger import log_pipeline_event  # Ensure this exists
-from supabase import insert_normalized_propertie  # Placeholder function
+from supabase import insert_normalized_tenant  # Placeholder function
 
-def normalize_properties(raw_data, batch_id):
+def normalize_tenants(raw_data, batch_id):
     for record in raw_data:
         doorloop_id = record.get("id")
         internal_id = None
         start_time = time.time()
         try:
-            internal_id = insert_normalized_propertie(record)  # Replace with actual insert logic
+            internal_id = insert_normalized_tenant(record)  # Replace with actual insert logic
             duration = int((time.time() - start_time) * 1000)
             log_pipeline_event(
-                entity_type="propertie",
-                stage="normalize_properties",
+                entity_type="tenant",
+                stage="normalize_tenants",
                 doorloop_id=doorloop_id,
                 internal_id=internal_id,
                 status="success",
@@ -25,8 +25,8 @@ def normalize_properties(raw_data, batch_id):
         except Exception as e:
             duration = int((time.time() - start_time) * 1000)
             log_pipeline_event(
-                entity_type="propertie",
-                stage="normalize_properties",
+                entity_type="tenant",
+                stage="normalize_tenants",
                 doorloop_id=doorloop_id,
                 internal_id=internal_id,
                 status="error",
