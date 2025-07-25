@@ -1,0 +1,1 @@
+-- SQL function to validate Excel rows
