@@ -1,0 +1,30 @@
+
+name: Retry DLQ Records
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # Runs every hour
+  workflow_dispatch:
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install psycopg2
+        run: pip install psycopg2-binary
+
+      - name: Run DLQ retry script
+        env:
+          SUPABASE_DB: ${{ secrets.SUPABASE_DB }}
+          SUPABASE_USER: ${{ secrets.SUPABASE_USER }}
+          SUPABASE_PASS: ${{ secrets.SUPABASE_PASS }}
+          SUPABASE_HOST: ${{ secrets.SUPABASE_HOST }}
+        run: python cli/retry_dlq_records.py
