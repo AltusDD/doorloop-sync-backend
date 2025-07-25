@@ -1,4 +1,3 @@
--- Fails if any normalized table has 0 rows
 DO $$
 DECLARE
     r_count INT;

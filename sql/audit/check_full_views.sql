@@ -1,4 +1,3 @@
--- Fails if any full view returns 0 rows
 DO $$
 DECLARE
     r_count INT;
