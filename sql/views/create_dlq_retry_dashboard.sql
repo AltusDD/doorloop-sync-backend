@@ -1,8 +1,4 @@
-
-ALTER TABLE doorloop_error_records
-ADD COLUMN IF NOT EXISTS retry_count INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'open';
-
+-- DLQ Retry Success Metrics Dashboard
 CREATE OR REPLACE VIEW doorloop_dlq_dashboard AS
 SELECT
   entity_type,
