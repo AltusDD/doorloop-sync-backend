@@ -1,37 +1,44 @@
 import os
+import requests
 import json
-import psycopg2
-from psycopg2.extras import RealDictCursor
 
-def retry_from_dlq():
-    conn = psycopg2.connect(os.getenv("SUPABASE_DIRECT_DB_URL"))
-    cur = conn.cursor(cursor_factory=RealDictCursor)
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-    cur.execute("""
-        SELECT * FROM doorloop_error_records
-        WHERE status = 'unresolved'
-        LIMIT 10
-    """)
-    records = cur.fetchall()
+def retry_dlq_via_rest():
+    headers = {
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    # Step 1: Fetch unresolved DLQ records
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/doorloop_error_records?status=eq.unresolved&limit=10",
+        headers=headers
+    )
+    records = resp.json()
+
+    if not records:
+        print("✅ No unresolved DLQ records found.")
+        return
 
     for record in records:
-        entity_type = record['entity_type']
-        doorloop_id = record['doorloop_id']
-        raw_data = record['raw_data']
+        print(f"🔁 Retrying {record['entity_type']} {record['doorloop_id']}")
 
-        # Add your retry logic here...
-        print(f"Retrying {entity_type} with DoorLoop ID {doorloop_id}...")
+        # Step 2: Patch status to 'retried' and increment retry_count
+        patch_payload = {
+            "status": "retried",
+            "retry_count": record.get("retry_count", 0) + 1
+        }
 
-        # For now, just mark as 'retried' placeholder
-        cur.execute("""
-            UPDATE doorloop_error_records
-            SET status = 'retried'
-            WHERE id = %s
-        """, (record['id'],))
+        update_url = f"{SUPABASE_URL}/rest/v1/doorloop_error_records?id=eq.{record['id']}"
+        patch_resp = requests.patch(update_url, headers=headers, data=json.dumps(patch_payload))
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        if patch_resp.status_code == 204:
+            print(f"✅ Updated DLQ record {record['id']}")
+        else:
+            print(f"❌ Failed to update record {record['id']}: {patch_resp.text}")
 
 if __name__ == "__main__":
-    retry_from_dlq()
+    retry_dlq_via_rest()
