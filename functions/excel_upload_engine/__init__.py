@@ -1,1 +1,1 @@
-# Placeholder for Excel Upload Engine Azure Function
+# Included for Azure compatibility
