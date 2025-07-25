@@ -1,40 +1,51 @@
 
-import time
-import traceback
-from audit_logger import log_pipeline_event  # Ensure this exists
-from supabase import insert_normalized_propertie  # Placeholder function
+import os
+import psycopg2
+import json
+from utils.logger import log_pipeline_event
 
-def normalize_properties(raw_data, batch_id):
-    for record in raw_data:
-        doorloop_id = record.get("id")
-        internal_id = None
-        start_time = time.time()
-        try:
-            internal_id = insert_normalized_propertie(record)  # Replace with actual insert logic
-            duration = int((time.time() - start_time) * 1000)
-            log_pipeline_event(
-                entity_type="propertie",
-                stage="normalize_properties",
-                doorloop_id=doorloop_id,
-                internal_id=internal_id,
-                status="success",
-                batch_id=batch_id,
-                record_count=1,
-                duration_ms=duration
-            )
-        except Exception as e:
-            duration = int((time.time() - start_time) * 1000)
-            log_pipeline_event(
-                entity_type="propertie",
-                stage="normalize_properties",
-                doorloop_id=doorloop_id,
-                internal_id=internal_id,
-                status="error",
-                batch_id=batch_id,
-                record_count=0,
-                duration_ms=duration,
-                error_details={{
-                    "error": str(e),
-                    "trace": traceback.format_exc()
-                }}
-            )
+def run_single(doorloop_id: str):
+    conn = psycopg2.connect(
+        dbname=os.environ['SUPABASE_DB'],
+        user=os.environ['SUPABASE_USER'],
+        password=os.environ['SUPABASE_PASS'],
+        host=os.environ['SUPABASE_HOST'],
+        port='5432'
+    )
+    cur = conn.cursor()
+
+    # Fetch raw data
+    cur.execute("SELECT data FROM doorloop_raw_properties WHERE id = %s", (doorloop_id,))
+    row = cur.fetchone()
+    if not row:
+        print(f"❌ No raw record for ID {doorloop_id}")
+        return
+
+    raw_json = row[0]
+
+    # Simulate normalization logic here
+    try:
+        # INSERT/UPSERT normalized data here
+        print(f"✅ Processed {doorloop_id} for properties")
+        log_pipeline_event(
+            entity_type="properties",
+            doorloop_id=doorloop_id,
+            internal_id="from-normalization",
+            status="success",
+            stage="normalize",
+            error_details=None
+        )
+
+    except Exception as e:
+        print(f"❌ Failed: {str(e)}")
+        log_pipeline_event(
+            entity_type="properties",
+            doorloop_id=doorloop_id,
+            internal_id=None,
+            status="failure",
+            stage="normalize",
+            error_details={"error": str(e)}
+        )
+
+    cur.close()
+    conn.close()

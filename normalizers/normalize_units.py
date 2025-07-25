@@ -15,7 +15,7 @@ def run_single(doorloop_id: str):
     cur = conn.cursor()
 
     # Fetch raw data
-    cur.execute("SELECT data FROM doorloop_raw_owners WHERE id = %s", (doorloop_id,))
+    cur.execute("SELECT data FROM doorloop_raw_units WHERE id = %s", (doorloop_id,))
     row = cur.fetchone()
     if not row:
         print(f"❌ No raw record for ID {doorloop_id}")
@@ -26,9 +26,9 @@ def run_single(doorloop_id: str):
     # Simulate normalization logic here
     try:
         # INSERT/UPSERT normalized data here
-        print(f"✅ Processed {doorloop_id} for owners")
+        print(f"✅ Processed {doorloop_id} for units")
         log_pipeline_event(
-            entity_type="owners",
+            entity_type="units",
             doorloop_id=doorloop_id,
             internal_id="from-normalization",
             status="success",
@@ -39,7 +39,7 @@ def run_single(doorloop_id: str):
     except Exception as e:
         print(f"❌ Failed: {str(e)}")
         log_pipeline_event(
-            entity_type="owners",
+            entity_type="units",
             doorloop_id=doorloop_id,
             internal_id=None,
             status="failure",
