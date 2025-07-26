@@ -1,12 +1,17 @@
 import os
 import sys
 
-# 🔒 Empire-Grade Override: Set absolute path to project root
-CURRENT_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_FILE_DIR, ".."))
-sys.path.insert(0, PROJECT_ROOT)
+# 🔍 Crawl upward until we find the project root that contains 'sync_pipeline'
+current = os.path.abspath(__file__)
+while True:
+    current = os.path.dirname(current)
+    if "sync_pipeline" in os.listdir(current):
+        sys.path.insert(0, current)
+        break
+    if current == "/" or current == "":
+        raise Exception("❌ Could not find 'sync_pipeline' directory in any parent path.")
 
-# ✅ Now your import works no matter what
+# ✅ Now your imports will work correctly
 from sync_pipeline.normalize_properties import normalize_properties
 from sync_pipeline.normalize_units import normalize_units
 from sync_pipeline.normalize_leases import normalize_leases
@@ -32,7 +37,7 @@ def main():
         normalize_owners()
         print("✅ Owners normalized")
 
-        print("🎉 Normalization and patch complete")
+        print("🎉 All normalization steps completed successfully")
 
     except Exception as e:
         print(f"❌ Normalization failed: {e}")
