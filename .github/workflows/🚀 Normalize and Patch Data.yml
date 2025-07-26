@@ -1,34 +1,45 @@
 name: 🚀 Normalize and Patch Data
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:
   normalize:
     runs-on: ubuntu-latest
-    # REMOVE THIS SECTION ENTIRELY or change to '.'
+    # FIX: Remove the 'working-directory' from defaults.
+    # The default working directory for steps is already the repository root ('doorloop_sync_backend').
+    # Keeping it here was causing the path duplication error.
     # defaults:
     #   run:
-    #     working-directory: doorloop-sync-backend # <--- REMOVE OR CHANGE TO '.'
+    #     working-directory: doorloop-sync-backend # REMOVE OR CHANGE TO '.'
 
     steps:
       - name: 📥 Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3 # Use a stable version, v3 is commonly used
 
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v4 # Use a stable version like v4 or v5
         with:
-          python-version: '3.10'
+          # FIX: Specify a modern and supported Python version.
+          # Python 3.1 is extremely old and not available on GitHub Actions runners.
+          # Choose a version your project is compatible with.
+          python-version: '3.10' # Recommended. Or '3.11', '3.12'.
+          # check-latest: false # Optional: Set to true if you want the very latest patch for '3.10', etc.
 
       - name: 🔧 Install Dependencies
-        # This will now correctly look for requirements.txt in the repository root (doorloop-sync-backend)
+        # This will now correctly look for 'requirements.txt' directly in the 'doorloop_sync_backend' repo root.
         run: pip install -r requirements.txt
 
       - name: 🧠 Run Normalization Pipeline
         env:
+          # Inject Supabase secrets as environment variables for your Python script.
+          # Ensure these secrets are configured in your GitHub repository settings.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # PYTHONPATH will still point to the current working directory, which is the repo root.
+          # FIX for 'ModuleNotFoundError: No module named 'sync_pipeline''
+          # '.' now correctly refers to the 'doorloop_sync_backend' repository root.
+          # This tells Python to look for packages like 'sync_pipeline' directly within the repo root.
           PYTHONPATH: .:${PYTHONPATH}
-        # This will now correctly look for scripts/normalize_and_patch_all.py relative to the repo root.
-        run: python scripts/normalize_and_patch_all.py
+        run: |
+          # Execute your Python script. The path is now correctly relative to the repo root.
+          python scripts/normalize_and_patch_all.py
