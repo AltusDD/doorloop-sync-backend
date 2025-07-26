@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: 📥 Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.10
 
@@ -28,6 +28,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${{ env.PYTHONPATH }}
+          # This tells Python to search from the root project dir
+          PYTHONPATH: ${{ github.workspace }}/doorloop-sync-backend:${PYTHONPATH}
         run: |
           python scripts/normalize_and_patch_all.py
