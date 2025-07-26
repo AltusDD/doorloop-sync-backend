@@ -1,17 +1,12 @@
 import os
 import sys
 
-# 🔍 Crawl upward until we find the project root that contains 'sync_pipeline'
-current = os.path.abspath(__file__)
-while True:
-    current = os.path.dirname(current)
-    if "sync_pipeline" in os.listdir(current):
-        sys.path.insert(0, current)
-        break
-    if current == "/" or current == "":
-        raise Exception("❌ Could not find 'sync_pipeline' directory in any parent path.")
+# 🚨 Hardwire root path into Python search path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-# ✅ Now your imports will work correctly
 from sync_pipeline.normalize_properties import normalize_properties
 from sync_pipeline.normalize_units import normalize_units
 from sync_pipeline.normalize_leases import normalize_leases
@@ -19,29 +14,13 @@ from sync_pipeline.normalize_tenants import normalize_tenants
 from sync_pipeline.normalize_owners import normalize_owners
 
 def main():
-    print("🚀 Starting Normalize and Patch All")
-
-    try:
-        normalize_properties()
-        print("✅ Properties normalized")
-
-        normalize_units()
-        print("✅ Units normalized")
-
-        normalize_leases()
-        print("✅ Leases normalized")
-
-        normalize_tenants()
-        print("✅ Tenants normalized")
-
-        normalize_owners()
-        print("✅ Owners normalized")
-
-        print("🎉 All normalization steps completed successfully")
-
-    except Exception as e:
-        print(f"❌ Normalization failed: {e}")
-        raise e
+    print("🔄 Running normalize_and_patch_all.py")
+    normalize_properties()
+    normalize_units()
+    normalize_leases()
+    normalize_tenants()
+    normalize_owners()
+    print("✅ Normalization complete.")
 
 if __name__ == "__main__":
     main()
