@@ -1,6 +1,10 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# 🚨 Empire-grade path resolution
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from sync_pipeline.normalize_properties import normalize_properties
 from sync_pipeline.normalize_units import normalize_units
@@ -9,8 +13,6 @@ from sync_pipeline.normalize_tenants import normalize_tenants
 from sync_pipeline.normalize_owners import normalize_owners
 from sync_pipeline.normalize_payments import normalize_payments
 from sync_pipeline.normalize_lease_charges import normalize_lease_charges
-
-# Phase 2 Normalizers
 from sync_pipeline.normalize_lease_credits import normalize_lease_credits
 from sync_pipeline.normalize_work_orders import normalize_work_orders
 from sync_pipeline.normalize_vendors import normalize_vendors
