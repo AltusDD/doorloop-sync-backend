@@ -1,11 +1,19 @@
 import sys
 import os
 
-# 🚨 Empire-grade path resolution
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+# 🔧 Dynamically find the repo root that contains sync_pipeline
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
+# Walk up until sync_pipeline is found
+while current_dir and not os.path.isdir(os.path.join(current_dir, "sync_pipeline")):
+    current_dir = os.path.abspath(os.path.join(current_dir, ".."))
+
+if current_dir and os.path.isdir(os.path.join(current_dir, "sync_pipeline")):
+    sys.path.insert(0, current_dir)
+else:
+    raise ImportError("❌ Could not find sync_pipeline directory from current path.")
+
+# ---- Normalization Imports ----
 from sync_pipeline.normalize_properties import normalize_properties
 from sync_pipeline.normalize_units import normalize_units
 from sync_pipeline.normalize_leases import normalize_leases
