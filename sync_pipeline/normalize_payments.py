@@ -1,3 +1,3 @@
-# Normalizer for Vendors
+# Normalizer for Payments
 
 # TODO: Add transformation logic here
