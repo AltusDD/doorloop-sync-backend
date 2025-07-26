@@ -1,0 +1,29 @@
+name: 🚀 Normalize and Patch Data
+
+on:
+  workflow_dispatch:
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: doorloop-sync-backend
+
+    steps:
+      - name: 📥 Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
+
+      - name: 🔧 Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: 🧠 Run Normalization Pipeline
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/normalize_and_patch_all.py
