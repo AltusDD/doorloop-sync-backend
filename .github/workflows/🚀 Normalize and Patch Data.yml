@@ -1,42 +1,33 @@
 name: 🚀 Normalize and Patch Data
 
 on:
-  workflow_dispatch: # Allows manual triggering from GitHub UI
+  workflow_dispatch:
 
 jobs:
   normalize:
     runs-on: ubuntu-latest
     defaults:
       run:
-        # Sets the working directory for all 'run' commands in this job
-        # to the 'doorloop-sync-backend' folder relative to the repository root.
-        working-directory: doorloop-sync-backend
+        working-directory: doorloop_sync_backend
 
     steps:
       - name: 📥 Checkout Repo
-        uses: actions/checkout@v3 # Use v3 for stability
+        uses: actions/checkout@v4
 
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v4 # Use a stable version like v4 or v5
+        uses: actions/setup-python@v5
         with:
-          # IMPORTANT FIX: Specify a modern and supported Python version.
-          # Python 3.1 is extremely old and not available on GitHub Actions runners.
-          python-version: '3.10' # Recommended. Or '3.11', '3.12' if compatible.
-          # check-latest: false # You can keep this to use a specific patch, or remove to get latest patch
+          python-version: '3.10'  # ✅ Supported version
 
       - name: 🔧 Install Dependencies
-        # Assuming you have a requirements.txt in doorloop-sync-backend/
-        run: pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: 🧠 Run Normalization Pipeline
         env:
-          # Inject Supabase secrets as environment variables for your Python script
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # FIX for ModuleNotFoundError:
-          # Adds the current working directory (doorloop-sync-backend/) to Python's search path.
-          # This allows Python to find 'sync_pipeline' as a direct package within this directory.
-          PYTHONPATH: .:${PYTHONPATH}
+          PYTHONPATH: .:${PYTHONPATH}  # ✅ This fixes the import error
         run: |
-          # Execute your Python script relative to the 'working-directory'
           python scripts/normalize_and_patch_all.py
