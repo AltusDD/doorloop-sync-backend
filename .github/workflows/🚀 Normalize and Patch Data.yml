@@ -6,9 +6,10 @@ on:
 jobs:
   normalize:
     runs-on: ubuntu-latest
+
     defaults:
       run:
-        working-directory: doorloop_sync_backend
+        working-directory: doorloop-sync-backend
 
     steps:
       - name: 📥 Checkout Repo
@@ -28,5 +29,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH}  # ✅ This line fixes the import issue
-        run: python normalize_and_patch_all.py
+          PYTHONPATH: .:${{ env.PYTHONPATH }}
+        run: |
+          python scripts/normalize_and_patch_all.py
