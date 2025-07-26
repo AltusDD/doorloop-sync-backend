@@ -1,40 +1,46 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import logging
 from sync_pipeline.normalize_properties import normalize_properties
 from sync_pipeline.normalize_units import normalize_units
 from sync_pipeline.normalize_leases import normalize_leases
 from sync_pipeline.normalize_tenants import normalize_tenants
 from sync_pipeline.normalize_owners import normalize_owners
+from sync_pipeline.normalize_payments import normalize_payments
+from sync_pipeline.normalize_lease_charges import normalize_lease_charges
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+# Phase 2 Normalizers
+from sync_pipeline.normalize_lease_credits import normalize_lease_credits
+from sync_pipeline.normalize_work_orders import normalize_work_orders
+from sync_pipeline.normalize_vendors import normalize_vendors
+from sync_pipeline.normalize_tasks import normalize_tasks
+from sync_pipeline.normalize_users import normalize_users
+from sync_pipeline.normalize_gl_accounts import normalize_gl_accounts
+from sync_pipeline.normalize_bank_accounts import normalize_bank_accounts
+from sync_pipeline.normalize_property_settings import normalize_property_settings
 
-def main():
-    try:
-        logging.info("🚀 Starting normalization and patch process...")
+def run_all_normalizations():
+    print("🔄 Starting normalization process...")
 
-        logging.info("🔄 Normalizing properties...")
-        normalize_properties()
-        logging.info("✅ Properties normalization complete.")
+    normalize_properties()
+    normalize_units()
+    normalize_leases()
+    normalize_tenants()
+    normalize_owners()
+    normalize_payments()
+    normalize_lease_charges()
+    print("📦 Phase 1 normalization complete.")
 
-        logging.info("🔄 Normalizing units...")
-        normalize_units()
-        logging.info("✅ Units normalization complete.")
-
-        logging.info("🔄 Normalizing leases...")
-        normalize_leases()
-        logging.info("✅ Leases normalization complete.")
-
-        logging.info("🔄 Normalizing tenants...")
-        normalize_tenants()
-        logging.info("✅ Tenants normalization complete.")
-
-        logging.info("🔄 Normalizing owners...")
-        normalize_owners()
-        logging.info("✅ Owners normalization complete.")
-
-        logging.info("🎉 All normalization steps complete.")
-    except Exception as e:
-        logging.exception("💥 Normalization process failed!")
+    normalize_lease_credits()
+    normalize_work_orders()
+    normalize_vendors()
+    normalize_tasks()
+    normalize_users()
+    normalize_gl_accounts()
+    normalize_bank_accounts()
+    normalize_property_settings()
+    print("✅ Phase 2 normalization complete.")
 
 if __name__ == "__main__":
-    main()
+    run_all_normalizations()
