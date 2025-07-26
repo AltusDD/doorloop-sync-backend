@@ -28,7 +28,8 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # This tells Python to search from the root project dir
           PYTHONPATH: ${{ github.workspace }}/doorloop-sync-backend:${PYTHONPATH}
         run: |
+          ls -la
+          ls -la sync_pipeline
           python scripts/normalize_and_patch_all.py
