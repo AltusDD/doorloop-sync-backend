@@ -1,33 +1,26 @@
-name: 🚀 Normalize and Patch Data
+import os
+import sys
 
-on:
-  workflow_dispatch:
+# 🚨 Hardwire root path into Python search path
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-jobs:
-  normalize:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: doorloop-sync-backend
+from sync_pipeline.normalize_properties import normalize_properties
+from sync_pipeline.normalize_units import normalize_units
+from sync_pipeline.normalize_leases import normalize_leases
+from sync_pipeline.normalize_tenants import normalize_tenants
+from sync_pipeline.normalize_owners import normalize_owners
 
-    steps:
-      - name: 📥 Checkout Repo
-        uses: actions/checkout@v3
+def main():
+    print("🔄 Running normalize_and_patch_all.py")
+    normalize_properties()
+    normalize_units()
+    normalize_leases()
+    normalize_tenants()
+    normalize_owners()
+    print("✅ Normalization complete.")
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
-        with:
-          # 💡 THE FIX: Change this to a supported and modern Python version
-          python-version: '3.10' # Or '3.11', '3.12', etc., depending on your project's compatibility
-          # check-latest: false # You can optionally remove this if you want the *absolute* latest patch version
-                               # for the specified minor version (e.g., 3.10 will get 3.10.x latest)
-
-      - name: 🔧 Install Dependencies
-        run: pip install -r requirements.txt
-
-      - name: 🧠 Run Normalization Pipeline
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH} # This was the previous fix for ModuleNotFoundError
-        run: python scripts/normalize_and_patch_all.py
+if __name__ == "__main__":
+    main()
