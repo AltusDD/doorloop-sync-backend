@@ -6,12 +6,9 @@ on:
 jobs:
   normalize:
     runs-on: ubuntu-latest
-    # FIX: Remove the 'working-directory' from defaults.
-    # The default working directory for steps is already the repository root ('doorloop_sync_backend').
-    # Keeping it here was causing the path duplication error.
-    # defaults:
-    #   run:
-    #     working-directory: doorloop-sync-backend # REMOVE OR CHANGE TO '.'
+    # FIX: Remove the 'defaults.run.working-directory' entirely.
+    # The default working directory for steps is already the repository root ('doorloop_sync_backend')
+    # after 'actions/checkout'. This was causing the path duplication error.
 
     steps:
       - name: 📥 Checkout Repo
@@ -22,7 +19,6 @@ jobs:
         with:
           # FIX: Specify a modern and supported Python version.
           # Python 3.1 is extremely old and not available on GitHub Actions runners.
-          # Choose a version your project is compatible with.
           python-version: '3.10' # Recommended. Or '3.11', '3.12'.
           # check-latest: false # Optional: Set to true if you want the very latest patch for '3.10', etc.
 
@@ -32,13 +28,10 @@ jobs:
 
       - name: 🧠 Run Normalization Pipeline
         env:
-          # Inject Supabase secrets as environment variables for your Python script.
-          # Ensure these secrets are configured in your GitHub repository settings.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # FIX for 'ModuleNotFoundError: No module named 'sync_pipeline''
+          # FIX for 'ModuleNotFoundError':
           # '.' now correctly refers to the 'doorloop_sync_backend' repository root.
-          # This tells Python to look for packages like 'sync_pipeline' directly within the repo root.
           PYTHONPATH: .:${PYTHONPATH}
         run: |
           # Execute your Python script. The path is now correctly relative to the repo root.
