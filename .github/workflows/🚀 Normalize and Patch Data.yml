@@ -1,26 +1,42 @@
-import os
-import sys
+name: 🚀 Normalize and Patch Data
 
-# 🚨 Hardwire root path into Python search path
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+on:
+  workflow_dispatch: # Allows manual triggering from GitHub UI
 
-from sync_pipeline.normalize_properties import normalize_properties
-from sync_pipeline.normalize_units import normalize_units
-from sync_pipeline.normalize_leases import normalize_leases
-from sync_pipeline.normalize_tenants import normalize_tenants
-from sync_pipeline.normalize_owners import normalize_owners
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        # Sets the working directory for all 'run' commands in this job
+        # to the 'doorloop-sync-backend' folder relative to the repository root.
+        working-directory: doorloop-sync-backend
 
-def main():
-    print("🔄 Running normalize_and_patch_all.py")
-    normalize_properties()
-    normalize_units()
-    normalize_leases()
-    normalize_tenants()
-    normalize_owners()
-    print("✅ Normalization complete.")
+    steps:
+      - name: 📥 Checkout Repo
+        uses: actions/checkout@v3 # Use v3 for stability
 
-if __name__ == "__main__":
-    main()
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4 # Use a stable version like v4 or v5
+        with:
+          # IMPORTANT FIX: Specify a modern and supported Python version.
+          # Python 3.1 is extremely old and not available on GitHub Actions runners.
+          python-version: '3.10' # Recommended. Or '3.11', '3.12' if compatible.
+          # check-latest: false # You can keep this to use a specific patch, or remove to get latest patch
+
+      - name: 🔧 Install Dependencies
+        # Assuming you have a requirements.txt in doorloop-sync-backend/
+        run: pip install -r requirements.txt
+
+      - name: 🧠 Run Normalization Pipeline
+        env:
+          # Inject Supabase secrets as environment variables for your Python script
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # FIX for ModuleNotFoundError:
+          # Adds the current working directory (doorloop-sync-backend/) to Python's search path.
+          # This allows Python to find 'sync_pipeline' as a direct package within this directory.
+          PYTHONPATH: .:${PYTHONPATH}
+        run: |
+          # Execute your Python script relative to the 'working-directory'
+          python scripts/normalize_and_patch_all.py
