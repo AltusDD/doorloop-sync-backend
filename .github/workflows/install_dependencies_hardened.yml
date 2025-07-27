@@ -1,20 +1,19 @@
-name: 🚀 Normalize and Patch Data
+name: 🔧 Create install_dependencies_hardened.yml
 
 on:
   workflow_dispatch:
 
 jobs:
-  normalize:
+  install:
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Checkout Repo
         uses: actions/checkout@v3
 
-      - name: 🐍 Setup Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: 🔧 Install Dependencies (Hardened)
         run: |
@@ -23,30 +22,26 @@ jobs:
           python --version
           which pip
           pip --version
-          echo "----------------------------"
+          echo "--------------------------"
 
-          echo "--- Upgrade Pip ---"
           python -m pip install --upgrade pip
 
           echo "--- Purging Pip Cache ---"
-          pip cache purge
+          pip cache purge || true
+          echo "-------------------------"
 
           echo "--- Installing psycopg2-binary explicitly (forced, no cache) ---"
           pip install --no-cache-dir --force-reinstall psycopg2-binary==2.9.9 -v || exit 1
+          echo "---------------------------------------------------------------"
 
           echo "--- Installing other dependencies from requirements.txt (no cache) ---"
           pip install --no-cache-dir -r requirements.txt -v || exit 1
+          echo "--------------------------------------------------------------------"
 
           echo "--- Installed Packages (pip freeze) ---"
           pip freeze
+          echo "---------------------------------------"
 
           echo "--- Psycopg2 Import Check ---"
-          python -c "import psycopg2; print('✅ psycopg2 available')" ||             (echo "❌ psycopg2 import failed after installation!" && exit 1)
-
-      - name: 🧠 Run Normalization Pipeline
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH}
-        run: |
-          python scripts/normalize_and_patch_all.py
+          python -c "import psycopg2; print('✅ psycopg2 available')" || (echo "❌ psycopg2 import failed!" && exit 1)
+          echo "-----------------------------"
