@@ -1,38 +1,32 @@
 name: 🚀 Normalize and Patch Data
 
 on:
-  workflow_dispatch: # Allows manual triggering from GitHub UI
+  workflow_dispatch: # Manual trigger from GitHub UI
 
 jobs:
   normalize:
     runs-on: ubuntu-latest
-    # FIX: Remove the 'defaults.run.working-directory' entirely.
-    # The default working directory for steps is already the repository root ('doorloop_sync_backend')
-    # after 'actions/checkout'. This was causing the path duplication error.
 
     steps:
       - name: 📥 Checkout Repo
-        uses: actions/checkout@v3 # Use a stable version, v3 is commonly used
+        uses: actions/checkout@v3
 
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v4 # Use a stable version like v4 or v5
+        uses: actions/setup-python@v4
         with:
-          # FIX: Specify a modern and supported Python version.
-          # Python 3.1 is extremely old and not available on GitHub Actions runners.
-          python-version: '3.10' # Recommended. Or '3.11', '3.12'.
-          # check-latest: false # Optional: Set to true if you want the very latest patch for '3.10', etc.
+          python-version: '3.10'
 
       - name: 🔧 Install Dependencies
-        # This will now correctly look for 'requirements.txt' directly in the 'doorloop_sync_backend' repo root.
         run: pip install -r requirements.txt
+
+      - name: 🔍 Verify Installed Packages
+        run: pip freeze
 
       - name: 🧠 Run Normalization Pipeline
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # FIX for 'ModuleNotFoundError':
-          # '.' now correctly refers to the 'doorloop_sync_backend' repository root.
           PYTHONPATH: .:${PYTHONPATH}
         run: |
-          # Execute your Python script. The path is now correctly relative to the repo root.
+          echo "✅ Starting normalization from repo root..."
           python scripts/normalize_and_patch_all.py
