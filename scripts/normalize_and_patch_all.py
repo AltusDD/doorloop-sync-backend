@@ -7,8 +7,6 @@ from sync_pipeline.normalize_tenants import normalize_tenants
 from sync_pipeline.normalize_owners import normalize_owners
 from sync_pipeline.normalize_payments import normalize_payments
 from sync_pipeline.normalize_lease_charges import normalize_lease_charges
-
-# Phase 2 Normalizers
 from sync_pipeline.normalize_lease_credits import normalize_lease_credits
 from sync_pipeline.normalize_work_orders import normalize_work_orders
 from sync_pipeline.normalize_vendors import normalize_vendors
@@ -21,27 +19,34 @@ from sync_pipeline.normalize_property_settings import normalize_property_setting
 def run_all_normalizations():
     print("🔄 Starting normalization process...")
 
-    normalize_properties()
-    normalize_units()
-    normalize_leases()
-    normalize_tenants()
-    normalize_owners()
-    normalize_payments()
-    normalize_lease_charges()
+    normalizers = [
+        ("Properties", normalize_properties),
+        ("Units", normalize_units),
+        ("Leases", normalize_leases),
+        ("Tenants", normalize_tenants),
+        ("Owners", normalize_owners),
+        ("Payments", normalize_payments),
+        ("Lease Charges", normalize_lease_charges),
+        ("Lease Credits", normalize_lease_credits),
+        ("Work Orders", normalize_work_orders),
+        ("Vendors", normalize_vendors),
+        ("Tasks", normalize_tasks),
+        ("Users", normalize_users),
+        ("GL Accounts", normalize_gl_accounts),
+        ("Bank Accounts", normalize_bank_accounts),
+        ("Property Settings", normalize_property_settings),
+    ]
 
-    print("📦 Phase 1 normalization complete.")
+    for label, fn in normalizers:
+        try:
+            print(f"➡️ Running {label} normalization...")
+            fn()
+            print(f"✅ {label} normalization complete.")
+        except Exception as e:
+            print(f"❌ ERROR during {label} normalization:")
+            print(e)
 
-    normalize_lease_credits()
-    normalize_work_orders()
-    normalize_vendors()
-    normalize_tasks()
-    normalize_users()
-    normalize_gl_accounts()
-    normalize_bank_accounts()
-    normalize_property_settings()
-
-    print("✅ Phase 2 normalization complete.")
+    print("🎉 All normalization steps finished.")
 
 if __name__ == "__main__":
     run_all_normalizations()
-# Placeholder: normalize_and_patch_all.py
