@@ -1,4 +1,4 @@
-name: 🚀 Normalize and Patch Data
+name: 🧠 Normalize and Patch Data
 
 on:
   workflow_dispatch:
@@ -6,41 +6,20 @@ on:
 jobs:
   normalize:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 📥 Checkout Repo
-        uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: 3.10
 
-      - name: ✨ Upgrade Pip and Verify
+      - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          echo "✅ Pip version:"
-          pip --version
-          echo "📍 Python location:"
-          which python
-          echo "📍 Pip location:"
-          which pip
+          pip install -r requirements.txt
+          pip install psycopg2-binary
 
-      - name: 🔧 Install Dependencies
-        run: |
-          python -m pip install -r requirements.txt -v
-          echo "📦 Installed packages:"
-          pip freeze
-
-      - name: 🧪 Preflight psycopg2 Check
-        run: |
-          echo "🔍 Checking psycopg2 import"
-          python -c "import psycopg2; print('✅ psycopg2 successfully imported')"
-
-      - name: 🧠 Run Normalization Pipeline
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH}
+      - name: Run Normalization Pipeline
         run: |
           python scripts/normalize_and_patch_all.py
