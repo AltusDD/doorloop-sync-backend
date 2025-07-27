@@ -16,10 +16,14 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 🔧 Install Dependencies
+      - name: 🔧 Force Install psycopg2 & Dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          echo "⚙️ Upgrading pip..."
+          python -m pip install --upgrade pip
+          echo "📦 Installing all dependencies from requirements.txt..."
+          python -m pip install -r requirements.txt || true
+          echo "📦 Ensuring psycopg2 is present..."
+          python -m pip install psycopg2-binary --force-reinstall --no-cache-dir
 
       - name: 🔍 Dump Installed Packages
         run: pip freeze || true
