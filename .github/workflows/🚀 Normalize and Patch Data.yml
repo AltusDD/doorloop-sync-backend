@@ -6,10 +6,8 @@ on:
 jobs:
   normalize_and_patch:
     runs-on: ubuntu-latest
-    # The 'defaults.run.working-directory' section has been removed.
-    # This is because your repository's root is already 'doorloop_sync_backend',
-    # and GitHub Actions will default to running steps from that directory after checkout.
-    # This resolves the "No such file or directory" error caused by path duplication.
+    # ENSURE there is NO 'defaults:' section or 'working-directory:' line here.
+    # The default working directory for steps is already the repository root.
 
     steps:
       - name: Checkout Repo
@@ -21,7 +19,6 @@ jobs:
           # FIX: Specify a modern and supported Python version.
           # Python 3.1 is extremely old and not available on GitHub Actions runners.
           python-version: '3.10' # Recommended. Or '3.11', '3.12'.
-          # You can optionally remove 'check-latest: false' if you were using it.
 
       - name: Install Dependencies
         run: |
@@ -34,15 +31,11 @@ jobs:
 
       - name: Run Normalization Pipeline
         env:
-          # Inject Supabase secrets as environment variables for your Python script.
-          # Ensure these secrets are configured in your GitHub repository settings.
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # FIX for 'ModuleNotFoundError: No module named 'sync_pipeline''
-          # '.' now correctly refers to the 'doorloop_sync_backend' repository root.
-          # This tells Python to look for packages like 'sync_pipeline' directly within the repo root.
+          # This should now correctly refer to the repository root.
           PYTHONPATH: .:${PYTHONPATH}
         run: |
-          # FIX: Add the .py extension to the script name.
-          # The script is located at 'scripts/normalize_and_patch_all.py' relative to the repo root.
+          # This path is relative to the repository root (e.g., /home/runner/work/repo_name/repo_name/)
+          # which is where 'scripts/' is located.
           python scripts/normalize_and_patch_all.py
