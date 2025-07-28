@@ -1,6 +1,8 @@
 from typing import List, Dict, Any
 
-def fetch_raw_data(client) -> List[Dict[str, Any]]:
+from supabase import SupabaseClient
+
+def fetch_raw_data(client: SupabaseClient) -> List[Dict[str, Any]]:
     return client.fetch_raw_data("doorloop_raw_properties")
 
 def normalize_record(raw: Dict[str, Any]) -> Dict[str, Any]:

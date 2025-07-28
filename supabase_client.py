@@ -20,7 +20,7 @@ class SupabaseClient:
                 resp = requests.request(method, url, headers=self.headers, json=data, params=params, timeout=30)
                 resp.raise_for_status()
                 return resp
-            except Exception as e:
+            except requests.RequestException as e:
                 logging.error(f"Supabase REST call failed (attempt {attempt+1}/{retries}): {e}")
                 if attempt == retries - 1:
                     raise
@@ -41,14 +41,22 @@ class SupabaseClient:
             "status": status,
             "entity": entity,
             "message": message,
-            "timestamp": int(time.time())
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
-        self._call_supabase_rest("POST", "doorloop_pipeline_audit", data=[audit_record])
+        try:
+            response = self._call_supabase_rest("POST", "doorloop_pipeline_audit", data=[audit_record])
+            return response
+        except Exception as e:
+            logging.error(f"Failed to log audit record: {e}")
+            return None
 
     def log_dlq(self, batch_id: str, entity: str, record: Dict[str, Any], error: str):
         dlq_record = {
             "batch_id": batch_id,
-            "entity": entity,
+        try:
+            self._call_supabase_rest("POST", "doorloop_error_records", data=[dlq_record])
+        except Exception as e:
+            logging.error(f"Failed to log DLQ record for batch_id={batch_id}, entity={entity}: {e}")
             "record": record,
             "error": error,
             "timestamp": int(time.time())
