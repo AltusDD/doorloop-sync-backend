@@ -4,12 +4,15 @@ import time
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class DoorLoopClient:
     def __init__(self, api_key: str, base_url: str):
         """
         Initializes the DoorLoop API client.
-        API key and base URL are passed as arguments, not read directly from os.getenv here.
+        Args:
+            api_key (str): Your DoorLoop API key
+            base_url (str): DoorLoop base API URL (e.g. https://api.doorloop.com/v1)
         """
         self.api_key = api_key.strip()
         self.base_url = base_url.strip()
@@ -19,7 +22,7 @@ class DoorLoopClient:
         if not self.base_url:
             raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
         if "app.doorloop.com" in self.base_url and not self.base_url.endswith("/api"):
-            logger.warning("⚠️ BASE_URL likely incorrect. Consider using 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
+            logger.warning("⚠️ BASE_URL might be incorrect. Use 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
 
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -27,11 +30,20 @@ class DoorLoopClient:
             "Content-Type": "application/json"
         }
         self.last_api_call_time = 0
-        logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
+        logger.info(f"📌 DoorLoopClient initialized with base URL: {self.base_url}")
 
     def fetch_all(self, endpoint: str, params=None):
+        """
+        Fetches all paginated records from a DoorLoop endpoint.
+
+        Args:
+            endpoint (str): DoorLoop API endpoint, e.g., "leases", "properties"
+            params (dict): Additional query parameters
+
+        Returns:
+            List of all results across all pages
+        """
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-        logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
         results = []
         page = 1
         RATE_LIMIT_DELAY = 0.1
@@ -41,7 +53,6 @@ class DoorLoopClient:
             current_time = time.time()
             elapsed_since_last_call = current_time - self.last_api_call_time
             if elapsed_since_last_call < RATE_LIMIT_DELAY:
-                logger.debug(f"⏱️ Rate limiting active, sleeping for {RATE_LIMIT_DELAY - elapsed_since_last_call:.2f} seconds")
                 time.sleep(RATE_LIMIT_DELAY - elapsed_since_last_call)
             self.last_api_call_time = time.time()
 
@@ -51,7 +62,7 @@ class DoorLoopClient:
 
             response = requests.get(url, headers=self.headers, params=full_params)
             if response.status_code != 200:
-                logger.error(f"❌ Failed API call: {response.status_code} {response.text}")
+                logger.error(f"❌ API call failed: {response.status_code} {response.text}")
                 break
 
             data = response.json()
@@ -63,7 +74,6 @@ class DoorLoopClient:
                 break
 
             page += 1
-            logger.debug(f"📄 Page {page - 1} fetched, continuing...")
 
-        logger.info(f"✅ Fetched {len(results)} records from {endpoint}")
+        logger.info(f"✅ Total records fetched from {endpoint}: {len(results)}")
         return results
