@@ -1,10 +1,12 @@
-import requests
+import os
 import logging
-import time
-from typing import List, Dict, Any, Optional
+import requests
+from typing import List, Dict, Any
+from datetime import datetime
 
+# Setup basic logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class SupabaseIngestClient:
     def __init__(self, supabase_url: str, service_role_key: str):
@@ -13,55 +15,49 @@ class SupabaseIngestClient:
         self.headers = {
             "apikey": self.service_role_key,
             "Authorization": f"Bearer {self.service_role_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json"
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         logger.info("✅ SupabaseIngestClient initialized.")
 
-    def _request(self, method: str, url: str, data: Optional[Any] = None, params: Optional[Dict[str, Any]] = None, retries: int = 3) -> requests.Response:
-        for attempt in range(1, retries + 1):
+    def _request(self, method: str, url: str, data: Any = None, params: Dict[str, Any] = None) -> requests.Response:
+        for attempt in range(3):
             try:
-                response = self.session.request(method, url, headers=self.headers, json=data, params=params, timeout=30)
+                if method.upper() == "POST":
+                    response = self.session.post(url, json=data, params=params)
+                elif method.upper() == "PATCH":
+                    response = self.session.patch(url, json=data, params=params)
+                elif method.upper() == "GET":
+                    response = self.session.get(url, params=params)
+                else:
+                    raise ValueError(f"Unsupported HTTP method: {method}")
+                
                 response.raise_for_status()
                 return response
-            except requests.RequestException as e:
-                try:
-                    error_detail = e.response.json()
-                except Exception:
-                    error_detail = e.response.text
-                logger.warning(f"Request error (attempt {attempt}): {e} | Details: {error_detail}")
-                if attempt == retries:
+
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Request error (attempt {attempt + 1}): {e}")
+                if attempt == 2:
                     raise
-                time.sleep(2 ** attempt)
 
-    def upsert_data(self, table_name: str, records: List[Dict[str, Any]], on_conflict: str = "doorloop_id") -> requests.Response:
-        logger.info(f"🔁 Upserting {len(records)} records into {table_name} (conflict key: {on_conflict})")
+    def upsert_data(self, table_name: str, records: List[Dict[str, Any]]) -> None:
         url = f"{self.supabase_url}/rest/v1/{table_name}"
-        params = {"on_conflict": on_conflict, "returning": "representation"}
-        return self._request("POST", url, data=records, params=params)
+        params = {"on_conflict": "id"}  # Adjust conflict key as needed
+        logger.info(f"📤 Upserting {len(records)} records to {table_name}...")
+        self._request("POST", url, data=records, params=params)
 
-    def log_audit(self, batch_id: str, status: str, entity: str, message: str = "", record_count: Optional[int] = None):
+    def log_audit(self, batch_id: str, status: str, entity: str, message: str) -> None:
+        """Logs an audit record into the doorloop_pipeline_audit table."""
         url = f"{self.supabase_url}/rest/v1/doorloop_pipeline_audit"
         record = {
             "batch_id": batch_id,
             "status": status,
             "entity": entity,
             "message": message,
+            "timestamp": datetime.utcnow().isoformat(),
+            "entity_type": "sync"  # ✅ REQUIRED FOR SCHEMA CONSTRAINT
         }
-        if record_count is not None:
-            record["record_count"] = record_count
         logger.info(f"📝 Logging audit: {record}")
         self._request("POST", url, data=[record])
-
-    def log_dlq(self, batch_id: str, entity: str, record: Dict[str, Any], error: str):
-        url = f"{self.supabase_url}/rest/v1/doorloop_error_records"
-        dlq = {
-            "batch_id": batch_id,
-            "entity": entity,
-            "record": record,
-            "error": error,
-            "timestamp": int(time.time())
-        }
-        logger.warning(f"⚠️ Logging DLQ record: {dlq}")
-        self._request("POST", url, data=[dlq])
