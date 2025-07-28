@@ -1,27 +1,27 @@
-from supabase_client import supabase
+# normalizers/normalized_properties.py
 
-def normalize_properties():
-    print("🧠 normalize_properties() running...")
+import datetime
+from doorloop_client import fetch_properties
 
-    # Fetch raw records
-    response = supabase.table("doorloop_raw_properties").select("*").execute()
-    records = response.data or []
-    print(f"🔍 Found {len(records)} raw properties to normalize.")
+def normalize_properties() -> list[dict]:
+    raw_properties = fetch_properties()
+    normalized = []
 
-    # Transform data (example transformation)
-    transformed = []
-    for record in records:
-        transformed.append({
-            "id": record.get("id"),
-            "doorloop_id": record.get("doorloop_id"),
-            "name": record.get("name"),
-            "type": record.get("type"),
-            "created_at": record.get("created_at"),
-            "updated_at": record.get("updated_at")
+    for raw in raw_properties:
+        normalized.append({
+            "doorloop_id": raw.get("id"),
+            "name": raw.get("name"),
+            "address_street1": raw.get("address", {}).get("street1"),
+            "address_city": raw.get("address", {}).get("city"),
+            "address_state": raw.get("address", {}).get("state"),
+            "zip": raw.get("address", {}).get("zip"),
+            "property_type": raw.get("type"),
+            "class": raw.get("class"),
+            "status": raw.get("status"),
+            "total_sq_ft": raw.get("totalSqFt"),
+            "unit_count": raw.get("unitCount"),
+            "created_at": datetime.datetime.utcnow().isoformat(),
+            "updated_at": datetime.datetime.utcnow().isoformat()
         })
 
-    if transformed:
-        supabase.table("doorloop_normalized_properties").upsert(transformed).execute()
-        print(f"✅ Inserted {len(transformed)} into doorloop_normalized_properties")
-    else:
-        print("⚠️ No records to insert")
+    return normalized
