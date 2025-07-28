@@ -1,71 +1,69 @@
-
 import os
 import requests
-import logging
 import time
-from typing import List, Dict, Any
+import logging
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 class DoorLoopClient:
-    def __init__(self, api_key: str, base_url: str = "https://api.doorloop.com/v1"):
-        if not api_key:
+    def __init__(self, api_key: str, base_url: str):
+        """
+        Initializes the DoorLoop API client.
+        API key and base URL are passed as arguments, not read directly from os.getenv here.
+        """
+        self.api_key = api_key.strip()
+        self.base_url = base_url.strip()
+
+        if not self.api_key:
             raise ValueError("DOORLOOP_API_KEY must be provided to DoorLoopClient.")
-        self.api_key = api_key
-        self.base_url = base_url.rstrip('/')
-        self.session = requests.Session()
-        self.session.headers.update({
+        if not self.base_url:
+            raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
+        if "app.doorloop.com" in self.base_url and not self.base_url.endswith("/api"):
+            logger.warning("⚠️ BASE_URL likely incorrect. Consider using 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
+
+        self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-        })
-        logger.info(f"DoorLoopClient initialized for base URL: {self.base_url}")
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        self.last_api_call_time = 0
+        logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
 
-    def _call_doorloop_api(self, method: str, endpoint: str, params: Dict[str, Any] = None, json_data: Dict[str, Any] = None, retries: int = 3, initial_delay: int = 1) -> requests.Response:
-        url = f"{self.base_url}/{endpoint}"
-        for attempt in range(retries):
-            try:
-                logger.debug(f"Attempt {attempt+1}/{retries}: {method} {url} with params: {params}")
-                response = self.session.request(method, url, params=params, json=json_data, timeout=60)
-                response.raise_for_status()
-                return response
-            except requests.exceptions.HTTPError as e:
-                status_code = e.response.status_code
-                if status_code in [429, 500, 502, 503, 504] and attempt < retries - 1:
-                    delay = initial_delay * (2 ** attempt)
-                    logger.warning(f"Transient HTTP Error {status_code} for {endpoint}. Retrying in {delay}s...")
-                    time.sleep(delay)
-                else:
-                    logger.error(f"Unrecoverable HTTP Error {status_code} for {endpoint}: {e.response.text}")
-                    raise
-            except requests.exceptions.RequestException as e:
-                if attempt < retries - 1:
-                    delay = initial_delay * (2 ** attempt)
-                    logger.warning(f"Network Error for {endpoint}: {e}. Retrying in {delay}s...")
-                    time.sleep(delay)
-                else:
-                    logger.error(f"Unrecoverable Network Error for {endpoint}: {e}")
-                    raise
-        raise Exception(f"Failed to call DoorLoop API for {endpoint} after {retries} attempts.")
-
-    def fetch_all(self, endpoint: str, page_size: int = 100) -> List[Dict[str, Any]]:
-        all_records = []
+    def fetch_all(self, endpoint: str, params=None):
+        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
+        results = []
         page = 1
-        logger.info(f"Fetching all records from DoorLoop endpoint: {endpoint}")
+        RATE_LIMIT_DELAY = 0.1
+
         while True:
-            params = {"page": page, "pageSize": page_size}
-            try:
-                response = self._call_doorloop_api("GET", endpoint, params=params)
-                records = response.json()
-                if not records:
-                    logger.info(f"No more records found for {endpoint} after page {page-1}.")
-                    break
-                all_records.extend(records)
-                logger.info(f"Fetched {len(records)} records from {endpoint} (Page {page}). Total: {len(all_records)}")
-                page += 1
-            except Exception as e:
-                logger.error(f"Error fetching data from {endpoint} at page {page}: {e}", exc_info=True)
+            # Enforce rate limit
+            current_time = time.time()
+            elapsed_since_last_call = current_time - self.last_api_call_time
+            if elapsed_since_last_call < RATE_LIMIT_DELAY:
+                logger.debug(f"⏱️ Rate limiting active, sleeping for {RATE_LIMIT_DELAY - elapsed_since_last_call:.2f} seconds")
+                time.sleep(RATE_LIMIT_DELAY - elapsed_since_last_call)
+            self.last_api_call_time = time.time()
+
+            full_params = {"page_number": page, "page_size": 100}
+            if params:
+                full_params.update(params)
+
+            response = requests.get(url, headers=self.headers, params=full_params)
+            if response.status_code != 200:
+                logger.error(f"❌ Failed API call: {response.status_code} {response.text}")
                 break
-        logger.info(f"Finished fetching all records from {endpoint}. Total: {len(all_records)}")
-        return all_records
+
+            data = response.json()
+            if not data.get("data"):
+                break
+
+            results.extend(data["data"])
+            if not data.get("hasMore", False):
+                break
+
+            page += 1
+            logger.debug(f"📄 Page {page - 1} fetched, continuing...")
+
+        logger.info(f"✅ Fetched {len(results)} records from {endpoint}")
+        return results
