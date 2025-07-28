@@ -2,51 +2,38 @@ name: 🚀 Normalize and Patch Data
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
+
+env:
+  PYTHON_VERSION: "3.10"
 
 jobs:
-  normalize:
-    name: 🚀 Normalize Data Job
+  run-normalization:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout Repo
+      - name: 🧾 Checkout Code
         uses: actions/checkout@v3
 
       - name: 🐍 Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: ${{ env.PYTHON_VERSION }}
 
-      - name: 🔧 Install Dependencies (Hardened)
+      - name: 🛠️ Install Dependencies
         run: |
-          echo "--- Python Version Info ---"
-          which python
-          python --version
-          which pip
-          pip --version
-
-          echo "--- 🔥 Upgrade Pip ---"
           python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-          echo "--- 🔥 Purge Pip Cache ---"
-          pip cache purge
-
-          echo "--- 🔩 Force Install psycopg2-binary ---"
-          pip install --no-cache-dir --force-reinstall psycopg2-binary==2.9.9 -v
-
-          echo "--- 📦 Install Other Dependencies ---"
-          pip install --no-cache-dir -r requirements.txt -v
-
-          echo "--- 📋 pip freeze ---"
-          pip freeze
-
-          echo "--- ✅ Import Test ---"
-          python -c "import psycopg2; print('✅ psycopg2 installed and import successful!')" || exit 1
+      - name: 🧠 Sanity Check Python Version
+        run: |
+          echo "Current Python version:"
+          python --version
+          if [[ "$(python --version)" == "Python 3.1"* ]]; then
+            echo "::error ::Python 3.1 is not supported!"
+            exit 1
+          fi
 
       - name: 🧠 Run Normalization Pipeline
-        run: |
-          python scripts/normalize_and_patch_all.py
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH}
+        run: python scripts/normalize_and_patch_all.py
