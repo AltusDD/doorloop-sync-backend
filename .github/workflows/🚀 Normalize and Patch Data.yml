@@ -21,8 +21,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔍 Print Python Version (Sanity Check)
+      - name: 🐍 Print Python Version (Sanity Check)
         run: python --version
 
       - name: Run Normalization Pipeline
-        run: python doorloop_sync_backend/scripts/normalize_and_patch_all.py
+        run: python scripts/normalize_and_patch_all.py
