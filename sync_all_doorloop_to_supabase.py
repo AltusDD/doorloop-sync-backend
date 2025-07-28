@@ -1,74 +1,60 @@
-import logging
 import os
+import logging
+import uuid
 import time
 from doorloop_client import DoorLoopClient
 from supabase_ingest_client import SupabaseIngestClient
 from supabase_schema_manager import SupabaseSchemaManager
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
 DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
 DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/v1")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 if not all([DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY]):
-    raise EnvironmentError("❌ Required environment variables missing. Check API keys and Supabase config.")
+    raise EnvironmentError("Missing required environment variables")
 
-# Initialize clients
 dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
-sb_client = SupabaseIngestClient(supabase_url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
-schema_manager = SupabaseSchemaManager(supabase_url=SUPABASE_URL, service_role_key=SUPABASE_SERVICE_ROLE_KEY)
+sb_client = SupabaseIngestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+schema_mgr = SupabaseSchemaManager(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-# Define endpoints to sync → destination raw tables
-SYNC_TARGETS = {
-    "accounts": "doorloop_raw_accounts",
-    "users": "doorloop_raw_users",
+ENDPOINTS = {
     "properties": "doorloop_raw_properties",
     "units": "doorloop_raw_units",
     "leases": "doorloop_raw_leases",
     "tenants": "doorloop_raw_tenants",
-    "lease-payments": "doorloop_raw_lease_payments",
-    "lease-charges": "doorloop_raw_lease_charges",
-    "lease-credits": "doorloop_raw_lease_credits",
-    "tasks": "doorloop_raw_tasks",
     "owners": "doorloop_raw_owners",
-    "vendors": "doorloop_raw_vendors",
-    "expenses": "doorloop_raw_expenses",
-    "vendor-bills": "doorloop_raw_vendor_bills",
-    "vendor-credits": "doorloop_raw_vendor_credits",
-    "communications": "doorloop_raw_communications",
-    "notes": "doorloop_raw_notes",
-    "files": "doorloop_raw_files",
-    "property-groups": "doorloop_raw_portfolios",
-    "lease-reversed-payments": "doorloop_raw_lease_reversed_payments",
+    "lease-payments": "doorloop_raw_lease_payments",
 }
 
-# Optional delay to allow Supabase schema cache to refresh
-SCHEMA_CACHE_DELAY = int(os.getenv("SCHEMA_CACHE_DELAY", "5"))
+def run_sync():
+    batch_id = str(uuid.uuid4())
+    logger.info(f"Starting sync run with batch ID: {batch_id}")
+    sb_client.log_audit(batch_id, "in_progress", "sync_all", "Begin sync run")
 
-# Run full sync process
-for endpoint, table in SYNC_TARGETS.items():
-    try:
-        logger.info(f"🔄 Syncing {endpoint} into {table}...")
-        records = dl_client.fetch_all(endpoint)
+    for endpoint, table in ENDPOINTS.items():
+        try:
+            logger.info(f"Syncing {endpoint} → {table}")
+            records = dl_client.fetch_all(endpoint)
+            if not records:
+                logger.warning(f"No data from {endpoint}")
+                sb_client.log_audit(batch_id, "warning", endpoint, "No records returned")
+                continue
 
-        if not records:
-            logger.warning(f"⚠️ No records returned from {endpoint}")
-            continue
+            schema_mgr.ensure_raw_table_exists(table)
+            schema_mgr.add_missing_columns(table, records)
+            time.sleep(3)
 
-        # Create or update the raw table schema
-        schema_manager.ensure_raw_table_exists(table)
-        schema_manager.add_missing_columns(table, records)
+            sb_client.upsert_data(table, records, on_conflict="doorloop_id")
+            sb_client.log_audit(batch_id, "success", endpoint, f"Upserted {len(records)}", len(records))
+        except Exception as e:
+            logger.exception(f"Sync failed for {endpoint}: {e}")
+            sb_client.log_audit(batch_id, "failed", endpoint, str(e))
 
-        logger.info(f"🔁 PostgREST schema refresh delay: {SCHEMA_CACHE_DELAY}s")
-        time.sleep(SCHEMA_CACHE_DELAY)
+    sb_client.log_audit(batch_id, "complete", "sync_all", "All endpoint syncs finished")
 
-        # Insert or update the data
-        sb_client.upsert_data(table, records)
-
-    except Exception as e:
-        logger.exception(f"🔥 Failed to sync {endpoint} → {table}: {str(e)}")
+if __name__ == "__main__":
+    run_sync()
