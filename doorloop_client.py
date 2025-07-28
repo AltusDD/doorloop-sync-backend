@@ -1,69 +1,70 @@
 import os
 import requests
-import time
 import logging
+import time
+from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 class DoorLoopClient:
-    def __init__(self, api_key: str, base_url: str):
-        """
-        Initializes the DoorLoop API client.
-        API key and base URL are passed as arguments, not read directly from os.getenv here.
-        """
-        self.api_key = api_key.strip()
-        self.base_url = base_url.strip()
-
-        if not self.api_key:
+    def __init__(self, api_key: str, base_url: str = "https://api.doorloop.com/v1"):
+        if not api_key:
             raise ValueError("DOORLOOP_API_KEY must be provided to DoorLoopClient.")
-        if not self.base_url:
-            raise ValueError("DOORLOOP_API_BASE_URL must be provided to DoorLoopClient.")
-        if "app.doorloop.com" in self.base_url and not self.base_url.endswith("/api"):
-            logger.warning("⚠️ BASE_URL likely incorrect. Consider using 'https://app.doorloop.com/api' or 'https://api.doorloop.com/v1'")
-
-        self.headers = {
+        self.api_key = api_key
+        self.base_url = base_url.rstrip('/')
+        self.session = requests.Session()
+        self.session.headers.update({
             "Authorization": f"Bearer {self.api_key}",
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
-        self.last_api_call_time = 0
-        logger.debug(f"📌 Initialized DoorLoopClient with base URL: {self.base_url}")
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        })
 
-    def fetch_all(self, endpoint: str, params=None):
-        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
-        logger.debug(f"📤 Fetching from endpoint: {endpoint}, Full URL: {url}")
-        results = []
+    def _call(self, method: str, endpoint: str, params: Dict[str, Any] = None, json_data: Dict[str, Any] = None) -> requests.Response:
+        url = f"{self.base_url}/{endpoint}"
+        for attempt in range(3):
+            try:
+                response = self.session.request(method, url, params=params, json=json_data, timeout=60)
+                response.raise_for_status()
+                return response
+            except requests.exceptions.HTTPError as e:
+                if response.status_code in [429, 500, 502, 503, 504] and attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
+            except requests.exceptions.RequestException as e:
+                if attempt < 2:
+                    time.sleep(2 ** attempt)
+                    continue
+                raise
+
+    def fetch_all(self, endpoint: str, page_size: int = 100) -> List[Dict[str, Any]]:
+        all_data = []
         page = 1
-        RATE_LIMIT_DELAY = 0.1
-
         while True:
-            # Enforce rate limit
-            current_time = time.time()
-            elapsed_since_last_call = current_time - self.last_api_call_time
-            if elapsed_since_last_call < RATE_LIMIT_DELAY:
-                logger.debug(f"⏱️ Rate limiting active, sleeping for {RATE_LIMIT_DELAY - elapsed_since_last_call:.2f} seconds")
-                time.sleep(RATE_LIMIT_DELAY - elapsed_since_last_call)
-            self.last_api_call_time = time.time()
-
-            full_params = {"page_number": page, "page_size": 100}
-            if params:
-                full_params.update(params)
-
-            response = requests.get(url, headers=self.headers, params=full_params)
-            if response.status_code != 200:
-                logger.error(f"❌ Failed API call: {response.status_code} {response.text}")
-                break
-
+            params = {"page": page, "pageSize": page_size}
+            response = self._call("GET", endpoint, params=params)
             data = response.json()
-            if not data.get("data"):
+            if not data:
                 break
-
-            results.extend(data["data"])
-            if not data.get("hasMore", False):
-                break
-
+            all_data.extend(data)
             page += 1
-            logger.debug(f"📄 Page {page - 1} fetched, continuing...")
+        return all_data
 
-        logger.info(f"✅ Fetched {len(results)} records from {endpoint}")
-        return results
+    def fetch_properties(self):
+        return self.fetch_all("properties")
+
+    def fetch_units(self):
+        return self.fetch_all("units")
+
+    def fetch_leases(self):
+        return self.fetch_all("leases")
+
+    def fetch_tenants(self):
+        return self.fetch_all("tenants")
+
+    def fetch_owners(self):
+        return self.fetch_all("owners")
+
+    def fetch_lease_payments(self):
+        return self.fetch_all("lease-payments")
