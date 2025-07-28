@@ -7,7 +7,7 @@ jobs:
   normalize_and_patch:
     runs-on: ubuntu-latest
     # ENSURE there is NO 'defaults:' section or 'working-directory:' line here.
-    # The default working directory for steps is already the repository root.
+    # This remains critical.
 
     steps:
       - name: Checkout Repo
@@ -27,18 +27,33 @@ jobs:
       - name: 🐍 Print Python Version (Sanity Check)
         run: python --version
 
+      # NEW DIAGNOSTIC STEP: Check Working Directory and File Contents
+      - name: 🔍 Debug Working Directory and File Contents
+        run: |
+          echo "--- Current Working Directory (pwd) ---"
+          pwd
+          echo "--- Contents of Current Directory (ls -F) ---"
+          ls -F
+          echo "--- Contents of 'scripts/' (ls -F scripts/) ---"
+          ls -F scripts/
+          echo "--- Value of GITHUB_WORKSPACE ---"
+          echo "${{ github.workspace }}"
+          echo "---------------------------------"
+          # IMPORTANT: Check if the full expected path exists using 'stat'
+          echo "--- Stat of the expected script path ---"
+          stat "${{ github.workspace }}/scripts/normalize_and_patch_all.py" || echo "ERROR: Stat failed for script path. File likely not found."
+          echo "----------------------------------------"
+
+
       - name: 🧠 Run Normalization Pipeline
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # This should now correctly refer to the repository root.
-          # We're keeping this for internal Python module imports within your script.
           PYTHONPATH: .:${PYTHONPATH}
         run: |
           # ULTIMATE FIX ATTEMPT: Use GITHUB_WORKSPACE for an absolute path.
-          # GITHUB_WORKSPACE is always '/home/runner/work/<repo_owner>/<repo_name>/'.
-          # Since your repo name is 'doorloop-sync-backend', GITHUB_WORKSPACE will be:
-          # '/home/runner/work/doorloop-sync-backend/doorloop-sync-backend/'
-          # Therefore, the full path to your script is GITHUB_WORKSPACE/scripts/normalize_and_patch_all.py
+          # This should provide the correct, non-duplicated path.
           echo "Attempting to run script from: ${{ github.workspace }}/scripts/normalize_and_patch_all.py"
-          python "${{ github.workspace }}/scripts/normalize_and_patch_all.py"
+          # Using bash -c to ensure no shell interpretation issues with the path string
+          # And adding 'set -x' for extreme verbosity on this command.
+          /usr/bin/bash -c "set -x; python \"${{ github.workspace }}/scripts/normalize_and_patch_all.py\""
