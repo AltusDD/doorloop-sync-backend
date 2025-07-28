@@ -25,4 +25,4 @@ jobs:
         run: python --version
 
       - name: Run Normalization Pipeline
-        run: python scripts/normalize_and_patch_all.py
+        run: python scripts/normalize_and_patch_all
