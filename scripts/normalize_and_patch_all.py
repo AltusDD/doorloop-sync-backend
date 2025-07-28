@@ -14,7 +14,7 @@ def main():
 
     # Upload to Supabase
     upsert_raw_doorloop_data(
-        table="doorloop_normalized_properties", 
+        table_name="doorloop_normalized_properties", 
         records=normalized
     )
 
