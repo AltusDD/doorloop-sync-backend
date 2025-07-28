@@ -16,9 +16,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5 # Use a stable version, v4 or v5 are common
         with:
-          # FIX: Specify a modern and supported Python version.
-          # Python 3.1 is extremely old and not available on GitHub Actions runners.
-          python-version: '3.10' # Recommended. Or '3.11', '3.12'.
+          python-version: '3.10' # Confirmed and fixed Python version
 
       - name: Install Dependencies
         run: |
@@ -29,13 +27,18 @@ jobs:
       - name: 🐍 Print Python Version (Sanity Check)
         run: python --version
 
-      - name: Run Normalization Pipeline
+      - name: 🧠 Run Normalization Pipeline
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # This should now correctly refer to the repository root.
+          # We're keeping this for internal Python module imports within your script.
           PYTHONPATH: .:${PYTHONPATH}
         run: |
-          # This path is relative to the repository root (e.g., /home/runner/work/repo_name/repo_name/)
-          # which is where 'scripts/' is located.
-          python scripts/normalize_and_patch_all.py
+          # ULTIMATE FIX ATTEMPT: Use GITHUB_WORKSPACE for an absolute path.
+          # GITHUB_WORKSPACE is always '/home/runner/work/<repo_owner>/<repo_name>/'.
+          # Since your repo name is 'doorloop-sync-backend', GITHUB_WORKSPACE will be:
+          # '/home/runner/work/doorloop-sync-backend/doorloop-sync-backend/'
+          # Therefore, the full path to your script is GITHUB_WORKSPACE/scripts/normalize_and_patch_all.py
+          echo "Attempting to run script from: ${{ github.workspace }}/scripts/normalize_and_patch_all.py"
+          python "${{ github.workspace }}/scripts/normalize_and_patch_all.py"
