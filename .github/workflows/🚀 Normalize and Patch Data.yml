@@ -32,11 +32,4 @@ jobs:
           echo "--- Stat File ---"
           stat "${{ github.workspace }}/scripts/normalize_and_patch_all.py" || echo "File not found!"
 
-      - name: 🚀 Run Normalization Pipeline
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          PYTHONPATH: .:${PYTHONPATH}
-        run: |
-          echo "Running: ${{ github.workspace }}/scripts/normalize_and_patch_all.py"
-          /usr/bin/bash -c "set -x; python \"${{ github.workspace }}/scripts/normalize_and_patch_all.py\""
+      # 🚀 Run Normalization Pipeline task removed for local/manual testing only

@@ -1,0 +1,13 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Test Normalize and Patch Pipeline",
+			"command": "python scripts/normalize_and_patch_all.py",
+			"group": "test",
+			"problemMatcher": [],
+			"args": []
+		}
+	]
+}
