@@ -3,18 +3,22 @@ name: 🚀 Normalize and Patch Data
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
-
-env:
-  PYTHON_VERSION: "3.10"
+    paths:
+      - 'scripts/**'
+      - 'sql/**'
+      - 'requirements.txt'
+      - '.github/workflows/**'
 
 jobs:
-  run-normalization:
+  normalize_and_patch:
     runs-on: ubuntu-latest
 
+    env:
+      PYTHON_VERSION: 3.10
+
     steps:
-      - name: 🧾 Checkout Code
-        uses: actions/checkout@v3
+      - name: 🧰 Checkout Repository
+        uses: actions/checkout@v4
 
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
@@ -24,16 +28,22 @@ jobs:
       - name: 🛠️ Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip cache purge
+          pip install --no-cache-dir --force-reinstall psycopg2-binary==2.9.9 -v
+          pip install --no-cache-dir -r requirements.txt -v
+          pip freeze
 
       - name: 🧠 Sanity Check Python Version
         run: |
           echo "Current Python version:"
-          python --version
-          if [[ "$(python --version)" == "Python 3.1"* ]]; then
+          PY_VER=$(python --version)
+          echo "$PY_VER"
+
+          if echo "$PY_VER" | grep -q "Python 3.1"; then
             echo "::error ::Python 3.1 is not supported!"
             exit 1
           fi
 
-      - name: 🧠 Run Normalization Pipeline
-        run: python scripts/normalize_and_patch_all.py
+      - name: 🚀 Run Normalize and Patch Script
+        run: |
+          python scripts/normalize_and_patch_all.py
