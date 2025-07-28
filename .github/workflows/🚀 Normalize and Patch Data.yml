@@ -2,47 +2,41 @@ name: 🚀 Normalize and Patch Data
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   normalize_and_patch:
     runs-on: ubuntu-latest
 
-    env:
-      PYTHON_VERSION: 3.10.18
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-      PYTHONPATH: .:${{ env.PYTHONPATH }}
-
     steps:
       - name: 🔁 Checkout Repo
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python
+      - name: 🐍 Setup Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: '3.10'
 
       - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔍 Debug Environment and Path
+      - name: 🔍 Debug Working Directory and File Contents
         run: |
-          python --version
-          echo "--- Current Working Directory ---"
+          echo "--- Working Directory ---"
           pwd
-          echo "--- Directory Contents ---"
-          ls -alh
-          echo "--- scripts/ ---"
-          ls -alh scripts/
-          echo "--- GITHUB_WORKSPACE ---"
-          echo "$GITHUB_WORKSPACE"
-          echo "--- Stat script file ---"
-          stat "$GITHUB_WORKSPACE/scripts/normalize_and_patch_all.py" || echo "File not found!"
+          echo "--- Root Contents ---"
+          ls -F
+          echo "--- scripts/ Directory ---"
+          ls -F scripts/
+          echo "--- Stat File ---"
+          stat "${{ github.workspace }}/scripts/normalize_and_patch_all.py" || echo "File not found!"
 
       - name: 🚀 Run Normalization Pipeline
-        run: python "$GITHUB_WORKSPACE/scripts/normalize_and_patch_all.py"
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PYTHONPATH: .:${PYTHONPATH}
+        run: |
+          echo "Running: ${{ github.workspace }}/scripts/normalize_and_patch_all.py"
+          /usr/bin/bash -c "set -x; python \"${{ github.workspace }}/scripts/normalize_and_patch_all.py\""
