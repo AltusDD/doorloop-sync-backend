@@ -19,22 +19,26 @@ class SupabaseIngestClient:
         self.session.headers.update(self.headers)
         logger.info("✅ SupabaseIngestClient initialized.")
 
-    def _request(self, method: str, url: str, data: Any = None, params: Dict[str, Any] = None, retries: int = 3):
+    def _request(self, method: str, url: str, data: Optional[Any] = None, params: Optional[Dict[str, Any]] = None, retries: int = 3) -> requests.Response:
         for attempt in range(1, retries + 1):
             try:
-                resp = self.session.request(method, url, json=data, params=params, timeout=30)
-                resp.raise_for_status()
-                return resp
+                response = self.session.request(method, url, headers=self.headers, json=data, params=params, timeout=30)
+                response.raise_for_status()
+                return response
             except requests.RequestException as e:
-                logger.warning(f"Request error (attempt {attempt}): {e}")
+                try:
+                    error_detail = e.response.json()
+                except Exception:
+                    error_detail = e.response.text
+                logger.warning(f"Request error (attempt {attempt}): {e} | Details: {error_detail}")
                 if attempt == retries:
                     raise
                 time.sleep(2 ** attempt)
 
-    def upsert_data(self, table: str, records: List[Dict[str, Any]], on_conflict: str = "id"):
-        url = f"{self.supabase_url}/rest/v1/{table}"
+    def upsert_data(self, table_name: str, records: List[Dict[str, Any]], on_conflict: str = "doorloop_id") -> requests.Response:
+        logger.info(f"🔁 Upserting {len(records)} records into {table_name} (conflict key: {on_conflict})")
+        url = f"{self.supabase_url}/rest/v1/{table_name}"
         params = {"on_conflict": on_conflict, "returning": "representation"}
-        logger.info(f"🔁 Upserting {len(records)} records to table '{table}'")
         return self._request("POST", url, data=records, params=params)
 
     def log_audit(self, batch_id: str, status: str, entity: str, message: str = "", record_count: Optional[int] = None):
@@ -44,7 +48,6 @@ class SupabaseIngestClient:
             "status": status,
             "entity": entity,
             "message": message,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         }
         if record_count is not None:
             record["record_count"] = record_count
@@ -53,12 +56,12 @@ class SupabaseIngestClient:
 
     def log_dlq(self, batch_id: str, entity: str, record: Dict[str, Any], error: str):
         url = f"{self.supabase_url}/rest/v1/doorloop_error_records"
-        dlq_entry = {
+        dlq = {
             "batch_id": batch_id,
             "entity": entity,
             "record": record,
             "error": error,
             "timestamp": int(time.time())
         }
-        logger.warning(f"⚠️ DLQ: {dlq_entry}")
-        self._request("POST", url, data=[dlq_entry])
+        logger.warning(f"⚠️ Logging DLQ record: {dlq}")
+        self._request("POST", url, data=[dlq])
