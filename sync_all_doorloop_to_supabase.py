@@ -17,7 +17,6 @@ dl_client = DoorLoopClient()
 sb_client = SupabaseIngestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 BATCH_ID = str(uuid.uuid4())
-TIMESTAMP = datetime.now(timezone.utc).isoformat()
 
 def run_sync():
     logger.info(f"Starting sync run with batch ID: {BATCH_ID}")
@@ -25,8 +24,7 @@ def run_sync():
         batch_id=BATCH_ID,
         status="in_progress",
         entity="sync_all",
-        message="Begin sync run",
-        timestamp=TIMESTAMP,
+        message="Begin sync run"
     )
 
     endpoints = {
@@ -49,16 +47,14 @@ def run_sync():
                 batch_id=BATCH_ID,
                 status="failed",
                 entity=endpoint,
-                message=str(e),
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                message=str(e)
             )
 
     sb_client.log_audit(
         batch_id=BATCH_ID,
         status="complete",
         entity="sync_all",
-        message="All endpoint syncs finished",
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        message="All endpoint syncs finished"
     )
 
 if __name__ == "__main__":
