@@ -10,7 +10,7 @@ logger = logging.getLogger("doorloop_client")
 class DoorLoopClient:
     def __init__(self):
         self.api_key = os.getenv("DOORLOOP_API_KEY")
-        self.base_url = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/v1/")
+        self.base_url = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/v1")
 
         if not self.api_key:
             raise ValueError("DOORLOOP_API_KEY environment variable is missing.")
@@ -34,7 +34,7 @@ class DoorLoopClient:
 
         while True:
             try:
-                paged_url = f"{full_url}?page_number={page}&page_size={page_size}"
+                paged_url = f"{full_url}?page={page}&pageSize={page_size}"
                 logger.debug(f"🔍 [DEBUG] Endpoint: {endpoint}")
                 response = self.session.get(paged_url)
                 logger.debug(f"🔍 [DEBUG] Status Code: {response.status_code}")
