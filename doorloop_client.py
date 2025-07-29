@@ -7,7 +7,7 @@ class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url.rstrip('/') # Ensure no trailing slash
         
-        # Prepend "Bearer " to the API key if it's not already there
+        # Prepend "Bearer " to the API key if it's not already there 
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
         else:
@@ -40,7 +40,7 @@ class DoorLoopClient:
                 logging.info(f"  - Fetched page {page_number} ({len(data)} records). Total fetched: {len(all_data)}/{total_records}")
 
                 if len(all_data) >= total_records:
-                    break # All records fetched
+                    break  # All records fetched
                     
                 page_number += 1
             
