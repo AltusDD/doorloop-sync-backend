@@ -18,7 +18,7 @@ SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 if not all([DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY]):
     raise EnvironmentError("Missing required environment variables")
 
-dl_client = DoorLoopClient(api_key=DOORLOOP_API_KEY, base_url=DOORLOOP_API_BASE_URL)
+dl_client = DoorLoopClient()
 sb_client = SupabaseIngestClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 schema_mgr = SupabaseSchemaManager(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
