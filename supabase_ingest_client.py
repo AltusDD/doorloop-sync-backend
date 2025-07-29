@@ -1,5 +1,5 @@
 import logging
-from supabase import create_client, Client
+from supabase.client import Client, create_client
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
