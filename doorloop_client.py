@@ -1,67 +1,40 @@
-# doorloop_client.py
-
-import os
-import requests
 import logging
-from urllib.parse import urljoin
+import requests
 
-logger = logging.getLogger("doorloop_client")
+logger = logging.getLogger(__name__)
 
 class DoorLoopClient:
-    def __init__(self):
-        self.api_key = os.getenv("DOORLOOP_API_KEY")
-        self.base_url = os.getenv("DOORLOOP_API_BASE_URL", "https://api.doorloop.com/v1")
-
-        if not self.api_key:
-            raise ValueError("DOORLOOP_API_KEY environment variable is missing.")
-        if not self.base_url.endswith("/"):
-            self.base_url += "/"
-
-        self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"Bearer {self.api_key}",
+    def __init__(self, base_url, api_key):
+        self.base_url = base_url.rstrip("/")
+        self.headers = {
+            "Authorization": api_key,
             "Content-Type": "application/json",
-            "Accept": "application/json",
-        })
-
+        }
         logger.info(f"✅ DoorLoopClient initialized with BASE URL: {self.base_url}")
 
-    def fetch_all(self, endpoint):
-        full_url = urljoin(self.base_url, endpoint)
-        page_number = 1
-        page_size = 100
+    def fetch_all(self, endpoint, page_size=100):
         all_data = []
+        page_number = 1
 
         while True:
+            url = f"{self.base_url}/{endpoint}?pageNumber={page_number}&pageSize={page_size}"
+            logger.debug(f"📤 Fetching URL: {url}")
+            response = requests.get(url, headers=self.headers)
             try:
-                paged_url = f"{full_url}?pageNumber={page_number}&pageSize={page_size}"
-                logger.debug(f"🔍 [DEBUG] URL: {paged_url}")
-                response = self.session.get(paged_url)
-                logger.debug(f"🔍 [DEBUG] Status Code: {response.status_code}")
-                logger.debug(f"🔍 [DEBUG] Response Text Preview:\n{response.text[:500]}")
-
                 response.raise_for_status()
-                data = response.json()
-
-                if isinstance(data, list):
-                    batch = data
-                elif isinstance(data, dict) and "data" in data:
-                    batch = data["data"]
-                else:
-                    batch = []
-
-                if not batch:
-                    break
-
-                all_data.extend(batch)
-
-                if len(batch) < page_size:
-                    break
-
-                page_number += 1
-
-            except Exception as e:
-                logger.exception(f"❌ Error fetching from {paged_url}: {e}")
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"❌ Error fetching from {url}: {e}")
                 raise
 
+            page_data = response.json()
+            if not page_data:
+                break
+
+            all_data.extend(page_data)
+            if len(page_data) < page_size:
+                break
+
+            page_number += 1
+
+        logger.info(f"✅ Fetched {len(all_data)} records from /{endpoint}")
         return all_data
