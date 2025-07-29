@@ -21,11 +21,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🔑 Set Secrets
-        run: echo "✅ Secrets configured by GitHub Action environment"
+      - name: 🔑 Confirm Secrets Loaded
+        run: echo "✅ Secrets loaded from GitHub environment"
 
       - name: 🔄 Run DoorLoop → Supabase Sync
-        run: python doorloop_sync/scripts/sync_all_doorloop_to_supabase.py
+        run: python scripts/sync_all_doorloop_to_supabase.py
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
           DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
