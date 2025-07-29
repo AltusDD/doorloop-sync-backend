@@ -44,12 +44,13 @@ ENDPOINTS = {
     "communications": "communications",
     "notes": "notes",
     "files": "files",
-    "property-groups": "property_groups", # DoorLoop endpoint name 
+    "property-groups": "property_groups", # Example of specific DoorLoop endpoint name
     # Add other endpoints as needed, ensuring correct pluralization/hyphenation
 }
 
 def get_current_timestamp():
-    # DeprecationWarning fix for datetime.utcnow()
+    # Fix for DeprecationWarning: datetime.datetime.utcnow() [cite: 4]
+    # Use timezone-aware objects to represent datetimes in UTC
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 def main_sync_run():
@@ -62,7 +63,7 @@ def main_sync_run():
         status='in_progress',
         entity='sync_all',
         message='Begin sync run',
-        timestamp=get_current_timestamp(),
+        timestamp=get_current_timestamp(), # Pass timestamp 
         entity_type='sync'
     )
 
@@ -99,7 +100,7 @@ def main_sync_run():
                 status='succeeded',
                 entity=api_endpoint,
                 message=f"Successfully synced {len(records_to_insert)} records.",
-                timestamp=get_current_timestamp(),
+                timestamp=get_current_timestamp(), # Pass timestamp 
                 entity_type='sync'
             )
 
@@ -112,7 +113,7 @@ def main_sync_run():
                 status='failed',
                 entity=api_endpoint,
                 message=str(e),
-                timestamp=get_current_timestamp(),
+                timestamp=get_current_timestamp(), # Pass timestamp 
                 entity_type='sync'
             )
             # Decide if you want to stop the whole sync or continue to next endpoint
@@ -128,17 +129,10 @@ def main_sync_run():
         status=final_status,
         entity='sync_all',
         message=final_message,
-        timestamp=get_current_timestamp(),
+        timestamp=get_current_timestamp(), # Pass timestamp 
         entity_type='sync'
     )
     logging.info(f"Final Sync Status for batch {batch_id}: {final_status.upper()}")
 
 if __name__ == "__main__":
-    # Ensure raw data tables exist before attempting to fetch/ingest
-    # This part would typically be handled by your 'deploy-schema.yml'
-    # and 'tables/*.sql' files that create the doorloop_raw_* tables.
-    
-    # You might want to add a check here or ensure your CI/CD
-    # runs schema deployment *before* this script.
-    
     main_sync_run()
