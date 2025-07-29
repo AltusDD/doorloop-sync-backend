@@ -1,0 +1,26 @@
+name: 🧱 Deploy Normalized Schema
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy-schema:
+    name: Push schema to Supabase with SSL
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL_POOLED }}
+      PGSSLMODE: require
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: 🧰 Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: 🚀 Push schema with SSL and debug
+        run: |
+          echo "Running db push with SSL enforcement"
+          supabase db push --debug
