@@ -28,14 +28,14 @@ class DoorLoopClient:
 
     def fetch_all(self, endpoint):
         full_url = urljoin(self.base_url, endpoint)
-        page = 1
+        page_number = 1
         page_size = 100
         all_data = []
 
         while True:
             try:
-                paged_url = f"{full_url}?page={page}&pageSize={page_size}"
-                logger.debug(f"🔍 [DEBUG] Endpoint: {endpoint}")
+                paged_url = f"{full_url}?pageNumber={page_number}&pageSize={page_size}"
+                logger.debug(f"🔍 [DEBUG] URL: {paged_url}")
                 response = self.session.get(paged_url)
                 logger.debug(f"🔍 [DEBUG] Status Code: {response.status_code}")
                 logger.debug(f"🔍 [DEBUG] Response Text Preview:\n{response.text[:500]}")
@@ -58,7 +58,7 @@ class DoorLoopClient:
                 if len(batch) < page_size:
                     break
 
-                page += 1
+                page_number += 1
 
             except Exception as e:
                 logger.exception(f"❌ Error fetching from {paged_url}: {e}")
