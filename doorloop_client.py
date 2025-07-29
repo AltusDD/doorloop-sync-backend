@@ -1,4 +1,3 @@
-import os
 import time
 import logging
 import requests
@@ -8,9 +7,9 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
 class DoorLoopClient:
-    def __init__(self):
-        self.api_key = os.environ["DOORLOOP_API_KEY"]
-        self.base_url = os.environ["DOORLOOP_API_BASE_URL"]
+    def __init__(self, api_key, base_url):
+        self.api_key = api_key
+        self.base_url = base_url
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
