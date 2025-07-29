@@ -43,7 +43,15 @@ class DoorLoopClient:
         while True:
             params = {"page": page, "pageSize": page_size}
             response = self._call("GET", endpoint, params=params)
-            data = response.json()
+print("🔍 [DEBUG] Endpoint:", endpoint)
+print("🔍 [DEBUG] Status Code:", response.status_code)
+print("🔍 [DEBUG] Response Text Preview:\n", response.text[:500])
+try:
+    data = response.json()
+except Exception as e:
+    print("❌ [ERROR] Failed to parse response as JSON")
+    print("❌ [EXCEPTION]", str(e))
+    data = {}
             items = data.get("data", data)
 
             if not items:
