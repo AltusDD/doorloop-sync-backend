@@ -1,5 +1,6 @@
 import requests
 import logging
+import time # Import the time library
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -43,6 +44,9 @@ class DoorLoopClient:
                     break  # All records fetched
                     
                 page_number += 1
+                
+                # Add a delay to avoid hitting API rate limits
+                time.sleep(0.5)
             
             except requests.exceptions.HTTPError as http_err:
                 logging.error(f"❌ Error fetching from {url}: {http_err}")
