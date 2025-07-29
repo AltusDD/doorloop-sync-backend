@@ -1,4 +1,5 @@
 import os
+print("🛠️ DEBUG – Effective BASE URL:", os.environ.get("DOORLOOP_API_BASE_URL"))
 import logging
 import uuid
 import time
