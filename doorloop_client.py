@@ -15,6 +15,9 @@ class DoorLoopClient:
             "Content-Type": "application/json"
         }
 
+        # ✅ Runtime debug
+        print("✅ DoorLoopClient initialized with BASE URL:", self.base_url)
+
     def _call(self, method, endpoint, params=None, data=None, retries=3):
         url = urljoin(self.base_url, endpoint)
         for attempt in range(1, retries + 1):
