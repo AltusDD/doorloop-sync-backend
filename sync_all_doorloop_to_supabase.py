@@ -49,7 +49,6 @@ ENDPOINTS = {
 }
 
 def get_current_timestamp():
-    # Fix for DeprecationWarning: datetime.datetime.utcnow() [cite: 4]
     # Use timezone-aware objects to represent datetimes in UTC
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -63,7 +62,7 @@ def main_sync_run():
         status='in_progress',
         entity='sync_all',
         message='Begin sync run',
-        timestamp=get_current_timestamp(), # Pass timestamp 
+        timestamp=get_current_timestamp(),
         entity_type='sync'
     )
 
@@ -78,14 +77,17 @@ def main_sync_run():
             # Fetch data from DoorLoop API
             data = doorloop_client.fetch_all(api_endpoint)
             
+            # De-duplicate records based on 'id' to prevent upsert errors from bad pagination
+            unique_records = {item['id']: item for item in data}.values()
+            
             # Insert into Supabase raw table
             records_to_insert = [
                 {
-                    "id": record.get("id"), # Assuming 'id' is always present in DoorLoop API response
+                    "id": record.get("id"),
                     "data": record,
                     "source_endpoint": api_endpoint,
                     "inserted_at": get_current_timestamp()
-                } for record in data
+                } for record in unique_records
             ]
             
             if records_to_insert:
@@ -100,7 +102,7 @@ def main_sync_run():
                 status='succeeded',
                 entity=api_endpoint,
                 message=f"Successfully synced {len(records_to_insert)} records.",
-                timestamp=get_current_timestamp(), # Pass timestamp 
+                timestamp=get_current_timestamp(),
                 entity_type='sync'
             )
 
@@ -113,12 +115,10 @@ def main_sync_run():
                 status='failed',
                 entity=api_endpoint,
                 message=str(e),
-                timestamp=get_current_timestamp(), # Pass timestamp 
+                timestamp=get_current_timestamp(),
                 entity_type='sync'
             )
-            # Decide if you want to stop the whole sync or continue to next endpoint
-            # For now, we'll continue to try other endpoints
-            continue # Continue to the next endpoint if one fails
+            continue
 
     # Log audit entry for the end of the overall sync
     final_status = 'complete' if all_sync_succeeded else 'failed'
@@ -129,7 +129,7 @@ def main_sync_run():
         status=final_status,
         entity='sync_all',
         message=final_message,
-        timestamp=get_current_timestamp(), # Pass timestamp 
+        timestamp=get_current_timestamp(),
         entity_type='sync'
     )
     logging.info(f"Final Sync Status for batch {batch_id}: {final_status.upper()}")
