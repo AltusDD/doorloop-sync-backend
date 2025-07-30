@@ -25,7 +25,7 @@ jobs:
         run: echo "✅ Secrets loaded from GitHub environment"
 
       - name: 🔄 Run DoorLoop → Supabase Sync
-        run: python scripts/sync_all_doorloop_to_supabase.py
+        run: python doorloop-sync-backend/scripts/sync_all_doorloop_to_supabase.py
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
           DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
