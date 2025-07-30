@@ -28,4 +28,4 @@ jobs:
           DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python doorloop_sync_backend/doorloop_sync/sync_all_doorloop_to_supabase.py
+        run: python doorloop_sync_backend/scripts/sync_all_doorloop_to_supabase.py
