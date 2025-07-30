@@ -29,4 +29,5 @@ jobs:
           DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python scripts/sync_all_doorloop_to_supabase.py
+        # Corrected line below to run the script as a module from its new path
+        run: python -m doorloop_sync.pipelines.sync_all_doorloop
