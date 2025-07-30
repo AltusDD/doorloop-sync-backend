@@ -1,64 +1,40 @@
-import requests
 import logging
-import time
-from typing import List, Dict, Any, Optional
+import datetime
+from supabase.client import Client, create_client
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class SupabaseClient:
-    def __init__(self, supabase_url: str, service_role_key: str):
-        self.supabase_url = supabase_url.rstrip('/')
-        self.service_role_key = service_role_key
-        self.headers = {
-            "apikey": self.service_role_key,
-            "Authorization": f"Bearer {self.service_role_key}",
-            "Content-Type": "application/json"
-        }
+    def __init__(self, supabase_url: str, supabase_service_role_key: str):
+        self.supabase: Client = create_client(supabase_url, supabase_service_role_key)
+        logging.info("✅ SupabaseClient initialized.")
 
-    def _call_supabase_rest(self, method: str, table_name: str, data: Optional[Any] = None, params: Optional[Dict[str, Any]] = None, retries: int = 3) -> requests.Response:
-        url = f"{self.supabase_url}/rest/v1/{table_name}"
-        for attempt in range(retries):
-            try:
-                resp = requests.request(method, url, headers=self.headers, json=data, params=params, timeout=30)
-                resp.raise_for_status()
-                return resp
-            except requests.RequestException as e:
-                logging.error(f"Supabase REST call failed (attempt {attempt+1}/{retries}): {e}")
-                if attempt == retries - 1:
-                    raise
-                time.sleep(2 ** attempt)
+    def upsert_raw_data(self, table_name: str, records: list):
+        if not records:
+            logging.info(f"No records to upsert into {table_name}.")
+            return
+        
+        try:
+            # The de-duplication is handled in the main pipeline script.
+            # This function now just handles the upsert.
+            # We use on_conflict="id" to ensure this is an upsert operation.
+            self.supabase.table(table_name).upsert(records, on_conflict="id").execute()
+            logging.info(f"✅ Successfully upserted {len(records)} records to {table_name}.")
+        except Exception as e:
+            logging.error(f"❌ Failed to upsert data to {table_name}: {e}")
+            raise
 
-    def fetch_raw_data(self, table_name: str, limit: int = 1000, offset: int = 0) -> List[Dict[str, Any]]:
-        params = {"limit": limit, "offset": offset}
-        resp = self._call_supabase_rest("GET", table_name, params=params)
-        return resp.json()
-
-    def upsert_data(self, table_name: str, records: List[Dict[str, Any]], on_conflict: str = "id") -> requests.Response:
-        params = {"on_conflict": on_conflict, "returning": "representation"}
-        return self._call_supabase_rest("POST", table_name, data=records, params=params)
-
-    def log_audit(self, batch_id: str, status: str, entity: str, message: str = ""):
+    def log_audit(self, batch_id: str, status: str, entity: str, message: str, entity_type: str = 'sync'):
         audit_record = {
-            "batch_id": batch_id,
-            "status": status,
-            "entity": entity,
-            "message": message,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            'batch_id': batch_id,
+            'status': status,
+            'entity': entity,
+            'message': message,
+            'entity_type': entity_type,
+            'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
         try:
-            response = self._call_supabase_rest("POST", "doorloop_pipeline_audit", data=[audit_record])
-            return response
+            self.supabase.table('audit_logs').insert(audit_record).execute()
+            logging.info(f"📝 Logging audit for entity: {entity}, status: {status}")
         except Exception as e:
-            logging.error(f"Failed to log audit record: {e}")
-            return None
-
-    def log_dlq(self, batch_id: str, entity: str, record: Dict[str, Any], error: str):
-        dlq_record = {
-            "batch_id": batch_id,
-        try:
-            self._call_supabase_rest("POST", "doorloop_error_records", data=[dlq_record])
-        except Exception as e:
-            logging.error(f"Failed to log DLQ record for batch_id={batch_id}, entity={entity}: {e}")
-            "record": record,
-            "error": error,
-            "timestamp": int(time.time())
-        }
-        self._call_supabase_rest("POST", "doorloop_error_records", data=[dlq_record])
+            logging.error(f"❌ Failed to log audit record: {e} | Record: {audit_record}")
