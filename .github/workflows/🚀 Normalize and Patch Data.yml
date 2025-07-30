@@ -1,0 +1,51 @@
+name: 🚀 Normalize and Patch Data
+
+on:
+  workflow_dispatch:
+
+jobs:
+  normalize_and_patch:
+    runs-on: ubuntu-latest
+    # ENSURE there is NO 'defaults:' section or 'working-directory:' line here.
+    # This remains critical.
+
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4 # Use a stable version, v3 or v4 are common
+
+      - name: Setup Python
+        uses: actions/setup-python@v5 # Use a stable version, v4 or v5 are common
+        with:
+          python-version: '3.10' # Confirmed and fixed Python version
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Assuming 'requirements.txt' is in the root of your 'doorloop_sync_backend' repo.
+          pip install -r requirements.txt
+
+      - name: 🐍 Print Python Version (Sanity Check)
+        run: python --version
+
+      # NEW DIAGNOSTIC STEP: Print contents of doorloop_client.py
+      - name: 🔍 Debug doorloop_client.py content
+        run: |
+          echo "--- Contents of doorloop_client.py on runner ---"
+          cat doorloop_client.py
+          echo "------------------------------------------------"
+          # Also verify its path explicitly
+          echo "--- Stat of doorloop_client.py ---"
+          stat doorloop_client.py || echo "ERROR: Stat failed for doorloop_client.py. File not found."
+          echo "----------------------------------"
+
+      - name: Sync DoorLoop data
+        env:
+          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+          DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # This should correctly refer to the repository root.
+          PYTHONPATH: .:${PYTHONPATH}
+        run: |
+          # This path is relative to the repository root
+          python sync_all_doorloop_to_supabase.py
