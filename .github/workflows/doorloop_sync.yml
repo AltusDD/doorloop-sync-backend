@@ -22,7 +22,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run orchestrator
+      - name: python -m doorloop_sync.orchestrator
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
           DOORLOOP_API_BASE_URL: https://api.doorloop.com
