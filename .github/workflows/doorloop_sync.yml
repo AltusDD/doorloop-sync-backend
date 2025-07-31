@@ -1,4 +1,3 @@
-
 name: 🔄 DoorLoop Sync
 
 on:
@@ -22,11 +21,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: python -m doorloop_sync.orchestrator
+      - name: Run Orchestrator
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
           DOORLOOP_API_BASE_URL: https://api.doorloop.com
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          python doorloop_sync/main.py
+          python -m doorloop_sync.orchestrator
