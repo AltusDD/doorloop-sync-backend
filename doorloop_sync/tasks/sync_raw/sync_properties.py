@@ -1,0 +1,1 @@
+# Logic to sync raw properties

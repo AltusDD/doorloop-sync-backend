@@ -1,0 +1,1 @@
+# Shared configuration for clients and settings

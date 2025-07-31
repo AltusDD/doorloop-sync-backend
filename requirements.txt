@@ -1,5 +1,1 @@
-requests
-requests
-supabase>=2.0.0  # Corrected package name
-python-dotenv
-psycopg2-binary==2.9.9
+# Required packages
