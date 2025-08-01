@@ -1,37 +1,29 @@
-
-import requests
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
 class DoorLoopClient:
-    def __init__(self, base_url, api_key):
-        self.base_url = base_url.rstrip("/")
-        self.api_key = api_key
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url
+        self.session = requests.Session()
+        self.session.headers.update({"Authorization": f"Bearer {api_key}"})
         logger.info("✅ DoorLoopClient initialized.")
 
-    def get_all(self, endpoint, params=None):
+    def get_all(self, endpoint: str) -> list:
+        url = f"{self.base_url}/v1/{endpoint}"
         logger.info(f"📡 Fetching all records from {endpoint}...")
+
         results = []
         page = 1
-        per_page = 100
         while True:
-            query_params = {"page": page, "limit": per_page}
-            if params:
-                query_params.update(params)
-            url = f"{self.base_url}/{endpoint}"
-            response = requests.get(url, headers=self.headers, params=query_params)
+            response = self.session.get(url, params={"page": page, "limit": 100})
             response.raise_for_status()
             data = response.json()
+
             if not data:
                 break
             results.extend(data)
-            if len(data) < per_page:
-                break
             page += 1
-        logger.info(f"✅ Retrieved {len(results)} records from {endpoint}.")
+
         return results
