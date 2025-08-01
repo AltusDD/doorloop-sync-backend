@@ -1,3 +1,9 @@
+import logging
 
-def audit_log(event_type, message, entity_type=None):
-    print(f"[AUDIT] {event_type}: {message} | Entity: {entity_type}")
+logger = logging.getLogger(__name__)
+
+def audit_log(event_type: str, message: str, entity: str = None):
+    formatted_message = f"[AUDIT] {event_type}: {message}"
+    if entity:
+        formatted_message += f" | Entity: {entity}"
+    logger.info(formatted_message)
