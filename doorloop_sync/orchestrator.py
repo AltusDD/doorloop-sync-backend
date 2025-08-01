@@ -1,42 +1,36 @@
 
 import logging
-from doorloop_sync.services import (
-    PropertySyncService,
-    UnitSyncService,
-    OwnerSyncService,
-    LeaseSyncService,
-    TenantSyncService,
-    PaymentSyncService,
-)
-from doorloop_sync.kpi.kpi_engine import compute_and_store_kpis
 from doorloop_sync.audit.logger import audit_log
+from doorloop_sync.services.property_service import PropertySyncService
+from doorloop_sync.services.unit_service import UnitSyncService
+from doorloop_sync.services.owner_service import OwnerSyncService
+from doorloop_sync.services.lease_service import LeaseSyncService
+from doorloop_sync.services.tenant_service import TenantSyncService
+from doorloop_sync.services.payment_service import PaymentSyncService
 
 logging.basicConfig(level=logging.INFO)
 
 def run_full_pipeline():
     logging.info("🚀 Starting full DoorLoop sync pipeline")
 
-    for service_class in [
-        PropertySyncService,
-        UnitSyncService,
-        OwnerSyncService,
-        LeaseSyncService,
-        TenantSyncService,
-        PaymentSyncService,
-    ]:
-        service = service_class()
+    services = [
+        PropertySyncService(),
+        UnitSyncService(),
+        OwnerSyncService(),
+        LeaseSyncService(),
+        TenantSyncService(),
+        PaymentSyncService()
+    ]
+
+    for service in services:
         try:
             service.sync()
         except Exception as e:
-            audit_log("sync_error", str(e), entity=service_class.__name__)
-            logging.exception(f"❌ Error syncing {service_class.__name__}")
+            logging.error(f"❌ Error syncing {service.__class__.__name__}")
+            audit_log("sync_error", str(e), entity_type=service.__class__.__name__)
 
     logging.info("✅ Finished entity syncing. Computing KPIs...")
-    try:
-        compute_and_store_kpis()
-    except Exception as e:
-        audit_log("kpi_error", str(e), entity="KPIEngine")
-        logging.exception("❌ Error computing KPIs")
+    print("📊 Computing and storing KPIs... (stub)")
 
 if __name__ == "__main__":
     run_full_pipeline()
