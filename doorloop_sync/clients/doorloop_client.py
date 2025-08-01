@@ -1,19 +1,21 @@
 import requests
 import logging
 import time
+from urllib.parse import urljoin
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
-        # --- RESILIENCY FIX ---
-        # Ensure the base_url is correctly formatted and ends with /api
-        # This makes the client robust against common configuration errors.
+        # --- DEFINITIVE URL FIX ---
+        # This logic ensures the base URL is always correctly formatted to end with /api/v1
         temp_url = base_url.rstrip('/')
-        if not temp_url.endswith('/api'):
-            self.base_url = f"{temp_url}/api"
-        else:
+        if '/api/v1' in temp_url:
             self.base_url = temp_url
+        elif '/api' in temp_url:
+            self.base_url = f"{temp_url.split('/api')[0]}/api/v1"
+        else:
+            self.base_url = f"{temp_url}/api/v1"
         
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
@@ -32,7 +34,7 @@ class DoorLoopClient:
         
         while True:
             params = {'pageNumber': page_number, 'pageSize': limit}
-            # The final URL will now be correct, e.g., https://api.doorloop.com/api/properties
+            # The final URL will now be correct, e.g., https://api.doorloop.com/api/v1/properties
             url = f"{self.base_url}/{endpoint.lstrip('/')}"
             
             try:
