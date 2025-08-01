@@ -1,19 +1,15 @@
 import requests
 import logging
 import time
-from urllib.parse import urlparse, urlunparse
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
-        # This logic uses robust URL parsing to ensure the base URL is always
-        # correctly formatted to end with /api/v1, preserving the original domain.
-        parsed_url = urlparse(base_url)
-        
-        self.base_url = urlunparse((
-            parsed_url.scheme, 'api.doorloop.com', '/api/v1', '', '', ''
-        )).rstrip('/')
+        # --- DEFINITIVE URL FIX ---
+        # The base URL is now hardcoded to the correct structure as per the official documentation.
+        # This ensures we are always hitting the correct hostname (app.doorloop.com) and path (/api).
+        self.base_url = "https://app.doorloop.com/api"
         
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
@@ -31,7 +27,6 @@ class DoorLoopClient:
         logging.info(f"📡 Fetching all records from {endpoint}...")
         
         while True:
-            # --- DEFINITIVE FIX ---
             # Using the correct parameter names 'page' and 'limit' as per the API documentation.
             params = {'page': page_number, 'limit': limit}
             url = f"{self.base_url}/{endpoint.lstrip('/')}"
@@ -41,7 +36,7 @@ class DoorLoopClient:
                 response.raise_for_status()
                 
                 json_data = response.json()
-                # The documentation shows the data is directly in the response, not nested under a 'data' key.
+                # The documentation shows the data is directly in the response array.
                 data = json_data
                 
                 if not data:
@@ -49,12 +44,11 @@ class DoorLoopClient:
 
                 all_data.extend(data)
                 
-                # If the API returns fewer records than the limit, we know we've reached the last page.
                 if len(data) < limit:
                     break
                     
                 page_number += 1
-                time.sleep(0.2)
+                time.sleep(0.2) # Small delay to be respectful to the API
             
             except requests.exceptions.HTTPError as http_err:
                 logging.error(f"❌ HTTP Error fetching from {url} with params {params}: {http_err}")
