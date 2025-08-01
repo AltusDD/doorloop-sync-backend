@@ -1,4 +1,5 @@
 import logging
+import os
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
 from doorloop_sync.clients.supabase_client import SupabaseIngestClient
 from doorloop_sync.audit.logger import audit_log
@@ -6,7 +7,10 @@ from doorloop_sync.audit.logger import audit_log
 class PropertySyncService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.doorloop = DoorLoopClient()
+        self.doorloop = DoorLoopClient(
+            base_url=os.environ["DOORLOOP_API_BASE_URL"],
+            api_key=os.environ["DOORLOOP_API_KEY"]
+        )
         self.supabase = SupabaseIngestClient()
         self.entity = "PropertySyncService"
 
