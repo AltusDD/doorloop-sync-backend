@@ -7,17 +7,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
-        # --- DEFINITIVE URL FIX ---
         # This logic uses robust URL parsing to ensure the base URL is always
         # correctly formatted to end with /api/v1, preserving the original domain.
         parsed_url = urlparse(base_url)
         
-        # Reconstruct the base URL with the correct, standardized path
         self.base_url = urlunparse((
-            parsed_url.scheme,      # e.g., 'https'
-            parsed_url.netloc,      # e.g., 'api.doorloop.com'
-            '/api/v1',              # Standardized path
-            '', '', ''              # Clear params, query, and fragment from the base
+            parsed_url.scheme, 'api.doorloop.com', '/api/v1', '', '', ''
         )).rstrip('/')
         
         if not api_key.lower().startswith('bearer '):
@@ -36,8 +31,9 @@ class DoorLoopClient:
         logging.info(f"📡 Fetching all records from {endpoint}...")
         
         while True:
-            params = {'pageNumber': page_number, 'pageSize': limit}
-            # The final URL will now be correct, e.g., https://api.doorloop.com/api/v1/properties
+            # --- DEFINITIVE FIX ---
+            # Using the correct parameter names 'page' and 'limit' as per the API documentation.
+            params = {'page': page_number, 'limit': limit}
             url = f"{self.base_url}/{endpoint.lstrip('/')}"
             
             try:
@@ -45,13 +41,15 @@ class DoorLoopClient:
                 response.raise_for_status()
                 
                 json_data = response.json()
-                data = json_data.get('data', [])
+                # The documentation shows the data is directly in the response, not nested under a 'data' key.
+                data = json_data
                 
                 if not data:
                     break
 
                 all_data.extend(data)
                 
+                # If the API returns fewer records than the limit, we know we've reached the last page.
                 if len(data) < limit:
                     break
                     
