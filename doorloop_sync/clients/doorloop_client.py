@@ -1,21 +1,24 @@
 import requests
 import logging
 import time
-from urllib.parse import urljoin
+from urllib.parse import urlparse, urlunparse
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
         # --- DEFINITIVE URL FIX ---
-        # This logic ensures the base URL is always correctly formatted to end with /api/v1
-        temp_url = base_url.rstrip('/')
-        if '/api/v1' in temp_url:
-            self.base_url = temp_url
-        elif '/api' in temp_url:
-            self.base_url = f"{temp_url.split('/api')[0]}/api/v1"
-        else:
-            self.base_url = f"{temp_url}/api/v1"
+        # This logic uses robust URL parsing to ensure the base URL is always
+        # correctly formatted to end with /api/v1, preserving the original domain.
+        parsed_url = urlparse(base_url)
+        
+        # Reconstruct the base URL with the correct, standardized path
+        self.base_url = urlunparse((
+            parsed_url.scheme,      # e.g., 'https'
+            parsed_url.netloc,      # e.g., 'api.doorloop.com'
+            '/api/v1',              # Standardized path
+            '', '', ''              # Clear params, query, and fragment from the base
+        )).rstrip('/')
         
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
