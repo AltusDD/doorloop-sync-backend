@@ -1,7 +1,7 @@
 
 from supabase import create_client
 
-class SupabaseClient:
+class SupabaseIngestClient:
     def __init__(self, url, key):
         self.client = create_client(url, key)
 
