@@ -1,15 +1,18 @@
 import requests
 import logging
 import time
+from urllib.parse import urlparse, urlunparse
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
-        # --- DEFINITIVE URL FIX ---
-        # The base URL is now hardcoded to the correct structure as per the official documentation.
-        # This ensures we are always hitting the correct hostname (app.doorloop.com) and path (/api).
-        self.base_url = "https://app.doorloop.com/api"
+        # This logic uses robust URL parsing to ensure the base URL is always
+        # correctly formatted, preserving the original domain.
+        parsed_url = urlparse(base_url)
+        self.base_url = urlunparse((
+            parsed_url.scheme, 'app.doorloop.com', '/api', '', '', ''
+        )).rstrip('/')
         
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
@@ -27,7 +30,6 @@ class DoorLoopClient:
         logging.info(f"📡 Fetching all records from {endpoint}...")
         
         while True:
-            # Using the correct parameter names 'page' and 'limit' as per the API documentation.
             params = {'page': page_number, 'limit': limit}
             url = f"{self.base_url}/{endpoint.lstrip('/')}"
             
@@ -36,19 +38,25 @@ class DoorLoopClient:
                 response.raise_for_status()
                 
                 json_data = response.json()
-                # The documentation shows the data is directly in the response array.
-                data = json_data
                 
+                # --- DEFINITIVE FIX ---
+                # The data array is nested under a 'data' key in the response object.
+                # We also get the total count for more accurate pagination logging.
+                data = json_data.get('data', [])
+                total_records = json_data.get('total', 0)
+
                 if not data:
                     break
 
                 all_data.extend(data)
                 
-                if len(data) < limit:
+                logging.info(f"  - Fetched page {page_number} ({len(data)} records). Total fetched so far: {len(all_data)}/{total_records}")
+
+                if len(all_data) >= total_records:
                     break
                     
                 page_number += 1
-                time.sleep(0.2) # Small delay to be respectful to the API
+                time.sleep(0.2)
             
             except requests.exceptions.HTTPError as http_err:
                 logging.error(f"❌ HTTP Error fetching from {url} with params {params}: {http_err}")
