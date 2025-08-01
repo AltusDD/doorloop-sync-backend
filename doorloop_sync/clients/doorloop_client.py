@@ -6,12 +6,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class DoorLoopClient:
     def __init__(self, base_url: str, api_key: str):
-        self.base_url = base_url.rstrip('/')
+        # --- RESILIENCY FIX ---
+        # Ensure the base_url is correctly formatted and ends with /api
+        # This makes the client robust against common configuration errors.
+        temp_url = base_url.rstrip('/')
+        if not temp_url.endswith('/api'):
+            self.base_url = f"{temp_url}/api"
+        else:
+            self.base_url = temp_url
+        
         if not api_key.lower().startswith('bearer '):
             self.headers = {"Authorization": f"Bearer {api_key}"}
         else:
             self.headers = {"Authorization": api_key}
-        logging.info("✅ DoorLoopClient initialized.")
+            
+        logging.info(f"✅ DoorLoopClient initialized. Using validated BASE URL: {self.base_url}/")
 
     def get_all(self, endpoint: str, limit: int = 100):
         """
@@ -22,10 +31,9 @@ class DoorLoopClient:
         logging.info(f"📡 Fetching all records from {endpoint}...")
         
         while True:
-            # --- CORRECTED LINE ---
-            # The URL now uses the correct parameter names: 'pageNumber' and 'pageSize'
             params = {'pageNumber': page_number, 'pageSize': limit}
-            url = f"{self.base_url}/{endpoint}"
+            # The final URL will now be correct, e.g., https://api.doorloop.com/api/properties
+            url = f"{self.base_url}/{endpoint.lstrip('/')}"
             
             try:
                 response = requests.get(url, headers=self.headers, params=params, timeout=30)
@@ -35,18 +43,15 @@ class DoorLoopClient:
                 data = json_data.get('data', [])
                 
                 if not data:
-                    break  # No more data to fetch
+                    break
 
                 all_data.extend(data)
                 
-                # Check if we have fetched all records
-                # This logic assumes the API might not return a 'total' count,
-                # so we stop when a page returns fewer records than the page size.
                 if len(data) < limit:
                     break
                     
                 page_number += 1
-                time.sleep(0.2) # Small delay to be respectful to the API
+                time.sleep(0.2)
             
             except requests.exceptions.HTTPError as http_err:
                 logging.error(f"❌ HTTP Error fetching from {url} with params {params}: {http_err}")
