@@ -1,19 +1,24 @@
-
+import logging
+import os
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
 from doorloop_sync.clients.supabase_client import SupabaseIngestClient
-from doorloop_sync.config import DOORLOOP_API_BASE_URL, DOORLOOP_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+
+logger = logging.getLogger(__name__)
 
 class PropertySyncService:
     def __init__(self):
         self.doorloop = DoorLoopClient(
-            base_url=DOORLOOP_API_BASE_URL,
-            api_key=DOORLOOP_API_KEY
+            base_url=os.getenv("DOORLOOP_API_BASE_URL"),
+            api_key=os.getenv("DOORLOOP_API_KEY"),
         )
-        self.supabase = SupabaseIngestClient(
-            supabase_url=SUPABASE_URL,
-            supabase_service_key=SUPABASE_SERVICE_ROLE_KEY
-        )
+        self.supabase = SupabaseIngestClient()
 
     def sync(self):
-        print("✅ Syncing PropertySyncService... (stub logic)")
-        # TODO: Replace with real fetch + upsert logic
+        logger.info("🚀 Syncing properties from DoorLoop...")
+        properties = self.doorloop.get_all("properties")
+        logger.info(f"📦 Retrieved {len(properties)} properties.")
+        if not properties:
+            logger.warning("⚠️ No properties returned from DoorLoop.")
+            return
+        self.supabase.upsert("doorloop_raw_properties", properties)
+        logger.info("✅ Properties sync complete.")
