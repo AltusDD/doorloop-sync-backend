@@ -1,1 +1,0 @@
--- SQL schema for doorloop_raw_lease_payments

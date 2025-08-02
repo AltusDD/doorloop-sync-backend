@@ -1,1 +1,0 @@
--- SQL for normalized_owners.sql

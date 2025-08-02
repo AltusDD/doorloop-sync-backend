@@ -1,2 +1,0 @@
--- SQL for normalized_evictions.sql
--- TODO: Define schema, logic, and joins.

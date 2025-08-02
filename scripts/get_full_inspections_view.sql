@@ -1,2 +1,0 @@
--- SQL for get_full_inspections_view.sql
--- TODO: Define schema, logic, and joins.
