@@ -1,8 +1,6 @@
 import os
 import logging
 from .clients.doorloop_client import DoorLoopClient
-# --- CORRECTED IMPORT ---
-# The import now uses the correct, standardized class name 'SupabaseClient'.
 from .clients.supabase_client import SupabaseClient
 
 # --- Environment Variables ---
@@ -29,6 +27,8 @@ def get_doorloop_client():
 def get_supabase_client():
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         raise ValueError("Supabase credentials are not configured.")
-    # --- CORRECTED CLASS NAME ---
-    # This now correctly instantiates the 'SupabaseClient' class.
     return SupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+# --- Pre-initialized client objects for global import ---
+doorloop_client = get_doorloop_client()
+supabase_client = get_supabase_client()
