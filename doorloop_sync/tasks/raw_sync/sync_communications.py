@@ -1,14 +1,17 @@
 """
-Task: Sync_Raw Communications
+This module syncs Communications from DoorLoop API into Supabase.
 """
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+
+from doorloop_sync.config import get_doorloop_client, get_supabase_client
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    doorloop = DoorLoopClient()
-    data = doorloop.fetch_all("/communications")
-    print("✅ Sync_Raw communications fetched", len(data))
-    # TODO: Implement full ingest
-
-if __name__ == "__main__":
-    run()
+    try:
+        print("🔄 Syncing Communications...")
+        records = doorloop.get_all("/communications")
+        supabase.upsert("doorloop_raw_communications", records)
+        print(f"✅ Synced {len(records)} Communications")
+    except Exception as e:
+        print(f"❌ Error syncing Communications: {e}")

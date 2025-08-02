@@ -1,14 +1,17 @@
 """
-Task: Sync_Raw Files
+This module syncs Files from DoorLoop API into Supabase.
 """
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+
+from doorloop_sync.config import get_doorloop_client, get_supabase_client
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    doorloop = DoorLoopClient()
-    data = doorloop.fetch_all("/files")
-    print("✅ Sync_Raw files fetched", len(data))
-    # TODO: Implement full ingest
-
-if __name__ == "__main__":
-    run()
+    try:
+        print("🔄 Syncing Files...")
+        records = doorloop.get_all("/files")
+        supabase.upsert("doorloop_raw_files", records)
+        print(f"✅ Synced {len(records)} Files")
+    except Exception as e:
+        print(f"❌ Error syncing Files: {e}")

@@ -1,14 +1,17 @@
 """
-Task: Sync_Raw Users
+This module syncs Users from DoorLoop API into Supabase.
 """
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+
+from doorloop_sync.config import get_doorloop_client, get_supabase_client
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    doorloop = DoorLoopClient()
-    data = doorloop.fetch_all("/users")
-    print("✅ Sync_Raw users fetched", len(data))
-    # TODO: Implement full ingest
-
-if __name__ == "__main__":
-    run()
+    try:
+        print("🔄 Syncing Users...")
+        records = doorloop.get_all("/users")
+        supabase.upsert("doorloop_raw_users", records)
+        print(f"✅ Synced {len(records)} Users")
+    except Exception as e:
+        print(f"❌ Error syncing Users: {e}")

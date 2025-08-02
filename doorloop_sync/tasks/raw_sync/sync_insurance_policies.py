@@ -1,14 +1,17 @@
 """
-Task: Sync_Raw Insurance Policies
+This module syncs Insurance policies from DoorLoop API into Supabase.
 """
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+
+from doorloop_sync.config import get_doorloop_client, get_supabase_client
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    doorloop = DoorLoopClient()
-    data = doorloop.fetch_all("/insurance-policies")
-    print("✅ Sync_Raw insurance_policies fetched", len(data))
-    # TODO: Implement full ingest
-
-if __name__ == "__main__":
-    run()
+    try:
+        print("🔄 Syncing Insurance policies...")
+        records = doorloop.get_all("/insurance-policies")
+        supabase.upsert("doorloop_raw_insurance_policies", records)
+        print(f"✅ Synced {len(records)} Insurance policies")
+    except Exception as e:
+        print(f"❌ Error syncing Insurance policies: {e}")

@@ -1,15 +1,17 @@
+"""
+This module syncs Payments from DoorLoop API into Supabase.
+"""
+
 from doorloop_sync.config import get_doorloop_client, get_supabase_client
-from doorloop_sync.audit.logger import log_audit_event
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    entity = "sync_payments"
-    log_audit_event(entity, "start", False)
     try:
-        client = get_doorloop_client()
-        data = client.get("payments")
-        supabase = get_supabase_client()
-        supabase.upsert_records("doorloop_raw_payments", data)
-        log_audit_event(entity, "success", False, {"count": len(data)})
+        print("🔄 Syncing Payments...")
+        records = doorloop.get_all("/payments")
+        supabase.upsert("doorloop_raw_payments", records)
+        print(f"✅ Synced {len(records)} Payments")
     except Exception as e:
-        log_audit_event(entity, "error", True, {"message": str(e)})
-        raise
+        print(f"❌ Error syncing Payments: {e}")

@@ -1,14 +1,17 @@
 """
-Task: Sync_Raw Recurring Credits
+This module syncs Recurring credits from DoorLoop API into Supabase.
 """
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+
+from doorloop_sync.config import get_doorloop_client, get_supabase_client
+
+supabase = get_supabase_client()
+doorloop = get_doorloop_client()
 
 def run():
-    doorloop = DoorLoopClient()
-    data = doorloop.fetch_all("/recurring-credits")
-    print("✅ Sync_Raw recurring_credits fetched", len(data))
-    # TODO: Implement full ingest
-
-if __name__ == "__main__":
-    run()
+    try:
+        print("🔄 Syncing Recurring credits...")
+        records = doorloop.get_all("/recurring-credits")
+        supabase.upsert("doorloop_raw_recurring_credits", records)
+        print(f"✅ Synced {len(records)} Recurring credits")
+    except Exception as e:
+        print(f"❌ Error syncing Recurring credits: {e}")
