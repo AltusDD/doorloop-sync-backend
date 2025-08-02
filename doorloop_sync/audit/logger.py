@@ -1,9 +1,14 @@
-import logging
+# doorloop_sync/audit/logger.py
 
-logger = logging.getLogger(__name__)
+import datetime
+import json
 
-def audit_log(event_type: str, message: str, entity: str = None):
-    formatted_message = f"[AUDIT] {event_type}: {message}"
-    if entity:
-        formatted_message += f" | Entity: {entity}"
-    logger.info(formatted_message)
+def log_audit_event(entity, status, *, error=False, metadata=None):
+    timestamp = datetime.datetime.utcnow().isoformat()
+    print(json.dumps({
+        "timestamp": timestamp,
+        "entity": entity,
+        "status": status,
+        "error": error,
+        "metadata": metadata or {}
+    }))
