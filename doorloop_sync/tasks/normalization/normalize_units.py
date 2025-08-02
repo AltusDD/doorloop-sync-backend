@@ -1,30 +1,31 @@
-from doorloop_sync.config import get_supabase_client
+from doorloop_sync.clients.supabase_client import SupabaseIngestClient
 from doorloop_sync.audit.logger import log_audit_event
 
-def normalize(record):
-    return {
-        "doorloop_id": record.get("id"),
-        "property_id": record.get("propertyId"),
-        "name": record.get("name"),
-        "bedrooms": record.get("bedrooms"),
-        "bathrooms": record.get("bathrooms"),
-        "square_feet": record.get("squareFeet"),
-        "market_rent": record.get("marketRent"),
-        "status": record.get("status"),
-        "created_at": record.get("createdAt"),
-        "updated_at": record.get("updatedAt"),
-    }
-
 def run():
-    sb = get_supabase_client()
-    log_audit_event("normalize_units", "start")
+    entity = "normalize_units"
+    log_audit_event(entity, "start")
 
     try:
-        raw = sb.fetch_raw("doorloop_raw_units")
-        normalized = [normalize(r) for r in raw]
-        sb.upsert_records("doorloop_normalized_units", normalized)
+        client = SupabaseIngestClient()
+        raw_data = client.fetch_raw("doorloop_raw_units")
 
-        log_audit_event("normalize_units", "success", metadata={"normalized_count": len(normalized)})
+        normalized = []
+        for row in raw_data:
+            normalized.append({
+                "doorloop_id": row.get("id"),
+                "name": row.get("name"),
+                "property_id": row.get("propertyId"),
+                "status": row.get("status"),
+                "bedrooms": row.get("bedrooms"),
+                "bathrooms": row.get("bathrooms"),
+                "square_feet": row.get("squareFeet"),
+                "market_rent": row.get("marketRent"),
+                "created_at": row.get("dateCreated"),
+                "updated_at": row.get("dateUpdated"),
+            })
+
+        client.upsert("doorloop_normalized_units", normalized)
+        log_audit_event(entity, "success", {"normalized_count": len(normalized)})
+
     except Exception as e:
-        log_audit_event("normalize_units", "error", error=True, metadata={"message": str(e)})
-        raise
+        log_audit_event(entity, "error", {"message": str(e)})
