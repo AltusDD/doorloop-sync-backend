@@ -1,20 +1,23 @@
-
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+from supabase_client import SupabaseClient
+from doorloop_sync.services.json_utils import flatten_json_keys
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
+import logging
+import os
 
 def run():
+    logging.info("🔄 Running normalization: applications")
+
+    supabase = SupabaseClient()
+    raw_data = supabase.fetch_raw_data("doorloop_raw_applications")
+
+    if not raw_data:
+        logging.info("📭 No raw data found for applications. Task complete.")
+        return
+
     try:
-        raw_records = supabase_client.get_all("doorloop_raw_applications")
-        normalized_records = []
-
-        for record in raw_records:
-            normalized_records.append({{
-                # TODO: Map fields from raw record to normalized record
-            }})
-
-        supabase_client.upsert_many("doorloop_normalized_applications", normalized_records)
-        log_audit_event(entity="normalize_applications", status="success", metadata={{"normalized_count": len(normalized_records)}})
-
+        deduped = {record['id']: record for record in raw_data if 'id' in record}.values()
+        flattened = flatten_json_keys(list(deduped))
+        supabase.upsert_data("doorloop_normalized_applications", flattened)
+        logging.info("✅ Normalized and upserted applications")
     except Exception as e:
-        log_audit_event(entity="normalize_applications", status="error", error=True, metadata={{"message": str(e)}})
-        print(f"❌ Error in normalize_applications: {{str(e)}}")
+        logging.error(f"❌ Error normalizing applications: {e}")
