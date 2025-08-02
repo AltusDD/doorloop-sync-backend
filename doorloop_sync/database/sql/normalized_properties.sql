@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW normalized_properties AS SELECT id, name FROM doorloop_raw_properties;
