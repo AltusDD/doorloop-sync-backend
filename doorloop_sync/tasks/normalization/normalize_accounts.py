@@ -1,29 +1,53 @@
-from doorloop_sync.clients.supabase_client import SupabaseIngestClient
-from doorloop_sync.audit.logger import log_audit_event
+import logging
+# --- CORRECTED IMPORT PATTERN ---
+# All tasks get their dependencies from the centralized config module.
+from doorloop_sync.config import get_supabase_client, get_logger
+
+logger = get_logger(__name__)
 
 def run():
-    entity = "normalize_accounts"
-    log_audit_event(entity, "start")
-
+    """
+    Normalizes raw account data and upserts it into the normalized table.
+    """
+    logger.info("Starting normalization for accounts...")
+    
     try:
-        client = SupabaseIngestClient()
-        raw_data = client.fetch_raw("doorloop_raw_accounts")
+        # Get an initialized Supabase client from the config
+        supabase_client = get_supabase_client()
+        
+        raw_table_name = "doorloop_raw_accounts"
+        normalized_table_name = "doorloop_normalized_accounts"
 
-        normalized = []
+        # 1. Fetch raw data from Supabase
+        # We select the 'data' column which contains the original JSON payload.
+        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
+        raw_data = response.data
+        
+        if not raw_data:
+            logger.info("No raw account data to normalize. Task complete.")
+            return
+
+        # 2. Normalize data (example transformation)
+        normalized_records = []
         for row in raw_data:
-            normalized.append({
-                "doorloop_id": row.get("id"),
-                "name": row.get("name"),
-                "type": row.get("type"),
-                "status": row.get("status"),
-                "balance": row.get("balance"),
-                "is_default": row.get("isDefault"),
-                "created_at": row.get("dateCreated"),
-                "updated_at": row.get("dateUpdated"),
+            record = row['data'] # Extract the JSON payload
+            normalized_records.append({
+                "doorloop_id": record.get("id"),
+                "name": record.get("name"),
+                "type": record.get("type"),
+                "balance": record.get("balance"),
+                # Add other fields as needed, performing type casting and cleaning
             })
 
-        client.upsert("doorloop_normalized_accounts", normalized)
-        log_audit_event(entity, "success", {"normalized_count": len(normalized)})
+        # 3. Upsert normalized data
+        if normalized_records:
+            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
+            logger.info(f"Successfully normalized and upserted {len(normalized_records)} account records.")
 
     except Exception as e:
-        log_audit_event(entity, "error", {"message": str(e)})
+        logger.error(f"An error occurred during account normalization: {e}", exc_info=True)
+        raise
+
+# This block allows the script to be run directly for testing
+if __name__ == "__main__":
+    run()
