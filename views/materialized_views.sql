@@ -1,2 +1,0 @@
--- SQL for creating mv_legal_case_summary and mv_billing_summary_by_entity
--- [Insert materialized view SQL]

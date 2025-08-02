@@ -1,1 +1,0 @@
--- normalized_accounts.sql SQL content goes here

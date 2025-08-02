@@ -1,1 +1,0 @@
-# Included for Azure compatibility

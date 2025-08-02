@@ -1,1 +1,0 @@
--- normalized_properties.sql SQL content goes here

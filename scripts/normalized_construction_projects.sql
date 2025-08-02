@@ -1,2 +1,0 @@
--- SQL for normalized_construction_projects.sql
--- TODO: Define schema, logic, and joins.

@@ -1,1 +1,0 @@
--- normalized_lease_payments.sql SQL content goes here

@@ -1,1 +1,0 @@
--- SQL for get_full_properties_view.sql

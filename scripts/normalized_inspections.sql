@@ -1,2 +1,0 @@
--- SQL for normalized_inspections.sql
--- TODO: Define schema, logic, and joins.

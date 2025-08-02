@@ -1,1 +1,0 @@
--- normalized_owners.sql SQL content goes here

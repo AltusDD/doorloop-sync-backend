@@ -1,1 +1,0 @@
--- SQL for sync_leases.sql

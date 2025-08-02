@@ -1,1 +1,0 @@
-# Modular Pipeline Architecture for DoorLoop Sync

@@ -1,1 +1,0 @@
--- normalized_tenants.sql SQL content goes here
