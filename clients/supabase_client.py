@@ -1,5 +1,5 @@
 
-class SupabaseClient:
+class SupabaseIngestClient:
     def __init__(self, url, key):
         self.url = url
         self.key = key

@@ -2,7 +2,7 @@
 import pytest
 from doorloop_sync.tasks.normalize import normalize_lease_payments, normalize_vendors, normalize_tasks
 
-class MockSupabaseClient:
+class MockSupabaseIngestClient:
     def __init__(self):
         self.data = []
 
@@ -31,7 +31,7 @@ class MockSupabaseClient:
 
 @pytest.fixture
 def client():
-    return MockSupabaseClient()
+    return MockSupabaseIngestClient()
 
 def test_normalize_lease_payments(client):
     normalize_lease_payments.run(client)

@@ -2,7 +2,7 @@
 Task: Sync_Raw Applications
 """
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+from doorloop_sync.clients.supabase_client import SupabaseIngestClient
 
 def run():
     doorloop = DoorLoopClient()

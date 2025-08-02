@@ -1,10 +1,10 @@
 from sync_utils import sync_and_store  # Assuming shared sync utility
 from doorloop_client import DoorLoopClient
-from supabase_client import SupabaseClient
+from supabase_client import SupabaseIngestClient
 
 # Initialize clients
 doorloop = DoorLoopClient()
-supabase = SupabaseClient()
+supabase = SupabaseIngestClient()
 
 def run_missing_category_sync():
     sync_and_store(doorloop, supabase, "applications", "doorloop_raw_applications")
