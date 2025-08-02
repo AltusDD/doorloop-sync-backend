@@ -1,5 +1,3 @@
-# doorloop_sync/orchestrator.py
-
 from doorloop_sync.tasks.raw_sync import (
     sync_properties,
     sync_units,
@@ -27,15 +25,12 @@ def run_task(task_func):
         print(f"❌ Error in {task_func.__module__}: {e}")
 
 def main():
-    # === RAW SYNC ===
     run_task(sync_properties.run)
     run_task(sync_units.run)
     run_task(sync_leases.run)
     run_task(sync_tenants.run)
     run_task(sync_owners.run)
     run_task(sync_payments.run)
-
-    # === NORMALIZATION ===
     run_task(normalize_properties.run)
     run_task(normalize_units.run)
     run_task(normalize_leases.run)

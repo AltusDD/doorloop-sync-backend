@@ -6,7 +6,7 @@ def run():
     log_audit_event(entity, "start", False)
     try:
         client = get_doorloop_client()
-        data = client.get("owners")  # Adjust endpoint if needed
+        data = client.get("owners")
         supabase = get_supabase_client()
         supabase.upsert_records("doorloop_raw_owners", data)
         log_audit_event(entity, "success", False, {"count": len(data)})
