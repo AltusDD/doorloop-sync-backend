@@ -1,22 +1,29 @@
-from doorloop_sync.config import get_supabase_client
+from doorloop_sync.clients.supabase_client import SupabaseIngestClient
 from doorloop_sync.audit.logger import log_audit_event
 
 def run():
     entity = "normalize_payments"
-    log_audit_event(entity, "start", False)
+    log_audit_event(entity, "start")
+
     try:
-        supabase = get_supabase_client()
-        raw = supabase.fetch_records("doorloop_raw_payments")
+        client = SupabaseIngestClient()
+        raw_data = client.fetch_raw("doorloop_raw_payments")
+
         normalized = []
-        for r in raw:
+        for row in raw_data:
             normalized.append({
-                "doorloop_id": r.get("id"),
-                "created_at": r.get("createdAt"),
-                "updated_at": r.get("updatedAt")
-                # TODO: Add more field mappings as needed
+                "doorloop_id": row.get("id"),
+                "lease_id": row.get("leaseId"),
+                "amount": row.get("amount"),
+                "payment_method": row.get("paymentMethod"),
+                "status": row.get("status"),
+                "payment_date": row.get("paymentDate"),
+                "created_at": row.get("dateCreated"),
+                "updated_at": row.get("dateUpdated"),
             })
-        supabase.upsert_records("doorloop_normalized_payments", normalized)
-        log_audit_event(entity, "success", False, {"normalized_count": len(normalized)})
+
+        client.upsert("doorloop_normalized_payments", normalized)
+        log_audit_event(entity, "success", {"normalized_count": len(normalized)})
+
     except Exception as e:
-        log_audit_event(entity, "error", True, {"message": str(e)})
-        raise
+        log_audit_event(entity, "error", {"message": str(e)})
