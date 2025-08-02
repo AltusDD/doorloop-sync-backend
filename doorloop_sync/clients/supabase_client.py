@@ -1,28 +1,24 @@
-import os
-import logging
-from supabase import create_client, Client
+# doorloop_sync/clients/supabase_client.py
 
-logger = logging.getLogger(__name__)
+import os
+import postgrest
+import gotrue
+from supabase import create_client
 
 class SupabaseIngestClient:
     def __init__(self):
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        url = os.environ["SUPABASE_URL"]
+        key = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
+        self.client = create_client(url, key)
 
-        if not supabase_url or not supabase_key:
-            raise ValueError("Missing Supabase credentials in environment variables.")
-
-        self.client: Client = create_client(supabase_url, supabase_key)
-        logger.info("✅ SupabaseIngestClient initialized.")
-
-    def upsert(self, table_name: str, records: list, match_columns: list = ["id"]):
-        logger.debug(f"📤 Upserting {len(records)} records into '{table_name}'...")
-        response = self.client.table(table_name).upsert(records, on_conflict=",".join(match_columns)).execute()
-        logger.debug(f"✅ Upsert response: {response}")
+    def upsert_records(self, table_name: str, records: list):
+        if not records:
+            print(f"[⚠️] No records to upsert for {table_name}")
+            return
+        response = self.client.table(table_name).upsert(records).execute()
+        print(f"[📝] Upserted {len(records)} records into {table_name}")
         return response
 
-    def insert(self, table_name: str, records: list):
-        logger.debug(f"📤 Inserting {len(records)} records into '{table_name}'...")
-        response = self.client.table(table_name).insert(records).execute()
-        logger.debug(f"✅ Insert response: {response}")
-        return response
+    def fetch_raw(self, table_name: str):
+        response = self.client.table(table_name).select("*").execute()
+        return response.data or []
