@@ -1,24 +1,37 @@
 import logging
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+# --- CORRECTED IMPORT PATTERN ---
+# All tasks get their dependencies from the centralized config module.
+from doorloop_sync.config import get_supabase_client, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-def normalize_activity_logs():
+def run():
+    """
+    Normalizes raw activity log data from Supabase and upserts it into the
+    normalized table.
+    """
     entity = "activity_logs"
     logger.info(f"🔄 Starting normalization for {entity}")
 
     try:
-        raw_data_response = supabase_client.from_("doorloop_raw_activity_logs").select("*").execute()
-        raw_records = raw_data_response.data or []
+        # Get an initialized Supabase client from the config
+        supabase_client = get_supabase_client()
+        
+        raw_table_name = "doorloop_raw_activity_logs"
+        normalized_table_name = "doorloop_normalized_activity_logs"
 
+        # 1. Fetch raw data from Supabase
+        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
+        raw_records = response.data
+        
         if not raw_records:
-            logger.info(f"📭 No raw data found for {entity}")
+            logger.info(f"📭 No raw data found for {entity}. Task complete.")
             return
 
+        # 2. Normalize the data
         normalized_records = []
         for record in raw_records:
-            raw = record.get("raw", {})
+            raw = record.get("data", {}) # The JSON payload is in the 'data' column
             normalized = {
                 "doorloop_id": raw.get("id"),
                 "entity_type": raw.get("entityType"),
@@ -26,23 +39,20 @@ def normalize_activity_logs():
                 "action": raw.get("action"),
                 "user_id": raw.get("userId"),
                 "timestamp": raw.get("timestamp"),
-                "created_at": record.get("created_at"),
             }
             normalized_records.append(normalized)
 
-        supabase_client.upsert("doorloop_normalized_activity_logs", normalized_records, on_conflict=["doorloop_id"])
+        # 3. Upsert the normalized records
+        if normalized_records:
+            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
+            logger.info(f"✅ Successfully normalized and upserted {len(normalized_records)} records for {entity}.")
+            # Note: The orchestrator will handle audit logging for success/failure of the task.
 
-        log_audit_event(
-            entity=entity,
-            action="normalize",
-            status="success",
-            message=f"✅ Normalized {len(normalized_records)} records"
-        )
     except Exception as e:
-        logger.error(f"❌ Failed to normalize {entity}: {str(e)}")
-        log_audit_event(
-            entity=entity,
-            action="normalize",
-            status="error",
-            message=str(e)
-        )
+        logger.error(f"❌ Failed to normalize {entity}: {e}", exc_info=True)
+        # Re-raise the exception so the orchestrator can catch and log it.
+        raise
+
+# This block allows the script to be run directly for testing
+if __name__ == "__main__":
+    run()
