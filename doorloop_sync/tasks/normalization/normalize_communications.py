@@ -8,3 +8,5 @@ def run():
     logger.info("Starting normalization for communications...")
     supabase_client = get_supabase_client()
     logger.info("Completed normalization for communications.")
+
+# silent_update

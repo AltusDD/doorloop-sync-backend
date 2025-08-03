@@ -8,3 +8,5 @@ def run():
     logger.info("Starting normalization for insurance_policies...")
     supabase_client = get_supabase_client()
     logger.info("Completed normalization for insurance_policies.")
+
+# silent_update

@@ -18,3 +18,5 @@ def run():
     except Exception as e:
         log_audit_event(entity="normalize_recurring_credits", status="error", error=True, metadata={{"message": str(e)}})
         print(f"❌ Error in normalize_recurring_credits: {{str(e)}}")
+
+# silent_update

@@ -11,3 +11,5 @@ class SupabaseClient:
     def fetch_all(self, table: str):
         response = self.supabase.table(table).select("*").execute()
         return response.data
+
+# silent_update

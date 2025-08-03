@@ -9,3 +9,5 @@ def run():
     supabase_client = get_supabase_client()
     # Add actual normalization logic here
     logger.info("Completed normalization for accounts.")
+
+# silent_update

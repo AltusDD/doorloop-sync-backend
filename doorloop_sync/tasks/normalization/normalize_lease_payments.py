@@ -18,3 +18,5 @@ def run():
     except Exception as e:
         log_audit_event(entity="normalize_lease_payments", status="error", error=True, metadata={{"message": str(e)}})
         print(f"❌ Error in normalize_lease_payments: {{str(e)}}")
+
+# silent_update

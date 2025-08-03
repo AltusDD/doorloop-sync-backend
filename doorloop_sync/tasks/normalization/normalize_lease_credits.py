@@ -8,3 +8,5 @@ def run():
     logger.info("Starting normalization for lease_credits...")
     supabase_client = get_supabase_client()
     logger.info("Completed normalization for lease_credits.")
+
+# silent_update

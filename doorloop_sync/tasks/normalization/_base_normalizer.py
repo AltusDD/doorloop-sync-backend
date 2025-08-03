@@ -13,3 +13,4 @@ def flatten_record(record, parent_key="", sep="_"):
 
 def safe_normalize(records):
     return [flatten_record(r) for r in records if isinstance(r, dict)]
+# silent_update

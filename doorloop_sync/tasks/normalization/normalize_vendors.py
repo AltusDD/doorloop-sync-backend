@@ -24,3 +24,4 @@ def run():
     if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
         logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
         logging.error(f"Payload: {normalized_records}")
+# silent_update

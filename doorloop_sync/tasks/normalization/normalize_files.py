@@ -8,3 +8,5 @@ def run():
     logger.info("Starting normalization for files...")
     supabase_client = get_supabase_client()
     logger.info("Completed normalization for files.")
+
+# silent_update
