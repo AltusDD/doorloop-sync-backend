@@ -1,7 +1,7 @@
 import logging
 from supabase_client import SupabaseClient
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.utils.transform_helpers import hash_dict, clean_dict
+from utils.transform_helpers import hash_dict, clean_dict
 
 def run():
     logging.info("🔄 Starting normalization for communications")
