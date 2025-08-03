@@ -1,6 +1,6 @@
 from supabase_client import SupabaseClient
 from doorloop_client import DoorLoopClient
-from utils.transform_helpers import hash_dict, clean_dict
+from doorloop_sync.utils.transform_helpers import hash_dict, clean_dict
 
 def run():
     print("🔄 Normalizing accounts...")
