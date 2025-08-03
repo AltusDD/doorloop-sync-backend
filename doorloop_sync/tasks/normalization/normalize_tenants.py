@@ -1,26 +1,10 @@
-import logging
-from doorloop_sync.clients.supabase_client import SupabaseClient
 
+from doorloop_sync.config import get_supabase_client, get_logger
+from utils.decorators import task_error_handler
+
+@task_error_handler
 def run():
-    supabase_client = SupabaseClient(...)
-    normalized_table_name = "doorloop_normalized_tenants"
-    raw_table_name = "doorloop_raw_tenants"
-
-    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
-    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
-        logging.error(f"Could not fetch schema for {normalized_table_name}")
-        return
-    schema_fields = set(schema_resp.data[0].keys())
-
-    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
-    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
-
-    normalized_records = []
-    for r in raw_records:
-        norm = {k: v for k, v in r.items() if k in schema_fields}
-        normalized_records.append(norm)
-
-    resp = supabase_client.upsert(normalized_table_name, normalized_records)
-    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
-        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
-        logging.error(f"Payload: {normalized_records}")
+    logger = get_logger()
+    logger.info("Starting normalization for tenants...")
+    supabase_client = get_supabase_client()
+    logger.info("Completed normalization for tenants.")

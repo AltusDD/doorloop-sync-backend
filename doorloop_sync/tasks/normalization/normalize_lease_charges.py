@@ -1,20 +1,10 @@
 
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+from doorloop_sync.config import get_supabase_client, get_logger
+from utils.decorators import task_error_handler
 
+@task_error_handler
 def run():
-    try:
-        raw_records = supabase_client.get_all("doorloop_raw_lease_charges")
-        normalized_records = []
-
-        for record in raw_records:
-            normalized_records.append({{
-                # TODO: Map fields from raw record to normalized record
-            }})
-
-        supabase_client.upsert_many("doorloop_normalized_lease_charges", normalized_records)
-        log_audit_event(entity="normalize_lease_charges", status="success", metadata={{"normalized_count": len(normalized_records)}})
-
-    except Exception as e:
-        log_audit_event(entity="normalize_lease_charges", status="error", error=True, metadata={{"message": str(e)}})
-        print(f"❌ Error in normalize_lease_charges: {{str(e)}}")
+    logger = get_logger()
+    logger.info("Starting normalization for lease_charges...")
+    supabase_client = get_supabase_client()
+    logger.info("Completed normalization for lease_charges.")
