@@ -1,26 +1,21 @@
-import os
 import requests
-import logging
-
-logger = logging.getLogger("ETL_Orchestrator")
 
 class DoorLoopClient:
-    def __init__(self):
-        self.api_key = os.getenv("DOORLOOP_API_KEY")
-        self.base_url = os.getenv("DOORLOOP_API_BASE_URL")
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url.rstrip("/")
         self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         }
 
-    def get(self, endpoint):
-        url = f"{self.base_url}/{endpoint}"
-        response = requests.get(url, headers=self.headers)
-        if response.status_code != 200:
-            logger.error(f"DoorLoop API failed: {response.status_code} - {response.text}")
-            return None
-        try:
-            return response.json()
-        except Exception:
-            logger.error("DoorLoop response was not valid JSON.")
-            return None
+    def get(self, endpoint: str, params=None):
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        response = requests.get(url, headers=self.headers, params=params or {})
+        response.raise_for_status()
+        return response.json()
+
+    def post(self, endpoint: str, payload: dict):
+        url = f"{self.base_url}/{endpoint.lstrip('/')}"
+        response = requests.post(url, headers=self.headers, json=payload)
+        response.raise_for_status()
+        return response.json()
