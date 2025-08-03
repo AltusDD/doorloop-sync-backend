@@ -1,35 +1,11 @@
-import os
 import logging
-from .clients.doorloop_client import DoorLoopClient
-from .clients.supabase_client import SupabaseClient
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
+from doorloop_sync.clients.supabase_client import SupabaseClient
 
-# --- Environment Variables ---
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+logger = logging.getLogger("ETL_Orchestrator")
 
-# --- Logging Setup ---
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-def get_logger(name):
-    return logging.getLogger(name)
-
-# --- Client Initialization Functions ---
 def get_doorloop_client():
-    if not DOORLOOP_API_KEY or not DOORLOOP_API_BASE_URL:
-        raise ValueError("DoorLoop API credentials are not configured.")
-    return DoorLoopClient(DOORLOOP_API_BASE_URL, DOORLOOP_API_KEY)
+    return DoorLoopClient()
 
 def get_supabase_client():
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        raise ValueError("Supabase credentials are not configured.")
-    # 🔧 FIXED: Constructor now reads env vars directly
     return SupabaseClient()
-
-# --- Pre-initialized client objects for global import ---
-doorloop_client = get_doorloop_client()
-supabase_client = get_supabase_client()

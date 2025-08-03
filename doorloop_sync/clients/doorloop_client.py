@@ -1,25 +1,26 @@
+import os
 import requests
 import logging
 
-class DoorLoopClient:
-    def __init__(self, base_url, api_key):
-        self.base_url = base_url
-        self.api_key = api_key
-        self.headers = {'Authorization': f'Bearer {self.api_key}'}
+logger = logging.getLogger("ETL_Orchestrator")
 
-    def get_all(self, endpoint, params=None):
-        url = f"{self.base_url}{endpoint}"
+class DoorLoopClient:
+    def __init__(self):
+        self.api_key = os.getenv("DOORLOOP_API_KEY")
+        self.base_url = os.getenv("DOORLOOP_API_BASE_URL")
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+    def get(self, endpoint):
+        url = f"{self.base_url}/{endpoint}"
+        response = requests.get(url, headers=self.headers)
+        if response.status_code != 200:
+            logger.error(f"DoorLoop API failed: {response.status_code} - {response.text}")
+            return None
         try:
-            response = requests.get(url, headers=self.headers, params=params)
-            if response.status_code == 405:
-                logging.warning(f"Skipping endpoint {endpoint} due to 405 Method Not Allowed")
-                return None
-            try:
-                data = response.json()
-                return data
-            except Exception as e:
-                logging.error(f"JSON decode failed for {url}: {e}; raw response: {response.text}")
-                return None
-        except Exception as e:
-            logging.error(f"Request failed for {url}: {e}")
+            return response.json()
+        except Exception:
+            logger.error("DoorLoop response was not valid JSON.")
             return None
