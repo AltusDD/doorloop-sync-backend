@@ -1,46 +1,35 @@
+
+from supabase import create_client
 import logging
-import datetime
-from supabase.client import Client, create_client
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# --- DEFINITIVE FIX ---
-# The class is now correctly named SupabaseClient to match what the rest of
-# your application is trying to import.
 class SupabaseClient:
-    def __init__(self, supabase_url: str, supabase_service_role_key: str):
-        self.supabase: Client = create_client(supabase_url, supabase_service_role_key)
+    def __init__(self):
+        from doorloop_sync.config import config
+        self.supabase = create_client(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY)
         logging.info("✅ SupabaseClient initialized.")
 
-    def upsert(self, table: str, data: list):
-        """
-        Upserts a list of records into a specified Supabase table.
-        """
+    def upsert(self, table, data):
         if not data:
-            logging.info(f"No records to upsert into {table}.")
             return
-        
-        try:
-            # The supabase-py library's upsert handles on_conflict automatically
-            # when a primary key is defined on the table.
-            self.supabase.table(table).upsert(data).execute()
-            logging.info(f"✅ Successfully upserted {len(data)} records to {table}.")
-        except Exception as e:
-            logging.error(f"❌ Failed to upsert data to {table}: {e}")
-            raise
+        # Collect all possible keys
+        all_keys = set()
+        for record in data:
+            all_keys.update(record.keys())
+        all_keys = list(all_keys)
 
-    def log_audit(self, message: str, entity: str, status: str = "info"):
-        """
-        Logs an audit trail message to the audit_logs table.
-        """
-        audit_record = {
-            'entity': entity,
-            'status': status,
-            'message': message,
-            'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat()
-        }
-        try:
-            self.supabase.table('audit_logs').insert(audit_record).execute()
-        except Exception as e:
-            # Log to console if audit logging fails, but don't crash the pipeline
-            logging.error(f"❌ Failed to log audit record: {e} | Record: {audit_record}")
+        # Normalize all rows to include all keys
+        unified_data = []
+        for record in data:
+            unified_record = {key: record.get(key, None) for key in all_keys}
+            unified_data.append(unified_record)
+
+        self.supabase.table(table).upsert(unified_data).execute()
+
+    def get_raw(self, entity):
+        table_name = f"doorloop_raw_{entity}"
+        response = self.supabase.table(table_name).select("*").execute()
+        return response.data or []
+
+    def upsert_normalized(self, entity, data):
+        table_name = f"doorloop_normalized_{entity}"
+        self.upsert(table_name, data)
