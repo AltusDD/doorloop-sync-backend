@@ -1,20 +1,33 @@
-
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+import logging
+from doorloop_sync.clients.supabase_client import SupabaseClient
 
 def run():
-    try:
-        raw_records = supabase_client.get_all("doorloop_raw_lease_credits")
-        normalized_records = []
+    supabase_client = SupabaseClient(...)
+    normalized_table_name = "doorloop_normalized_lease_credits"
+    raw_table_name = "doorloop_raw_lease_credits"
 
-        for record in raw_records:
-            normalized_records.append({{
-                # TODO: Map fields from raw record to normalized record
-            }})
+    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
+    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
+        logging.error(f"Could not fetch schema for {normalized_table_name}")
+        return
+    schema_fields = set(schema_resp.data[0].keys())
 
-        supabase_client.upsert_many("doorloop_normalized_lease_credits", normalized_records)
-        log_audit_event(entity="normalize_lease_credits", status="success", metadata={{"normalized_count": len(normalized_records)}})
+    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
+    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
 
-    except Exception as e:
-        log_audit_event(entity="normalize_lease_credits", status="error", error=True, metadata={{"message": str(e)}})
-        print(f"❌ Error in normalize_lease_credits: {{str(e)}}")
+    normalized_records = []
+    for r in raw_records:
+        norm = {k: v for k, v in r.items() if k in schema_fields}
+        # Fix BIGINT/NUMERIC
+        for field in ["amount", "balance"]:
+            if field in norm:
+                try:
+                    norm[field] = int(float(norm[field]))
+                except Exception:
+                    norm[field] = 0
+        normalized_records.append(norm)
+
+    resp = supabase_client.upsert(normalized_table_name, normalized_records)
+    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
+        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
+        logging.error(f"Payload: {normalized_records}")

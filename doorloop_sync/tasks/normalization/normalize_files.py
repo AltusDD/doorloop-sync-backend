@@ -1,41 +1,26 @@
-from doorloop_sync.clients.supabase_client import SupabaseClient
 import logging
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+from doorloop_sync.clients.supabase_client import SupabaseClient
 
 def run():
-    logger.info("🔁 Starting normalization for files...")
-
-    supabase_client = SupabaseClient()
-    raw_table_name = "doorloop_raw_files"
+    supabase_client = SupabaseClient(...)
     normalized_table_name = "doorloop_normalized_files"
+    raw_table_name = "doorloop_raw_files"
 
-    raw_records = supabase_client.fetch_all(table=raw_table_name)
-
-    if not raw_records:
-        logger.info("📭 No raw files data to normalize. Task complete.")
+    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
+    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
+        logging.error(f"Could not fetch schema for {normalized_table_name}")
         return
+    schema_fields = set(schema_resp.data[0].keys())
+
+    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
+    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
 
     normalized_records = []
-    for record in raw_records:
-        try:
-            normalized = {
-                "doorloop_id": record.get("id"),
-                "name": record.get("name"),
-                "entity_id": record.get("entityId"),
-                "entity_type": record.get("entityType"),
-                "mime_type": record.get("mimeType"),
-                "file_size": record.get("size"),
-                "created_at": record.get("createdAt"),
-                "updated_at": record.get("updatedAt"),
-            }
-            normalized_records.append(normalized)
-        except Exception as e:
-            logger.warning(f"⚠️ Skipping malformed record: {e}")
+    for r in raw_records:
+        norm = {k: v for k, v in r.items() if k in schema_fields}
+        normalized_records.append(norm)
 
-    try:
-        supabase_client.upsert(table=normalized_table_name, data=normalized_records)
-        logger.info(f"✅ Normalized {len(normalized_records)} files into {normalized_table_name}")
-    except Exception as e:
-        logger.error(f"❌ Failed to upsert normalized files: {e}")
+    resp = supabase_client.upsert(normalized_table_name, normalized_records)
+    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
+        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
+        logging.error(f"Payload: {normalized_records}")

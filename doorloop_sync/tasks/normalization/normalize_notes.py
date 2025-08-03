@@ -1,40 +1,26 @@
 import logging
-from doorloop_sync.config import get_supabase_client, get_logger
-
-logger = get_logger(__name__)
+from doorloop_sync.clients.supabase_client import SupabaseClient
 
 def run():
-    logger.info("Starting normalization for notes...")
-    try:
-        supabase_client = get_supabase_client()
-        raw_table_name = "doorloop_raw_notes"
-        normalized_table_name = "doorloop_normalized_notes"
-        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
-        raw_records = response.data
+    supabase_client = SupabaseClient(...)
+    normalized_table_name = "doorloop_normalized_notes"
+    raw_table_name = "doorloop_raw_notes"
 
-        if not raw_records:
-            logger.info("No raw notes data to normalize. Task complete.")
-            return
+    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
+    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
+        logging.error(f"Could not fetch schema for {normalized_table_name}")
+        return
+    schema_fields = set(schema_resp.data[0].keys())
 
-        unique_raw_records = {
-            item['data']['id']: item['data'] for item in raw_records if item.get('data') and item['data'].get('id')
-        }.values()
+    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
+    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
 
-        normalized_records = []
-        for record in unique_raw_records:
-            normalized_records.append({
-                "doorloop_id": record.get("id"),
-                "name": record.get("name"),
-                "type": record.get("type"),
-                "balance": record.get("balance"),
-            })
+    normalized_records = []
+    for r in raw_records:
+        norm = {k: v for k, v in r.items() if k in schema_fields}
+        normalized_records.append(norm)
 
-        if normalized_records:
-            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
-            logger.info(f"Successfully normalized and upserted {len(normalized_records)} notes records.")
-    except Exception as e:
-        logger.error(f"An error occurred during notes normalization: {e}", exc_info=True)
-        raise
-
-if __name__ == "__main__":
-    run()
+    resp = supabase_client.upsert(normalized_table_name, normalized_records)
+    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
+        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
+        logging.error(f"Payload: {normalized_records}")
