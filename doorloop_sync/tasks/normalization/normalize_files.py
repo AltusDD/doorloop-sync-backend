@@ -1,5 +1,8 @@
 from doorloop_sync.clients.supabase_client import SupabaseClient
-from doorloop_sync.utils.logging import logger
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 def run():
     logger.info("🔁 Starting normalization for files...")
