@@ -27,7 +27,8 @@ def get_doorloop_client():
 def get_supabase_client():
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         raise ValueError("Supabase credentials are not configured.")
-    return SupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    # 🔧 FIXED: Constructor now reads env vars directly
+    return SupabaseClient()
 
 # --- Pre-initialized client objects for global import ---
 doorloop_client = get_doorloop_client()
