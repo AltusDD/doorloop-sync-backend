@@ -1,27 +1,38 @@
-import logging
-from doorloop_sync.clients.supabase_client import SupabaseClient
 
+from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.task_error_handler import task_error_handler
+
+logger = get_logger(__name__)
+
+@task_error_handler
 def run():
-    supabase_client = SupabaseClient(...)
-    normalized_table_name = "doorloop_normalized_accounts"
-    raw_table_name = "doorloop_raw_accounts"
+    logger.info("Starting normalization for accounts...")
 
-    # Only fetch columns existing in schema
-    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
-    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
-        logging.error(f"Could not fetch schema for {normalized_table_name}")
-        return
-    schema_fields = set(schema_resp.data[0].keys())
+    supabase = get_supabase_client()
+    raw_table = "doorloop_raw_accounts"
+    normalized_table = "doorloop_normalized_accounts"
 
-    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
-    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
+    response = supabase.supabase.table(raw_table).select("data").execute()
+    raw_records = response.data or []
 
-    normalized_records = []
-    for r in raw_records:
-        norm = {k: v for k, v in r.items() if k in schema_fields}
-        normalized_records.append(norm)
+    unique = {
+        item['data']['id']: item['data']
+        for item in raw_records
+        if item.get('data') and item['data'].get('id')
+    }.values()
 
-    resp = supabase_client.upsert(normalized_table_name, normalized_records)
-    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
-        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
-        logging.error(f"Payload: {normalized_records}")
+    normalized = []
+    for r in unique:
+        try:
+            normalized.append({
+                "doorloop_id": r.get("id"),
+                "name": r.get("name"),
+                "type": r.get("type"),
+                "balance": float(r.get("balance", 0)) if r.get("balance") is not None else 0.0
+            })
+        except Exception as e:
+            logger.warning(f"⚠️ Skipping record with error: {e}")
+
+    if normalized:
+        supabase.upsert(table=normalized_table, data=normalized)
+        logger.info(f"✅ Upserted {len(normalized)} account records.")
