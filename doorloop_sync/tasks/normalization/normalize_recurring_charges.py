@@ -1,22 +1,26 @@
+from doorloop_sync.clients.supabase_client import SupabaseClient
+from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
+from doorloop_sync.utils.transform import flatten_dict
 
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+logger = get_logger()
 
-def run():
-    try:
-        raw_records = supabase_client.get_all("doorloop_raw_recurring_charges")
-        normalized_records = []
+@task_error_handler("normalize_recurring_charges")  # silent tag added to trigger GitHub update
+def run(raw_records: list[dict]) -> list[dict]:
+    if not raw_records:
+        logger.info("No raw recurring_charges data to normalize. Task complete.")
+        return []
 
-        for record in raw_records:
-            normalized_records.append({{
-                # TODO: Map fields from raw record to normalized record
-            }})
+    logger.info(f"Normalizing {len(raw_records)} recurring_charges records...")
 
-        supabase_client.upsert_many("doorloop_normalized_recurring_charges", normalized_records)
-        log_audit_event(entity="normalize_recurring_charges", status="success", metadata={{"normalized_count": len(normalized_records)}})
+    normalized_records = []
+    for record in raw_records:
+        flat = flatten_dict(record)
+        flat["doorloop_id"] = record.get("id")
+        normalized_records.append(flat)
 
-    except Exception as e:
-        log_audit_event(entity="normalize_recurring_charges", status="error", error=True, metadata={{"message": str(e)}})
-        print(f"❌ Error in normalize_recurring_charges: {{str(e)}}")
+    supabase_client = get_supabase_client()
+    normalized_table_name = "doorloop_normalized_recurring_charges"
+    supabase_client.upsert(table=normalized_table_name, data=normalized_records)
 
-# silent_update
+    return normalized_records
