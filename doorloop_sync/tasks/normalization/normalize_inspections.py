@@ -1,20 +1,40 @@
+import logging
+from doorloop_sync.config import get_supabase_client, get_logger
 
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
+logger = get_logger(__name__)
 
 def run():
+    logger.info("Starting normalization for inspections...")
     try:
-        raw_records = supabase_client.get_all("doorloop_raw_inspections")
+        supabase_client = get_supabase_client()
+        raw_table_name = "doorloop_raw_inspections"
+        normalized_table_name = "doorloop_normalized_inspections"
+        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
+        raw_records = response.data
+
+        if not raw_records:
+            logger.info("No raw inspections data to normalize. Task complete.")
+            return
+
+        unique_raw_records = {
+            item['data']['id']: item['data'] for item in raw_records if item.get('data') and item['data'].get('id')
+        }.values()
+
         normalized_records = []
+        for record in unique_raw_records:
+            normalized_records.append({
+                "doorloop_id": record.get("id"),
+                "name": record.get("name"),
+                "type": record.get("type"),
+                "balance": record.get("balance"),
+            })
 
-        for record in raw_records:
-            normalized_records.append({{
-                # TODO: Map fields from raw record to normalized record
-            }})
-
-        supabase_client.upsert_many("doorloop_normalized_inspections", normalized_records)
-        log_audit_event(entity="normalize_inspections", status="success", metadata={{"normalized_count": len(normalized_records)}})
-
+        if normalized_records:
+            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
+            logger.info(f"Successfully normalized and upserted {len(normalized_records)} inspections records.")
     except Exception as e:
-        log_audit_event(entity="normalize_inspections", status="error", error=True, metadata={{"message": str(e)}})
-        print(f"❌ Error in normalize_inspections: {{str(e)}}")
+        logger.error(f"An error occurred during inspections normalization: {e}", exc_info=True)
+        raise
+
+if __name__ == "__main__":
+    run()

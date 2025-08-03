@@ -1,28 +1,40 @@
 import logging
-from doorloop_sync.config import supabase_client
-from doorloop_sync.services.audit_logger import log_audit_event
-from doorloop_sync.services.normalizers import normalize_communications_record
+from doorloop_sync.config import get_supabase_client, get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-def normalize_communications():
-    logger.info("🔁 Starting normalization: communications")
-    log_audit_event("normalize_communications", "started")
+def run():
+    logger.info("Starting normalization for communications...")
+    try:
+        supabase_client = get_supabase_client()
+        raw_table_name = "doorloop_raw_communications"
+        normalized_table_name = "doorloop_normalized_communications"
+        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
+        raw_records = response.data
 
-    raw_data = supabase_client.fetch_table("doorloop_raw_communications")
-    logger.info(f"📥 Fetched {len(raw_data)} raw communications records")
+        if not raw_records:
+            logger.info("No raw communications data to normalize. Task complete.")
+            return
 
-    normalized_data = []
-    for record in raw_data:
-        try:
-            normalized = normalize_communications_record(record)
-            if normalized:
-                normalized_data.append(normalized)
-        except Exception as e:
-            logger.warning(f"⚠️ Skipping record due to error: {e}")
+        unique_raw_records = {
+            item['data']['id']: item['data'] for item in raw_records if item.get('data') and item['data'].get('id')
+        }.values()
 
-    logger.info(f"📦 Normalized {len(normalized_data)} communications records")
-    supabase_client.upsert_rows("doorloop_normalized_communications", normalized_data)
+        normalized_records = []
+        for record in unique_raw_records:
+            normalized_records.append({
+                "doorloop_id": record.get("id"),
+                "name": record.get("name"),
+                "type": record.get("type"),
+                "balance": record.get("balance"),
+            })
 
-    log_audit_event("normalize_communications", "completed", count=len(normalized_data))
-    logger.info("✅ Normalization completed: communications")
+        if normalized_records:
+            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
+            logger.info(f"Successfully normalized and upserted {len(normalized_records)} communications records.")
+    except Exception as e:
+        logger.error(f"An error occurred during communications normalization: {e}", exc_info=True)
+        raise
+
+if __name__ == "__main__":
+    run()

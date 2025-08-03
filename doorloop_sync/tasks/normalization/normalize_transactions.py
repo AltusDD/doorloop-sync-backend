@@ -4,16 +4,16 @@ from doorloop_sync.config import get_supabase_client, get_logger
 logger = get_logger(__name__)
 
 def run():
-    logger.info("Starting normalization for accounts...")
+    logger.info("Starting normalization for transactions...")
     try:
         supabase_client = get_supabase_client()
-        raw_table_name = "doorloop_raw_accounts"
-        normalized_table_name = "doorloop_normalized_accounts"
+        raw_table_name = "doorloop_raw_transactions"
+        normalized_table_name = "doorloop_normalized_transactions"
         response = supabase_client.supabase.table(raw_table_name).select("data").execute()
         raw_records = response.data
 
         if not raw_records:
-            logger.info("No raw accounts data to normalize. Task complete.")
+            logger.info("No raw transactions data to normalize. Task complete.")
             return
 
         unique_raw_records = {
@@ -31,9 +31,9 @@ def run():
 
         if normalized_records:
             supabase_client.upsert(table=normalized_table_name, data=normalized_records)
-            logger.info(f"Successfully normalized and upserted {len(normalized_records)} accounts records.")
+            logger.info(f"Successfully normalized and upserted {len(normalized_records)} transactions records.")
     except Exception as e:
-        logger.error(f"An error occurred during accounts normalization: {e}", exc_info=True)
+        logger.error(f"An error occurred during transactions normalization: {e}", exc_info=True)
         raise
 
 if __name__ == "__main__":
