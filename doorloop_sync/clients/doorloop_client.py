@@ -11,7 +11,7 @@ class DoorLoopClient:
 
         # Map logical entity names to real DoorLoop API endpoints
         self.endpoint_map = {
-            "accounts": "chart-of-accounts",
+            "accounts": "accounts", # FIX: Changed 'chart-of-accounts' to 'accounts' to resolve 404 error.
             "activity_logs": "activity-logs",
             "applications": "applications",
             "communications": "communications",
@@ -33,11 +33,14 @@ class DoorLoopClient:
             "tasks": "tasks",
             "tenants": "tenants",
             "units": "units",
-            "users": "user",
+            "users": "users", # FIX: Changed 'user' to 'users' for consistency.
             "vendors": "vendors"
         }
 
     def get_all(self, entity, params=None):
+        # FIX: Strip leading slashes from the entity name to prevent "Unknown entity" errors.
+        entity = entity.lstrip("/")
+
         if entity not in self.endpoint_map:
             raise ValueError(f"Unknown entity type: {entity}")
 
@@ -56,7 +59,8 @@ class DoorLoopClient:
                 break
 
             results.extend(data)
-            if len(data) < 50:  # assume pagination limit
+            # DoorLoop API pages are typically 50 items
+            if len(data) < 50:
                 break
             page += 1
 
