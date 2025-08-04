@@ -1,12 +1,13 @@
 import os
 import logging
+import time
 import requests
 from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
 class DoorLoopClient:
-    """A client for interacting with the DoorLoop API."""
+    """A client for interacting with the DoorLoop API with pagination, retry, and validation logic."""
 
     def __init__(self):
         """Initializes the DoorLoop client, validating necessary environment variables."""
@@ -22,11 +23,17 @@ class DoorLoopClient:
             'Authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         }
+
+        self.session = requests.Session()
+        self.max_retries = 5
+        self.retry_delay = 3  # seconds
+        self.max_pages = 10000  # safety net for pagination loops
+
         logger.info(f"✅ DoorLoopClient initialized. Using validated BASE URL: {self.base_url}")
 
     def _make_request(self, method, endpoint, **kwargs):
         """
-        Internal method to make a request to the DoorLoop API.
+        Internal method to make a request to the DoorLoop API with retry logic.
 
         Args:
             method (str): HTTP method (e.g., 'GET', 'POST').
@@ -36,24 +43,35 @@ class DoorLoopClient:
         Returns:
             requests.Response: The response object from the API call.
         """
-        # Ensure the endpoint starts with a slash for clean joining
-        if not endpoint.startswith('/'):
-            endpoint = f'/{endpoint}'
-            
+        # Normalize endpoint
+        if not endpoint.startswith("/"):
+            endpoint = f"/{endpoint}"
+        if not endpoint.startswith("/api/"):
+            endpoint = f"/api{endpoint}"
+
         full_url = urljoin(self.base_url, endpoint)
         logger.info(f"📡 {method.upper()} {full_url}")
 
-        try:
-            response = requests.request(method, full_url, headers=self.headers, **kwargs)
-            response.raise_for_status()  # Raises an HTTPError for bad responses (4xx or 5xx)
-            return response
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP Error for {full_url}: {e.response.status_code} {e.response.reason}")
-            logger.error(f"Response Body: {e.response.text}")
-            raise
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed for {full_url}: {e}")
-            raise
+        attempt = 0
+        while attempt < self.max_retries:
+            try:
+                response = self.session.request(method, full_url, headers=self.headers, timeout=15, **kwargs)
+                if response.status_code == 429:
+                    logger.warning(f"⏳ Rate limited on attempt {attempt+1}/{self.max_retries}. Retrying in {self.retry_delay} sec...")
+                    time.sleep(self.retry_delay)
+                    attempt += 1
+                    continue
+                response.raise_for_status()
+                return response
+            except requests.exceptions.HTTPError as e:
+                logger.error(f"❌ HTTP Error for {full_url}: {e.response.status_code} {e.response.reason}")
+                logger.error(f"Response Body: {e.response.text}")
+                raise
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ Request failed: {e}")
+                time.sleep(self.retry_delay)
+                attempt += 1
+        raise RuntimeError(f"❌ Failed after {self.max_retries} attempts to call {full_url}")
 
     def get_all(self, endpoint, params=None):
         """
@@ -68,43 +86,44 @@ class DoorLoopClient:
         """
         if params is None:
             params = {}
-        
+
         all_records = []
         page = 1
-        
-        while True:
+
+        while page <= self.max_pages:
             params['page'] = page
             response = self._make_request('GET', endpoint, params=params)
 
-            # Defensive check for HTML response
             if response.headers.get('Content-Type', '').startswith('text/html'):
                 logger.error(f"❌ Received HTML instead of JSON from {endpoint}. This is likely an auth or URL error.")
-                logger.error(f"Response Preview: {response.text[:500]}...")
-                raise requests.exceptions.JSONDecodeError("Expecting JSON, got HTML.", response.text, 0)
-            
+                logger.error(f"HTML Preview:\n{response.text[:1000]}")
+                raise ValueError("Expected JSON response but got HTML.")
+
             try:
                 data = response.json()
             except requests.exceptions.JSONDecodeError:
                 logger.error(f"❌ Failed to decode JSON from {endpoint}. Response text: {response.text}")
                 raise
 
-            records = data.get('data', data) # Handle both enveloped and non-enveloped responses
-            
+            records = data.get('data', data)
+
+            if not isinstance(records, list):
+                logger.warning(f"⚠️ Unexpected response format at page {page}: {type(records)}")
+                break
+
             if not records:
-                break # Exit loop if no more records are returned
+                logger.info(f"📭 No more records at page {page}. Ending pagination.")
+                break
 
             all_records.extend(records)
-            
-            # Check for pagination metadata to see if we should continue
-            if 'meta' in data and data['meta'].get('next_page_url') is None:
-                break
-                
-            # As a fallback if no metadata, stop if we get an empty list
-            if not isinstance(records, list) or len(records) == 0:
+            logger.info(f"   Fetched page {page}, got {len(records)} records. Total: {len(all_records)}")
+
+            if 'meta' in data and not data['meta'].get('next_page_url'):
                 break
 
             page += 1
-            logger.info(f"   Fetched page {page-1}, got {len(records)} records. Total: {len(all_records)}")
+
+        if page >= self.max_pages:
+            logger.warning(f"⚠️ Hit pagination safety limit of {self.max_pages} pages. Data may be incomplete.")
 
         return all_records
-
