@@ -1,27 +1,42 @@
-import logging
-from doorloop_sync.clients.supabase_client import SupabaseClient
+from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
 
+# FIX: Pass the module name to the logger.
+logger = get_logger(__name__)
+
+@task_error_handler
 def run():
-    supabase_client = SupabaseClient(...)
-    normalized_table_name = "doorloop_normalized_vendors"
+    """
+    Normalizes raw vendor data and upserts it into the
+    doorloop_normalized_vendors table.
+    """
+    logger.info("Starting normalization for vendors...")
+    # FIX: Use the factory function to get the client instance.
+    supabase = get_supabase_client()
+
     raw_table_name = "doorloop_raw_vendors"
+    normalized_table_name = "doorloop_normalized_vendors"
 
-    schema_resp = supabase_client.supabase.table(normalized_table_name).select('*').limit(1).execute()
-    if not schema_resp or not hasattr(schema_resp, 'data') or not schema_resp.data:
-        logging.error(f"Could not fetch schema for {normalized_table_name}")
+    raw_records = supabase.fetch_all(raw_table_name)
+
+    if not raw_records:
+        logger.info(f"No raw data in {raw_table_name} to normalize. Task complete.")
         return
-    schema_fields = set(schema_resp.data[0].keys())
-
-    raw_resp = supabase_client.supabase.table(raw_table_name).select('*').execute()
-    raw_records = raw_resp.data if raw_resp and hasattr(raw_resp, 'data') else []
 
     normalized_records = []
-    for r in raw_records:
-        norm = {k: v for k, v in r.items() if k in schema_fields}
-        normalized_records.append(norm)
+    for record in raw_records:
+        # Adapt this normalization logic based on your actual schema
+        normalized_data = {
+            "doorloop_id": record.get("id"),
+            "name": record.get("name"),
+            "email": record.get("email"),
+            "phone": record.get("phone"),
+        }
+        # Remove keys with None values
+        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
 
-    resp = supabase_client.upsert(normalized_table_name, normalized_records)
-    if not resp or (hasattr(resp, 'status_code') and resp.status_code >= 400):
-        logging.error(f"Upsert error: {getattr(resp, 'data', None)}")
-        logging.error(f"Payload: {normalized_records}")
-# silent_update
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table_name}...")
+        supabase.upsert(table=normalized_table_name, data=normalized_records)
+    else:
+        logger.info("No records to upsert after normalization.")
