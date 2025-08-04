@@ -1,10 +1,8 @@
-import logging
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
+from doorloop_sync.utils.supabase_tools import upsert_raw_records
 
-logger = logging.getLogger(__name__)
-
-def sync_owners():
-    logger.info("Starting raw sync for owners...")
+def sync():
     doorloop = DoorLoopClient()
-    all_records = doorloop.get_all("/api/owners")
-    # Proceed with upsert or normalization logic here
+    endpoint = '/api/owners'
+    all_records = doorloop.get_all(endpoint)
+    upsert_raw_records('doorloop_raw_owners', all_records)
