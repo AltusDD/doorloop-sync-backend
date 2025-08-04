@@ -25,14 +25,14 @@ def run():
 
     normalized_records = []
     for record in raw_records:
-        # Adapt this normalization logic based on your actual schema
+        # This normalization logic should be adapted to your actual schema
         normalized_data = {
             "doorloop_id": record.get("id"),
             "name": record.get("name"),
             "email": record.get("email"),
             "phone": record.get("phone"),
         }
-        # Remove keys with None values
+        # Remove keys with None values to prevent schema conflicts
         normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
 
     if normalized_records:
@@ -40,3 +40,4 @@ def run():
         supabase.upsert(table=normalized_table_name, data=normalized_records)
     else:
         logger.info("No records to upsert after normalization.")
+
