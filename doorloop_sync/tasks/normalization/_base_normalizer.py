@@ -1,16 +1,37 @@
-def flatten_record(record, parent_key="", sep="_"):
-    """
-    Recursively flattens nested dictionaries
-    """
-    items = []
-    for k, v in record.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, dict):
-            items.extend(flatten_record(v, new_key, sep=sep).items())
-        else:
-            items.append((new_key, v))
-    return dict(items)
+from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
 
-def safe_normalize(records):
-    return [flatten_record(r) for r in records if isinstance(r, dict)]
-# silent_update
+logger = get_logger(__name__)
+
+@task_error_handler
+def run():
+    """
+    Normalizes raw _base_normalizer data from Supabase and upserts it into the
+    doorloop_normalized__base_normalizer table.
+    """
+    entity_name = "_base_normalizer"
+    raw_table = "doorloop_raw__base_normalizer"
+    normalized_table = "doorloop_normalized__base_normalizer"
+
+    logger.info(f"Starting normalization for {entity_name}...")
+    supabase = get_supabase_client()
+
+    raw_records = supabase.fetch_all(raw_table)
+
+    if not raw_records:
+        logger.info(f"No raw data in {raw_table} to normalize. Task complete.")
+        return
+
+    normalized_records = []
+    for record in raw_records:
+        normalized_data = {
+            "doorloop_id": record.get("id"),
+            "name": record.get("name"),
+        }
+        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
+
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table}...")
+        supabase.upsert(table=normalized_table, data=normalized_records)
+    else:
+        logger.info("No records to upsert after normalization.")

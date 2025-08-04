@@ -1,34 +1,37 @@
-from doorloop_sync.config import get_doorloop_client, get_supabase_client, get_logger
+from doorloop_sync.config import get_supabase_client, get_logger
 from doorloop_sync.utils.decorators import task_error_handler
 
-# FIX: Pass the module name to the logger.
 logger = get_logger(__name__)
 
 @task_error_handler
 def run():
     """
-    Fetches all accounts from the DoorLoop API and upserts them into the
-    doorloop_raw_accounts table in Supabase.
+    Normalizes raw accounts data from Supabase and upserts it into the
+    doorloop_normalized_accounts table.
     """
     entity_name = "accounts"
-    table_name = "doorloop_raw_accounts"
-    
-    logger.info(f"Starting raw sync for {entity_name}...")
-    
-    doorloop = get_doorloop_client()
+    raw_table = "doorloop_raw_accounts"
+    normalized_table = "doorloop_normalized_accounts"
+
+    logger.info(f"Starting normalization for {entity_name}...")
     supabase = get_supabase_client()
 
-    try:
-        # FIX: Use the correct get_all() method.
-        data = doorloop.get_all(entity_name)
-        
-        if data:
-            logger.info(f"Fetched {len(data)} records for {entity_name}.")
-            # The Supabase client now handles empty data checks.
-            supabase.upsert(table_name, data)
-        else:
-            logger.info(f"No records found for {entity_name}.")
-            
-    except Exception as e:
-        logger.error(f"❌ Error syncing {entity_name}: {e}")
+    raw_records = supabase.fetch_all(raw_table)
 
+    if not raw_records:
+        logger.info(f"No raw data in {raw_table} to normalize. Task complete.")
+        return
+
+    normalized_records = []
+    for record in raw_records:
+        normalized_data = {
+            "doorloop_id": record.get("id"),
+            "name": record.get("name"),
+        }
+        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
+
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table}...")
+        supabase.upsert(table=normalized_table, data=normalized_records)
+    else:
+        logger.info("No records to upsert after normalization.")

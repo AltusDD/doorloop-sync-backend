@@ -1,42 +1,37 @@
-import logging
 from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
 
 logger = get_logger(__name__)
 
+@task_error_handler
 def run():
-    logger.info("Starting normalization for transactions...")
-    try:
-        supabase_client = get_supabase_client()
-        raw_table_name = "doorloop_raw_transactions"
-        normalized_table_name = "doorloop_normalized_transactions"
-        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
-        raw_records = response.data
+    """
+    Normalizes raw transactions data from Supabase and upserts it into the
+    doorloop_normalized_transactions table.
+    """
+    entity_name = "transactions"
+    raw_table = "doorloop_raw_transactions"
+    normalized_table = "doorloop_normalized_transactions"
 
-        if not raw_records:
-            logger.info("No raw transactions data to normalize. Task complete.")
-            return
+    logger.info(f"Starting normalization for {entity_name}...")
+    supabase = get_supabase_client()
 
-        unique_raw_records = {
-            item['data']['id']: item['data'] for item in raw_records if item.get('data') and item['data'].get('id')
-        }.values()
+    raw_records = supabase.fetch_all(raw_table)
 
-        normalized_records = []
-        for record in unique_raw_records:
-            normalized_records.append({
-                "doorloop_id": record.get("id"),
-                "name": record.get("name"),
-                "type": record.get("type"),
-                "balance": record.get("balance"),
-            })
+    if not raw_records:
+        logger.info(f"No raw data in {raw_table} to normalize. Task complete.")
+        return
 
-        if normalized_records:
-            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
-            logger.info(f"Successfully normalized and upserted {len(normalized_records)} transactions records.")
-    except Exception as e:
-        logger.error(f"An error occurred during transactions normalization: {e}", exc_info=True)
-        raise
+    normalized_records = []
+    for record in raw_records:
+        normalized_data = {
+            "doorloop_id": record.get("id"),
+            "name": record.get("name"),
+        }
+        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
 
-if __name__ == "__main__":
-    run()
-
-# silent_update
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table}...")
+        supabase.upsert(table=normalized_table, data=normalized_records)
+    else:
+        logger.info("No records to upsert after normalization.")

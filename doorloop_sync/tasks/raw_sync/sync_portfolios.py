@@ -21,5 +21,6 @@ def run():
             supabase.upsert(table_name, data)
         else:
             logger.info(f"No records found for {entity_name}.")
+
     except Exception as e:
         logger.error(f"❌ An error occurred during the sync for {entity_name}: {e}")

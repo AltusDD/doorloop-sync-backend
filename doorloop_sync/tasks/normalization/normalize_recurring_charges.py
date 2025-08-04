@@ -1,14 +1,37 @@
-from doorloop_sync.config import get_doorloop_client, get_supabase_client
-from doorloop_sync.utils.transform import flatten_dict
+from doorloop_sync.config import get_supabase_client, get_logger
 from doorloop_sync.utils.decorators import task_error_handler
+
+logger = get_logger(__name__)
 
 @task_error_handler
 def run():
-    doorloop = get_doorloop_client()
+    """
+    Normalizes raw recurring_charges data from Supabase and upserts it into the
+    doorloop_normalized_recurring_charges table.
+    """
+    entity_name = "recurring_charges"
+    raw_table = "doorloop_raw_recurring_charges"
+    normalized_table = "doorloop_normalized_recurring_charges"
+
+    logger.info(f"Starting normalization for {entity_name}...")
     supabase = get_supabase_client()
 
-    response = doorloop.get("/recurring-charges", params={"page": 1})
-    records = response.get("data", [])
+    raw_records = supabase.fetch_all(raw_table)
 
-    normalized_records = [flatten_dict(record) for record in records]
-    supabase.table("doorloop_raw_recurring_charges").upsert(normalized_records).execute()
+    if not raw_records:
+        logger.info(f"No raw data in {raw_table} to normalize. Task complete.")
+        return
+
+    normalized_records = []
+    for record in raw_records:
+        normalized_data = {
+            "doorloop_id": record.get("id"),
+            "name": record.get("name"),
+        }
+        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
+
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table}...")
+        supabase.upsert(table=normalized_table, data=normalized_records)
+    else:
+        logger.info("No records to upsert after normalization.")
