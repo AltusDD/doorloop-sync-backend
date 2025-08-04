@@ -18,14 +18,18 @@ class DoorLoopClient:
         }
 
         self.endpoint_map = {
-            "accounts": "accounts", "activity_logs": "activity-logs", "applications": "applications",
-            "communications": "communications", "files": "files", "inspections": "inspections",
-            "insurance_policies": "insurance-policies", "lease_charges": "lease/charges",
-            "lease_credits": "lease/credits", "lease_payments": "lease-payments", "leases": "leases",
-            "notes": "notes", "owners": "owners", "payments": "payments", "portfolios": "portfolios",
-            "properties": "properties", "recurring_charges": "recurring-charges",
-            "recurring_credits": "recurring-credits", "reports": "reports", "tasks": "tasks",
-            "tenants": "tenants", "units": "units", "users": "users", "vendors": "vendors"
+            "properties": "properties",
+            "units": "units",
+            "tenants": "tenants",
+            "leases": "leases",
+            "lease_payments": "lease-payments",
+            "owners": "owners",
+            "vendors": "vendors",
+            "work_orders": "work-orders",
+            "users": "users",
+            "tasks": "tasks",
+            "notes": "notes",
+            "applications": "applications"
         }
 
     def get_all(self, entity, params=None):
@@ -33,8 +37,7 @@ class DoorLoopClient:
         if entity_key not in self.endpoint_map:
             raise ValueError(f"Unknown entity type: {entity}")
 
-        # ✅ Use v1 path
-        endpoint = f"{self.base_url}/api/v1/{self.endpoint_map[entity_key]}"
+        endpoint = f"{self.base_url}/api/{self.endpoint_map[entity_key]}"
         params = params or {}
         results = []
         page = 1
@@ -48,7 +51,7 @@ class DoorLoopClient:
                 if "application/json" in response.headers.get("Content-Type", ""):
                     data = response.json()
                 else:
-                    logger.error(f"Non-JSON response received from {endpoint}. Status: {response.status_code}. Body: {response.text[:200]}")
+                    logger.error(f"Non-JSON response from {endpoint}. Status: {response.status_code}. Body: {response.text[:200]}")
                     break
 
                 if not data:
@@ -67,5 +70,4 @@ class DoorLoopClient:
             except requests.exceptions.RequestException as e:
                 logger.error(f"Request failed for {entity}: {e}")
                 break
-
         return results
