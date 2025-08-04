@@ -1,42 +1,40 @@
-import logging
 from doorloop_sync.config import get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
 
+# FIX: Pass __name__ to the logger to identify the module in logs.
 logger = get_logger(__name__)
 
+@task_error_handler
 def run():
+    """
+    Normalizes raw activity log data and upserts it into the
+    doorloop_normalized_activity_logs table.
+    """
     logger.info("Starting normalization for activity_logs...")
-    try:
-        supabase_client = get_supabase_client()
-        raw_table_name = "doorloop_raw_activity_logs"
-        normalized_table_name = "doorloop_normalized_activity_logs"
-        response = supabase_client.supabase.table(raw_table_name).select("data").execute()
-        raw_records = response.data
+    supabase = get_supabase_client()
 
-        if not raw_records:
-            logger.info("No raw activity_logs data to normalize. Task complete.")
-            return
+    # Fetch raw data
+    raw_response = supabase.table("doorloop_raw_activity_logs").select("*").execute()
+    raw_records = raw_response.data
 
-        unique_raw_records = {
-            item['data']['id']: item['data'] for item in raw_records if item.get('data') and item['data'].get('id')
-        }.values()
+    if not raw_records:
+        logger.info("No raw activity_logs data to normalize. Task complete.")
+        return
 
-        normalized_records = []
-        for record in unique_raw_records:
-            normalized_records.append({
-                "doorloop_id": record.get("id"),
-                "name": record.get("name"),
-                "type": record.get("type"),
-                "balance": record.get("balance"),
-            })
+    normalized_records = []
+    for record in raw_records:
+        # Example normalization logic (adapt as needed)
+        normalized_records.append({
+            "doorloop_id": record.get("id"),
+            "created_at": record.get("createdAt"),
+            "user_id": record.get("userId"),
+            "event": record.get("event"),
+            "details": record.get("details"),
+        })
 
-        if normalized_records:
-            supabase_client.upsert(table=normalized_table_name, data=normalized_records)
-            logger.info(f"Successfully normalized and upserted {len(normalized_records)} activity_logs records.")
-    except Exception as e:
-        logger.error(f"An error occurred during activity_logs normalization: {e}", exc_info=True)
-        raise
+    if normalized_records:
+        logger.info(f"Upserting {len(normalized_records)} normalized activity log records...")
+        supabase.table("doorloop_normalized_activity_logs").upsert(normalized_records).execute()
+    else:
+        logger.info("No records to upsert after normalization.")
 
-if __name__ == "__main__":
-    run()
-
-# silent_update
