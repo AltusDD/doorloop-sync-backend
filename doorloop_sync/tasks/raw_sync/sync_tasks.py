@@ -11,10 +11,11 @@ def sync_tasks():
     supabase = SupabaseClient()
 
     table_name = 'doorloop_raw_tasks'
-    endpoint = 'tasks?type=WORK_ORDER'
+    endpoint = 'tasks'
+    params = {"type": "WORK_ORDER"}
 
     try:
-        all_records = doorloop.get_all(endpoint)
+        all_records = doorloop.get_all(endpoint, params=params)
 
         if not all_records:
             logger.info("No records found for tasks.")
