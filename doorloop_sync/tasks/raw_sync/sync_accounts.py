@@ -11,7 +11,7 @@ def sync_accounts():
     supabase = SupabaseClient()
 
     table_name = 'doorloop_raw_accounts'
-    endpoint = '/api/accounts'
+    endpoint = 'accounts'  # FIXED: was '/api/accounts'
 
     try:
         all_records = doorloop.get_all(endpoint)
