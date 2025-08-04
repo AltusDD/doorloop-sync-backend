@@ -1,27 +1,24 @@
-import logging
-from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
 import os
+from dotenv import load_dotenv
+from doorloop_sync.clients import DoorLoopClient, SupabaseClient
 
-DOORLOOP_API_KEY = os.getenv("DOORLOOP_API_KEY")
-DOORLOOP_API_BASE_URL = os.getenv("DOORLOOP_API_BASE_URL")
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+# Load environment variables from a .env file if it exists
+load_dotenv()
 
-# Initialize shared clients
+# --- Client Factory Functions ---
+
 def get_doorloop_client():
-    return DoorLoopClient(DOORLOOP_API_BASE_URL, DOORLOOP_API_KEY)
+    """
+    Factory function to create and return an instance of the DoorLoopClient.
+    The client self-configures from environment variables.
+    """
+    return DoorLoopClient()
 
 def get_supabase_client():
-    return SupabaseClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    """
+    Factory function to create and return an instance of the SupabaseClient.
+    The client self-configures from environment variables.
+    """
+    # FIX: Call the constructor without arguments to match the updated class definition.
+    return SupabaseClient()
 
-# Logger setup
-def get_logger(name: str = "ETL_Orchestrator") -> logging.Logger:
-    logger = logging.getLogger(name)
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    return logger
