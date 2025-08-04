@@ -6,26 +6,33 @@ import json
 
 logger = logging.getLogger(__name__)
 
-def standardize_records(records: list[dict]) -> list[dict]:
+def standardize_records(records: list) -> list[dict]:
     """
     Ensures all dictionaries in a list have the same set of keys.
-    It finds all unique keys across all records and adds any missing keys
-    to each record with a value of None.
+    It finds all unique keys across all valid records and adds any missing keys
+    to each record with a value of None. It safely ignores any items in the
+    list that are not dictionaries.
     """
     if not records:
         return []
 
-    # Use a set to collect all unique keys from all records
+    # FIX: Filter out any items that are not dictionaries to prevent AttributeErrors.
+    valid_records = [r for r in records if isinstance(r, dict)]
+
+    if not valid_records:
+        logger.warning("No valid dictionary records found in payload to standardize.")
+        return []
+
+    # Use a set to collect all unique keys from all valid records
     all_keys = set()
-    for record in records:
+    for record in valid_records:
         all_keys.update(record.keys())
 
     # Create a new list of standardized records
     standardized = []
-    for record in records:
+    for record in valid_records:
         new_record = {}
         for key in all_keys:
-            # Add the key with its value or None if it's missing
             new_record[key] = record.get(key)
         standardized.append(new_record)
         
@@ -39,14 +46,16 @@ class SupabaseClient:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
         self.supabase: Client = create_client(url, key)
 
-    def upsert(self, table: str, data: list[dict]):
+    def upsert(self, table: str, data: list):
         if not data:
             logger.warning(f"⏭️ Skipping upsert to '{table}' — payload was empty.")
             return {}
 
-        # FIX: Standardize the records before sending them to Supabase.
-        # This resolves the "All object keys must match" error.
         standardized_data = standardize_records(data)
+        
+        if not standardized_data:
+            logger.warning(f"⏭️ Skipping upsert to '{table}' — no valid records after standardization.")
+            return {}
 
         try:
             response = self.supabase.table(table).upsert(standardized_data).execute()
@@ -56,7 +65,6 @@ class SupabaseClient:
             logger.error(f"❌ Supabase APIError on upsert to '{table}' with {len(standardized_data)} records.")
             logger.error(f"   Error Message: {e.message}")
             if standardized_data:
-                # Log the keys of a sample record to help debug schema issues
                 logger.error(f"   Sample Payload Keys: {list(standardized_data[0].keys())}")
             raise
         except Exception as e:
