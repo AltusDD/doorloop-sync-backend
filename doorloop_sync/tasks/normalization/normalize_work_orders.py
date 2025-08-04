@@ -1,5 +1,6 @@
 from doorloop_sync.config import get_supabase_client, get_logger
 from doorloop_sync.utils.decorators import task_error_handler
+from decimal import Decimal
 
 logger = get_logger(__name__)
 
@@ -10,8 +11,8 @@ def run():
     doorloop_normalized_work_orders table.
     """
     entity_name = "work_orders"
-    raw_table = "doorloop_raw_work_orders"
-    normalized_table = "doorloop_normalized_work_orders"
+    raw_table = f"doorloop_raw_{entity_name}"
+    normalized_table = f"doorloop_normalized_{entity_name}"
 
     logger.info(f"Starting normalization for {entity_name}...")
     supabase = get_supabase_client()
@@ -27,11 +28,24 @@ def run():
         normalized_data = {
             "doorloop_id": record.get("id"),
             "name": record.get("name"),
+            "type": record.get("accountType"),
+            "balance": record.get("balance"),
         }
-        normalized_records.append({k: v for k, v in normalized_data.items() if v is not None})
+
+        final_record = {k: v for k, v in normalized_data.items() if v is not None}
+
+        if 'balance' in final_record:
+            try:
+                final_record['balance'] = float(Decimal(final_record['balance']))
+            except (ValueError, TypeError):
+                logger.warning(f"Could not cast balance for account {final_record.get('doorloop_id')}. Removing field.")
+                del final_record['balance']
+
+        if final_record:
+            normalized_records.append(final_record)
 
     if normalized_records:
         logger.info(f"Upserting {len(normalized_records)} normalized records to {normalized_table}...")
         supabase.upsert(table=normalized_table, data=normalized_records)
     else:
-        logger.info("No records to upsert after normalization.")
+        logger.info("No valid records to upsert after normalization.")
