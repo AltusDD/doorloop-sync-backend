@@ -1,26 +1,36 @@
-from doorloop_sync.config import get_doorloop_client, get_supabase_client, get_logger
-from doorloop_sync.utils.decorators import task_error_handler
+import logging
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
+from doorloop_sync.clients.supabase_client import SupabaseClient
+from doorloop_sync.utils.data_processing import standardize_records
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
-@task_error_handler
-def run():
-    entity_name = "tasks"
-    table_name = f"doorloop_raw_{entity_name}"
+def sync_tasks():
+    logger.info("Starting raw sync for tasks...")
+    doorloop = DoorLoopClient()
+    supabase = SupabaseClient()
 
-    logger.info(f"Starting raw sync for {entity_name}...")
-
-    doorloop = get_doorloop_client()
-    supabase = get_supabase_client()
+    table_name = 'doorloop_raw_tasks'
+    endpoint = 'tasks?type=WORK_ORDER'
 
     try:
-        data = doorloop.get_all(entity_name)
+        all_records = doorloop.get_all(endpoint)
 
-        if data:
-            logger.info(f"Fetched {len(data)} records for {entity_name}.")
-            supabase.upsert(table_name, data)
-        else:
-            logger.info(f"No records found for {entity_name}.")
+        if not all_records:
+            logger.info("No records found for tasks.")
+            return
+
+        logger.info(f"Fetched {len(all_records)} total records for tasks.")
+        standardized_records = standardize_records(all_records)
+
+        if not standardized_records:
+            logger.warning("No valid dictionary records found in payload to standardize.")
+            logger.info(f"⏭️ Skipping upsert to '{table_name}' — no valid records after standardization.")
+            return
+
+        supabase.upsert(table_name, standardized_records)
+        logger.info(f"Successfully upserted {len(standardized_records)} records to {table_name}.")
 
     except Exception as e:
-        logger.error(f"❌ An error occurred during the sync for {entity_name}: {e}")
+        logger.error(f"An error occurred during raw sync for tasks: {e}", exc_info=True)
+        raise
