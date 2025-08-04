@@ -10,7 +10,7 @@ class DoorLoopClient:
         self.base_url = os.getenv("DOORLOOP_API_BASE_URL", "https://app.doorloop.com").rstrip("/")
 
         print(f"📡 Using API base: {self.base_url}")
-print(f"🔑 Using API key: {self.api_key}")
+        print(f"🔑 Using API key: {self.api_key}")
 
 
         if not self.api_key:
