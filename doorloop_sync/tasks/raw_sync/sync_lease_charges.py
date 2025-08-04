@@ -1,17 +1,25 @@
-"""
-This module syncs Lease charges from DoorLoop API into Supabase.
-"""
+from doorloop_sync.config import get_doorloop_client, get_supabase_client, get_logger
+from doorloop_sync.utils.decorators import task_error_handler
 
-from doorloop_sync.config import get_doorloop_client, get_supabase_client
+logger = get_logger(__name__)
 
-supabase = get_supabase_client()
-doorloop = get_doorloop_client()
-
+@task_error_handler
 def run():
+    entity_name = "lease_charges"
+    table_name = f"doorloop_raw_{entity_name}"
+
+    logger.info(f"Starting raw sync for {entity_name}...")
+
+    doorloop = get_doorloop_client()
+    supabase = get_supabase_client()
+
     try:
-        print("🔄 Syncing Lease charges...")
-        records = doorloop.get_all("/lease-charges")
-        supabase.upsert("doorloop_raw_lease_charges", records)
-        print(f"✅ Synced {len(records)} Lease charges")
+        data = doorloop.get_all(entity_name)
+
+        if data:
+            logger.info(f"Fetched {len(data)} records for {entity_name}.")
+            supabase.upsert(table_name, data)
+        else:
+            logger.info(f"No records found for {entity_name}.")
     except Exception as e:
-        print(f"❌ Error syncing Lease charges: {e}")
+        logger.error(f"❌ An error occurred during the sync for {entity_name}: {e}")
