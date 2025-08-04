@@ -16,20 +16,15 @@ class DoorLoopClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-
         self.endpoint_map = {
-            "properties": "properties",
-            "units": "units",
-            "tenants": "tenants",
-            "leases": "leases",
-            "lease_payments": "lease-payments",
-            "owners": "owners",
-            "vendors": "vendors",
-            "work_orders": "work-orders",
-            "users": "users",
-            "tasks": "tasks",
-            "notes": "notes",
-            "applications": "applications"
+            "accounts": "accounts", "activity_logs": "activity-logs", "applications": "applications",
+            "communications": "communications", "files": "files", "inspections": "inspections",
+            "insurance_policies": "insurance-policies", "lease_charges": "lease/charges",
+            "lease_credits": "lease/credits", "lease_payments": "lease-payments", "leases": "leases",
+            "notes": "notes", "owners": "owners", "payments": "payments", "portfolios": "portfolios",
+            "properties": "properties", "recurring_charges": "recurring-charges",
+            "recurring_credits": "recurring-credits", "reports": "reports", "tasks": "tasks",
+            "tenants": "tenants", "units": "units", "users": "users", "vendors": "vendors"
         }
 
     def get_all(self, entity, params=None):
@@ -48,11 +43,12 @@ class DoorLoopClient:
                 response = requests.get(endpoint, headers=self.headers, params=paged_params)
                 response.raise_for_status()
 
+                # FIX: Add a check for a valid JSON response before decoding.
                 if "application/json" in response.headers.get("Content-Type", ""):
                     data = response.json()
                 else:
-                    logger.error(f"Non-JSON response from {endpoint}. Status: {response.status_code}. Body: {response.text[:200]}")
-                    break
+                    logger.error(f"Non-JSON response received from {endpoint}. Status: {response.status_code}. Body: {response.text[:200]}")
+                    break # Stop trying to process a bad response
 
                 if not data:
                     break
