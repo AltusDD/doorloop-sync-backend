@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info("🚀 Starting Empire Command Center ETL Pipeline...")
 
-    required_vars = ['DOORLOOP_API_KEY', 'DOORLOOP_API_BASE_URL', 'SUPABASE_URL', 'SUPABASE_KEY']
+    required_vars = ['DOORLOOP_API_KEY', 'DOORLOOP_API_BASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     if missing_vars:
         logger.error(f"❌ Missing critical environment variables: {', '.join(missing_vars)}")
