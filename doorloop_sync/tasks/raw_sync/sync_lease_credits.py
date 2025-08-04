@@ -1,26 +1,18 @@
-from doorloop_sync.config import get_doorloop_client, get_supabase_client, get_logger
-from doorloop_sync.utils.decorators import task_error_handler
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
+from doorloop_sync.clients.supabase_client import SupabaseClient
+from doorloop_sync.utils.data_processing import standardize_records
 
-logger = get_logger(__name__)
+def sync_lease_credits():
+    endpoint = "/api/lease-credits"
+    print(f"Starting raw sync for {endpoint}...")
 
-@task_error_handler
-def run():
-    entity_name = "lease_credits"
-    table_name = f"doorloop_raw_{entity_name}"
+    doorloop = DoorLoopClient()
+    supabase = SupabaseClient()
 
-    logger.info(f"Starting raw sync for {entity_name}...")
+    all_records = doorloop.get_all(endpoint)
+    standardized = standardize_records(all_records)
+    if not standardized:
+        print(f"No valid records for {endpoint}, skipping...")
+        return
 
-    doorloop = get_doorloop_client()
-    supabase = get_supabase_client()
-
-    try:
-        data = doorloop.get_all(entity_name)
-
-        if data:
-            logger.info(f"Fetched {len(data)} records for {entity_name}.")
-            supabase.upsert(table_name, data)
-        else:
-            logger.info(f"No records found for {entity_name}.")
-
-    except Exception as e:
-        logger.error(f"❌ An error occurred during the sync for {entity_name}: {e}")
+    supabase.upsert_raw_records(entity="lease_credits", records=standardized)

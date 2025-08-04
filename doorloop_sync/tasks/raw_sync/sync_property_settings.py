@@ -2,8 +2,8 @@ from doorloop_sync.clients.doorloop_client import DoorLoopClient
 from doorloop_sync.clients.supabase_client import SupabaseClient
 from doorloop_sync.utils.data_processing import standardize_records
 
-def sync_activity_logs():
-    endpoint = "/api/activity-logs"
+def sync_property_settings():
+    endpoint = "/api/property-settings"
     print(f"Starting raw sync for {endpoint}...")
 
     doorloop = DoorLoopClient()
@@ -15,4 +15,4 @@ def sync_activity_logs():
         print(f"No valid records for {endpoint}, skipping...")
         return
 
-    supabase.upsert_raw_records(entity="activity_logs", records=standardized)
+    supabase.upsert_raw_records(entity="property_settings", records=standardized)

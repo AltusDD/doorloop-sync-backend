@@ -1,26 +1,10 @@
-from doorloop_sync.config import get_doorloop_client, get_supabase_client, get_logger
-from doorloop_sync.utils.decorators import task_error_handler
+import logging
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
-@task_error_handler
-def run():
-    entity_name = "owners"
-    table_name = f"doorloop_raw_{entity_name}"
-
-    logger.info(f"Starting raw sync for {entity_name}...")
-
-    doorloop = get_doorloop_client()
-    supabase = get_supabase_client()
-
-    try:
-        data = doorloop.get_all(entity_name)
-
-        if data:
-            logger.info(f"Fetched {len(data)} records for {entity_name}.")
-            supabase.upsert(table_name, data)
-        else:
-            logger.info(f"No records found for {entity_name}.")
-
-    except Exception as e:
-        logger.error(f"❌ An error occurred during the sync for {entity_name}: {e}")
+def sync_owners():
+    logger.info("Starting raw sync for owners...")
+    doorloop = DoorLoopClient()
+    all_records = doorloop.get_all("/api/owners")
+    # Proceed with upsert or normalization logic here
