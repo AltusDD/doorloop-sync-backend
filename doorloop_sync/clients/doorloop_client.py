@@ -1,27 +1,24 @@
-
+import os
 import requests
 import logging
 
-class DoorLoopClient:
-    def __init__(self, api_key, base_url):
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
-        self.headers = {"Authorization": f"Bearer {self.api_key}"}
-        logging.info(f"✅ DoorLoopClient initialized with base_url: {self.base_url}")
+logger = logging.getLogger(__name__)
 
-    def get_all(self, endpoint_path):
-        full_url = f"{self.base_url}/{endpoint_path.lstrip('/')}"
-        logging.info(f"📡 GET {full_url}")
+class DoorLoopClient:
+    def __init__(self, api_key=None, base_url=None):
+        self.api_key = api_key or os.getenv("DOORLOOP_API_KEY")
+        self.base_url = base_url or os.getenv("DOORLOOP_API_BASE_URL")
+        if not self.api_key or not self.base_url:
+            raise ValueError("Missing DoorLoop API key or base URL.")
+        self.headers = {"Authorization": f"Bearer {self.api_key}"}
+        logger.info(f"✅ DoorLoopClient initialized. Using validated BASE URL: {self.base_url}")
+
+    def get_all(self, entity):
+        url = f"{self.base_url}/{entity}"
+        logger.info(f"📡 GET {url}")
+        response = requests.get(url, headers=self.headers)
         try:
-            response = requests.get(full_url, headers=self.headers)
-            if "text/html" in response.headers.get("Content-Type", ""):
-                logging.error(f"❌ HTML page received instead of JSON. Possible invalid endpoint or API key. URL: {full_url}")
-                raise ValueError("HTML response detected. Check API base URL and key.")
-            response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
-            logging.error(f"❌ Request failed: {e}")
-            raise
-        except ValueError as e:
-            logging.error(f"❌ Value error: {e}")
+        except Exception:
+            logger.error(f"❌ Failed to decode JSON from {url}: {response.text}")
             raise
