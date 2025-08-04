@@ -9,8 +9,6 @@ class DoorLoopClient:
         self.api_key = os.getenv("DOORLOOP_API_KEY")
         self.base_url = os.getenv("DOORLOOP_API_BASE_URL", "https://app.doorloop.com").rstrip("/")
 
-
-
         if not self.api_key:
             raise ValueError("DOORLOOP_API_KEY environment variable not set.")
 
@@ -18,6 +16,7 @@ class DoorLoopClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+
         self.endpoint_map = {
             "accounts": "accounts", "activity_logs": "activity-logs", "applications": "applications",
             "communications": "communications", "files": "files", "inspections": "inspections",
@@ -34,7 +33,8 @@ class DoorLoopClient:
         if entity_key not in self.endpoint_map:
             raise ValueError(f"Unknown entity type: {entity}")
 
-        endpoint = f"{self.base_url}/api/{self.endpoint_map[entity_key]}"
+        # ✅ Use v1 path
+        endpoint = f"{self.base_url}/api/v1/{self.endpoint_map[entity_key]}"
         params = params or {}
         results = []
         page = 1
@@ -45,12 +45,11 @@ class DoorLoopClient:
                 response = requests.get(endpoint, headers=self.headers, params=paged_params)
                 response.raise_for_status()
 
-                # FIX: Add a check for a valid JSON response before decoding.
                 if "application/json" in response.headers.get("Content-Type", ""):
                     data = response.json()
                 else:
                     logger.error(f"Non-JSON response received from {endpoint}. Status: {response.status_code}. Body: {response.text[:200]}")
-                    break # Stop trying to process a bad response
+                    break
 
                 if not data:
                     break
@@ -68,4 +67,5 @@ class DoorLoopClient:
             except requests.exceptions.RequestException as e:
                 logger.error(f"Request failed for {entity}: {e}")
                 break
+
         return results
