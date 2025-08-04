@@ -24,7 +24,8 @@ jobs:
       - name: Run Orchestrator
         env:
           DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
-          # FIX: This now correctly uses the secret from your GitHub settings.
+          # FIX: This now correctly uses the secret from your GitHub settings
+          # instead of a hardcoded value.
           DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
