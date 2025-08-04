@@ -1,9 +1,13 @@
+from doorloop_sync.config import get_logger
 
-from doorloop_sync.config import get_supabase_client
-from utils.decorators import task_error_handler
+# FIX: Pass the module name to the logger.
+logger = get_logger(__name__)
 
-supabase = get_supabase_client()
+def run():
+    """
+    Placeholder for the report normalization task.
+    """
+    # FIX: Add a placeholder run function to prevent the orchestrator from crashing.
+    logger.info("🧪 Normalization placeholder for reports — implementation required.")
+    pass
 
-@task_error_handler
-def normalize_reports():
-    print("normalize_reports() running [silent update]")
