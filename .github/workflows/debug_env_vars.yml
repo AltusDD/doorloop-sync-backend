@@ -1,0 +1,24 @@
+
+name: 🔍 Debug API & Supabase Env Vars
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-vars:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Echo Key Env Vars
+      run: |
+        echo "DOORLOOP_API_KEY: $DOORLOOP_API_KEY"
+        echo "DOORLOOP_API_BASE_URL: $DOORLOOP_API_BASE_URL"
+        echo "SUPABASE_URL: $SUPABASE_URL"
+        echo "SUPABASE_SERVICE_ROLE_KEY: $SUPABASE_SERVICE_ROLE_KEY"
+      env:
+        DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+        DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
