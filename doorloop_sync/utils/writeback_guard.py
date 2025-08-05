@@ -1,26 +1,16 @@
-# 🛠️ Empire Patch: Silent Tag Added
 
-ROLE_PERMISSIONS = {
-    'owner': {'GET', 'POST', 'PATCH', 'DELETE'},
-    'accounting': {'GET', 'POST', 'PATCH'},
-    'legal': {'GET', 'PATCH'},
-    'maintenance': {'GET', 'PATCH'},
-    'leasing': {'GET', 'POST'},
-    'viewer': {'GET'}
+# PATCH_SILENT_TAG: writeback_guard_update
+ALLOWED_USERS = {
+    "accounting@example.com": ["accounts", "tenants", "leases"],
+    "maintenance@example.com": ["work_orders"],
+    "legal@example.com": ["legal_cases"],
+    "admin@example.com": ["*"]
 }
 
-ENTITY_PERMISSIONS = {
-    'accounts': {'accounting', 'owner'},
-    'tenants': {'leasing', 'owner'},
-    'properties': {'leasing', 'maintenance', 'owner'},
-    'leases': {'leasing', 'owner'},
-    'work_orders': {'maintenance', 'owner'},
-    'legal_cases': {'owner'},
-}
+def can_writeback(user_email, entity_type):
+    permissions = ALLOWED_USERS.get(user_email, [])
+    return "*" in permissions or entity_type in permissions
 
-
-def is_write_allowed(user_role, method, entity_type):
-    if method not in {'POST', 'PATCH', 'DELETE'}:
-        return True
-    allowed_roles = ENTITY_PERMISSIONS.get(entity_type, set())
-    return user_role in allowed_roles and method in ROLE_PERMISSIONS.get(user_role, set())
+def enforce_writeback_permission(user_email, entity_type):
+    if not can_writeback(user_email, entity_type):
+        raise PermissionError(f"User {user_email} not authorized to modify {entity_type}.")

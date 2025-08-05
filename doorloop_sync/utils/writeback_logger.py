@@ -1,27 +1,16 @@
+# doorloop_sync/utils/writeback_logger.py
 
-# PATCH_SILENT_TAG: writeback_logger_update
-import os
-import requests
-from datetime import datetime
+def log_write_attempt(user_id: str, action: str, entity: str, entity_id: str, status: str, message: str = ""):
+    """
+    Logs all write attempts to DoorLoop, regardless of success/failure.
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-def log_writeback_audit(user_id, email, entity_type, action, payload):
-    data = {
-        "user_id": user_id,
-        "email": email,
-        "entity_type": entity_type,
-        "action": action,
-        "payload": payload,
-        "status": "pending",
-        "created_at": datetime.utcnow().isoformat()
-    }
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    res = requests.post(f"{SUPABASE_URL}/rest/v1/writeback_audit_log", json=data, headers=headers)
-    if res.status_code not in [200, 201]:
-        print(f"❌ Failed to log audit: {res.status_code} - {res.text}")
+    Args:
+        user_id (str): ID of the user attempting the write.
+        action (str): Action performed (e.g., PATCH, POST, DELETE).
+        entity (str): The type of entity affected (e.g., 'lease', 'property').
+        entity_id (str): The unique ID of the entity.
+        status (str): Result of the write ('success' or 'fail').
+        message (str, optional): Any additional context or error message.
+    """
+    # Placeholder: Replace with actual database or logging system call
+    print(f"[WRITEBACK LOG] user={user_id}, action={action}, entity={entity}, id={entity_id}, status={status}, message={message}")
