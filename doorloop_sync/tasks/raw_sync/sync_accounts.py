@@ -1,14 +1,19 @@
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.clients.supabase_client import SupabaseClient
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 def sync_accounts():
-    print("Starting raw sync for accounts...")
-    doorloop = DoorLoopClient()
-    supabase = SupabaseClient()
+    logger.info("Starting raw sync for accounts...")
+
+    api_key = os.environ.get("DOORLOOP_API_KEY")
+    base_url = os.environ.get("DOORLOOP_API_BASE_URL")
+
+    if not api_key or not base_url:
+        raise ValueError("Missing DOORLOOP_API_KEY or DOORLOOP_API_BASE_URL environment variables.")
+
+    doorloop = DoorLoopClient(api_key=api_key, base_url=base_url)
     all_records = doorloop.get_all("/api/accounts")
-    valid_records = [r for r in all_records if isinstance(r, dict)]
-    if not valid_records:
-        print("⏭️ Skipping upsert to 'doorloop_raw_accounts' — no valid records after standardization.")
-        return
-    supabase.upsert("doorloop_raw_accounts", valid_records)
-# [silent tag]
+
+    logger.info(f"✅ Synced {len(all_records)} accounts.")
