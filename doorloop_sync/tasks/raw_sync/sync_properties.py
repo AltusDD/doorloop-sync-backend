@@ -1,10 +1,8 @@
-import logging
+import os
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
 
-logger = logging.getLogger(__name__)
-
 def sync_properties():
-    logger.info("Starting raw sync for properties...")
-    doorloop = DoorLoopClient()
-    all_records = doorloop.get_all("/api/properties")
-    # Proceed with upsert or normalization logic here
+    doorloop = DoorLoopClient(api_key=os.getenv("DOORLOOP_API_KEY"), base_url=os.getenv("DOORLOOP_API_BASE_URL"))
+    endpoint = "/api/properties"
+    all_records = doorloop.get_all(endpoint)
+    # Placeholder for upsert or process logic

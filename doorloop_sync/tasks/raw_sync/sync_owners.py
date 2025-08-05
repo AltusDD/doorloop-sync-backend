@@ -1,8 +1,8 @@
+import os
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
-from doorloop_sync.utils.supabase_tools import upsert_raw_records
 
-def sync():
-    doorloop = DoorLoopClient()
-    endpoint = '/api/owners'
+def sync_owners():
+    doorloop = DoorLoopClient(api_key=os.getenv("DOORLOOP_API_KEY"), base_url=os.getenv("DOORLOOP_API_BASE_URL"))
+    endpoint = "/api/owners"
     all_records = doorloop.get_all(endpoint)
-    upsert_raw_records('doorloop_raw_owners', all_records)
+    # Placeholder for upsert or process logic
