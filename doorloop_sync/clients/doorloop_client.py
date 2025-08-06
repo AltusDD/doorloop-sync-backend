@@ -1,40 +1,33 @@
 import os
-import time
 import requests
+import time
 from typing import List, Dict, Any
+
 
 class DoorLoopClient:
     def __init__(self):
-        """
-        Initializes the client by automatically loading credentials from
-        environment variables.
-        """
-        self.api_key = os.getenv("DOORLOOP_API_KEY")
         self.base_url = os.getenv("DOORLOOP_API_BASE_URL")
+        self.api_key = os.getenv("DOORLOOP_API_KEY")
 
-        if not self.api_key or not self.base_url:
-            raise ValueError("DOORLOOP_API_KEY and DOORLOOP_API_BASE_URL must be set in the environment.")
+        if not self.base_url or not self.api_key:
+            raise EnvironmentError("DOORLOOP_API_BASE_URL and DOORLOOP_API_KEY must be set as environment variables.")
 
-    def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
+        print(f"[DoorLoopClient] ✅ Initialized. Using validated BASE URL: {self.base_url}")
+
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> requests.Response:
         """
-        Internal helper to make requests to the DoorLoop API with authentication.
+        Internal helper to make authorized requests to the DoorLoop API.
         """
+        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
+            "Accept": "application/json",
             "Content-Type": "application/json",
         }
-        full_url = self.base_url.rstrip("/") + "/" + url.lstrip("/")
-        
-        for attempt in range(3):
-            try:
-                response = requests.request(method, full_url, headers=headers, **kwargs)
-                response.raise_for_status()
-                return response
-            except requests.RequestException as e:
-                print(f"[DoorLoopClient] Request failed on attempt {attempt + 1}: {e}")
-                time.sleep(1 * (attempt + 1))
-        
-        raise Exception(f"Failed after 3 attempts for {method} {url}")
+        print(f"[DoorLoopClient] 🌐 Requesting: {url}")
+        response = requests.request(method, url, headers=headers, **kwargs)
+        response.raise_for_status()
+        return response
 
     def get_all(self, endpoint: str, max_pages: int = 1000, delay_between_pages: float = 0.2) -> List[Dict[str, Any]]:
         """
@@ -54,9 +47,6 @@ class DoorLoopClient:
                 print(f"[DoorLoopClient] ❌ Failed to fetch page {page} for {endpoint}: {e}")
                 break
 
-            # --- THIS IS THE FIX ---
-            # Handle enveloped responses by extracting the list from the 'data' key.
-            # If it's not a dictionary (i.e., it's already a list), use it directly.
             records = data.get('data', data) if isinstance(data, dict) else data
 
             if not isinstance(records, list):
@@ -68,10 +58,14 @@ class DoorLoopClient:
                 break
 
             unique_records = [item for item in records if item.get("id") not in seen_ids]
+            if not unique_records:
+                print(f"[DoorLoopClient] 🛑 No new unique records found on page {page}. Ending pagination.")
+                break
+
             for item in unique_records:
                 if item_id := item.get("id"):
                     seen_ids.add(item_id)
-            
+
             all_data.extend(unique_records)
 
             page += 1
