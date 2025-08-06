@@ -1,4 +1,3 @@
-
 import logging
 from doorloop_sync.clients.supabase_ingest_client import SupabaseIngestClient
 from doorloop_client import DoorLoopClient
@@ -12,7 +11,7 @@ def sync_owners():
 
     all_records = client.fetch_all("/api/owners")
     if not all_records:
-        logger.warning("⚠️ No owners data fetched.")
+        logger.warning(f"⚠️ No owners data fetched.")
         return
 
     for record in all_records:
