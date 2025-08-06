@@ -3,7 +3,7 @@ name: DoorLoop Sync
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */6 * * *'  # Optional: every 6 hours
+    - cron: '0 */6 * * *'  # Runs every 6 hours
 
 jobs:
   sync:
@@ -26,7 +26,7 @@ jobs:
       SQL_PROXY_SECRET: ${{ secrets.SQL_PROXY_SECRET }}
 
     steps:
-      - name: 🛎️ Checkout repo
+      - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
       - name: 🐍 Set up Python
@@ -39,6 +39,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🚀 Run Orchestrator
+      - name: 🚀 Run DoorLoop Sync Orchestrator
         run: |
           PYTHONPATH=. python orchestrator.py
