@@ -1,40 +1,79 @@
-import os
-import requests
 import time
+import requests
+from typing import List, Dict, Any
 
 class DoorLoopClient:
-    def __init__(self, api_key=None, base_url=None):
-        self.api_key = api_key or os.getenv("DOORLOOP_API_KEY")
-        self.base_url = base_url or os.getenv("DOORLOOP_API_BASE_URL")
-        if not self.api_key or not self.base_url:
-            raise ValueError("Missing DoorLoop API credentials.")
+    def __init__(self, api_key: str, base_url: str):
+        self.api_key = api_key
+        self.base_url = base_url
 
-        self.headers = {
+    def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
+        headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
+        full_url = self.base_url.rstrip("/") + "/" + url.lstrip("/")
+        for attempt in range(3):
+            try:
+                response = requests.request(method, full_url, headers=headers, **kwargs)
+                response.raise_for_status()
+                return response
+            except requests.RequestException:
+                time.sleep(1)
+        raise Exception(f"Failed after 3 attempts for {method} {url}")
 
-    def get_all(self, endpoint, delay_between_pages=0.3, max_pages=None):
-        all_results = []
+    def get_all(self, endpoint: str, max_pages: int = 1000, delay_between_pages: float = 0.2) -> List[Dict[str, Any]]:
+        import time
+        all_data = []
         page = 1
-        while True:
-            url = f"{self.base_url}{endpoint}?page={page}"
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 429:
-                retry_after = int(response.headers.get("Retry-After", 1))
-                time.sleep(retry_after)
-                continue
-            elif not response.ok:
-                raise Exception(f"DoorLoop API error {response.status_code}: {response.text}")
+        seen_ids = set()
+        consecutive_empty_pages = 0
 
+        while page <= max_pages:
+            print(f"[DoorLoopClient] 🔄 Fetching page {page} of {endpoint}")
+            response = self._make_request("GET", f"{endpoint}?page={page}")
             data = response.json()
-            results = data.get("data", [])
-            if not results:
-                break
 
-            all_results.extend(results)
-            if max_pages and page >= max_pages:
-                break
+            if not isinstance(data, list):
+                raise Exception(f"Expected list from API, got {type(data)} with content: {data}")
+
+            # Detect repeated or empty data
+            unique_data = [item for item in data if item.get("id") not in seen_ids]
+            for item in unique_data:
+                item_id = item.get("id")
+                if item_id:
+                    seen_ids.add(item_id)
+
+            if not unique_data:
+                consecutive_empty_pages += 1
+                if consecutive_empty_pages >= 3:
+                    print(f"[DoorLoopClient] 🚪 Ending pagination after {consecutive_empty_pages} empty/redundant pages.")
+                    break
+            else:
+                consecutive_empty_pages = 0
+                all_data.extend(unique_data)
+
             page += 1
             time.sleep(delay_between_pages)
-        return all_results
+
+        return all_data
+        all_data = []
+        page = 1
+        consecutive_empty_pages = 0
+        while page <= max_pages:
+            response = self._make_request("GET", f"{endpoint}?page={page}")
+            data = response.json()
+            if not isinstance(data, list):
+                raise Exception(f"Expected list from API, got {type(data)} with content: {data}")
+
+            if len(data) == 0:
+                consecutive_empty_pages += 1
+                if consecutive_empty_pages >= 3:
+                    break
+            else:
+                consecutive_empty_pages = 0
+                all_data.extend(data)
+
+            page += 1
+            time.sleep(delay_between_pages)
+        return all_data
