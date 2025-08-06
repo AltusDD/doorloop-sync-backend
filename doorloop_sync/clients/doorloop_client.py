@@ -23,29 +23,27 @@ class DoorLoopClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-        # Ensure the URL is constructed correctly
         full_url = self.base_url.rstrip("/") + "/" + url.lstrip("/")
         
-        # Simple retry logic
         for attempt in range(3):
             try:
                 response = requests.request(method, full_url, headers=headers, **kwargs)
-                response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+                response.raise_for_status()
                 return response
             except requests.RequestException as e:
                 print(f"[DoorLoopClient] Request failed on attempt {attempt + 1}: {e}")
-                time.sleep(1 * (attempt + 1)) # Exponential backoff
+                time.sleep(1 * (attempt + 1))
         
         raise Exception(f"Failed after 3 attempts for {method} {url}")
 
     def get_all(self, endpoint: str, max_pages: int = 1000, delay_between_pages: float = 0.2) -> List[Dict[str, Any]]:
         """
-        Fetches all pages of data from a given DoorLoop endpoint.
+        Fetches all pages of data from a given DoorLoop endpoint,
+        handling both simple list and enveloped dictionary responses.
         """
         all_data = []
         page = 1
         seen_ids = set()
-        consecutive_empty_pages = 0
 
         while page <= max_pages:
             print(f"[DoorLoopClient] 🔄 Fetching page {page} of {endpoint}")
@@ -54,26 +52,27 @@ class DoorLoopClient:
                 data = response.json()
             except Exception as e:
                 print(f"[DoorLoopClient] ❌ Failed to fetch page {page} for {endpoint}: {e}")
-                break # Stop if a page fails
-
-            if not isinstance(data, list):
-                print(f"[DoorLoopClient] ⚠️ Expected list from API, got {type(data)}. Stopping.")
                 break
 
-            # Filter out duplicate items seen on previous pages
-            unique_data = [item for item in data if item.get("id") not in seen_ids]
-            for item in unique_data:
+            # --- THIS IS THE FIX ---
+            # Handle enveloped responses by extracting the list from the 'data' key.
+            # If it's not a dictionary (i.e., it's already a list), use it directly.
+            records = data.get('data', data) if isinstance(data, dict) else data
+
+            if not isinstance(records, list):
+                print(f"[DoorLoopClient] ⚠️ Expected a list of records but got {type(records)}. Stopping.")
+                break
+
+            if not records:
+                print(f"[DoorLoopClient] 🚪 Ending pagination for {endpoint} on page {page} (no new records).")
+                break
+
+            unique_records = [item for item in records if item.get("id") not in seen_ids]
+            for item in unique_records:
                 if item_id := item.get("id"):
                     seen_ids.add(item_id)
-
-            if not unique_data:
-                consecutive_empty_pages += 1
-                if consecutive_empty_pages >= 3:
-                    print(f"[DoorLoopClient] 🚪 Ending pagination for {endpoint} after {consecutive_empty_pages} empty/redundant pages.")
-                    break
-            else:
-                consecutive_empty_pages = 0
-                all_data.extend(unique_data)
+            
+            all_data.extend(unique_records)
 
             page += 1
             if delay_between_pages > 0:
