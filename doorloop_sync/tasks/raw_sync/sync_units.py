@@ -1,6 +1,6 @@
 
 import logging
-from supabase_ingest_client import SupabaseIngestClient
+from doorloop_sync.clients.supabase_ingest_client import SupabaseIngestClient
 from doorloop_client import DoorLoopClient
 
 logger = logging.getLogger(__name__)
