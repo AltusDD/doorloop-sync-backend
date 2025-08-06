@@ -2,17 +2,18 @@ import os
 import requests
 from doorloop_sync.utils.logger import log_insert_success, log_insert_failure
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
 class SupabaseIngestClient:
     def __init__(self):
-        if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-            raise ValueError("Supabase credentials not set in environment variables.")
-        self.base_url = f"{SUPABASE_URL}/rest/v1"
+        self.url = os.getenv("SUPABASE_URL")
+        self.key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+        if not self.url or not self.key:
+            raise EnvironmentError("Supabase credentials not set in environment variables.")
+
+        self.base_url = f"{self.url}/rest/v1"
         self.headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
             "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates"
         }
