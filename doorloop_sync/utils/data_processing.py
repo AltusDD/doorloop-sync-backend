@@ -1,12 +1,6 @@
-def standardize_records(records):
-    """
-    Ensures each record is a flat dictionary. Filters out any invalid or nested objects.
-    """
-    if not isinstance(records, list):
-        return []
 
-    cleaned = []
-    for rec in records:
-        if isinstance(rec, dict):
-            cleaned.append(rec)
-    return cleaned
+def clean_record(record: dict) -> dict:
+    for k, v in record.items():
+        if isinstance(v, str) and v.strip() == "":
+            record[k] = None
+    return record
