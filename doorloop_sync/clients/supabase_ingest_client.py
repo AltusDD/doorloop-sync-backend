@@ -2,6 +2,8 @@ import os
 import requests
 from doorloop_sync.utils.logger import log_insert_success, log_insert_failure
 
+# 🛠️ FIXED: ENV now read at init-time, not import-time (GH silent)
+
 class SupabaseIngestClient:
     def __init__(self):
         self.url = os.getenv("SUPABASE_URL")
