@@ -1,42 +1,9 @@
-from supabase import create_client, Client
-from postgrest.exceptions import APIError
-import logging
 import os
-import json
+import logging
+from supabase import create_client, Client, APIError
+from doorloop_sync.utils.data_types import standardize_for_storage
 
 logger = logging.getLogger(__name__)
-
-def standardize_records(records: list) -> list[dict]:
-    """
-    Ensures all dictionaries in a list have the same set of keys.
-    It finds all unique keys across all valid records and adds any missing keys
-    to each record with a value of None. It safely ignores any items in the
-    list that are not dictionaries.
-    """
-    if not records:
-        return []
-
-    # FIX: Filter out any items that are not dictionaries to prevent AttributeErrors.
-    valid_records = [r for r in records if isinstance(r, dict)]
-
-    if not valid_records:
-        logger.warning("No valid dictionary records found in payload to standardize.")
-        return []
-
-    # Use a set to collect all unique keys from all valid records
-    all_keys = set()
-    for record in valid_records:
-        all_keys.update(record.keys())
-
-    # Create a new list of standardized records
-    standardized = []
-    for record in valid_records:
-        new_record = {}
-        for key in all_keys:
-            new_record[key] = record.get(key)
-        standardized.append(new_record)
-        
-    return standardized
 
 class SupabaseClient:
     def __init__(self):
@@ -46,36 +13,50 @@ class SupabaseClient:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.")
         self.supabase: Client = create_client(url, key)
 
-    def upsert(self, table: str, data: list):
+    def fetch_all(self, table: str):
+        logger.info(f"ℹ️ Fetching all records from table: {table}")
+        try:
+            response = self.supabase.table(table).select("*").execute()
+            return response.data
+        except APIError as e:
+            logger.error(f"❌ API Error fetching from '{table}': {e.message}")
+            return []
+        except Exception as e:
+            logger.error(f"❌ Unexpected Error fetching from '{table}': {e}", exc_info=True)
+            return []
+
+    def upsert(self, table: str, data: list, on_conflict_column: str = None):
+        """
+        Upserts a list of records into a Supabase table.
+        
+        Args:
+            table: The name of the table to upsert into.
+            data: A list of dictionaries representing the records.
+            on_conflict_column: The unique column to use for conflict resolution.
+                                Defaults to the table's primary key.
+        """
         if not data:
             logger.warning(f"⏭️ Skipping upsert to '{table}' — payload was empty.")
             return {}
 
-        standardized_data = standardize_records(data)
-        
-        if not standardized_data:
-            logger.warning(f"⏭️ Skipping upsert to '{table}' — no valid records after standardization.")
-            return {}
-
+        logger.info(f"ℹ️ Upserting {len(data)} records to table: {table}")
         try:
-            response = self.supabase.table(table).upsert(standardized_data).execute()
+            standardized_data = [standardize_for_storage(item) for item in data]
+            
+            # ✅ FIX: Pass the on_conflict_column to the Supabase client
+            response = self.supabase.table(table).upsert(
+                standardized_data, 
+                on_conflict=on_conflict_column
+            ).execute()
+
             logger.info(f"✅ Successfully upserted {len(standardized_data)} records to '{table}'.")
             return response
         except APIError as e:
-            logger.error(f"❌ Supabase APIError on upsert to '{table}' with {len(standardized_data)} records.")
+            logger.error(f"❌ Supabase APIError on upsert to '{table}' with {len(data)} records.")
             logger.error(f"   Error Message: {e.message}")
-            if standardized_data:
-                logger.error(f"   Sample Payload Keys: {list(standardized_data[0].keys())}")
+            if data:
+                logger.error(f"   Sample Payload Keys: {list(data[0].keys())}")
             raise
         except Exception as e:
-            logger.error(f"❌ An unexpected error occurred during upsert to '{table}'.")
-            logger.exception(e)
+            logger.error(f"❌ Unexpected Error upserting to '{table}': {e}", exc_info=True)
             raise
-
-    def fetch_all(self, table: str):
-        try:
-            response = self.supabase.table(table).select("*").execute()
-            return response.data
-        except Exception as e:
-            logger.error(f"Failed to fetch data from table '{table}': {e}")
-            return []
