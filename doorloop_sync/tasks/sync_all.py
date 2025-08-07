@@ -9,6 +9,7 @@ from doorloop_sync.tasks.raw_sync.sync_vendors import sync_vendors
 from doorloop_sync.tasks.raw_sync.sync_tasks import sync_tasks
 
 # --- Import Financial Sync Functions ---
+# This is the function you are using
 from doorloop_sync.tasks.raw_sync.sync_lease_payments import sync_lease_payments
 from doorloop_sync.tasks.raw_sync.sync_lease_charges import sync_lease_charges
 from doorloop_sync.tasks.raw_sync.sync_lease_credits import sync_lease_credits
@@ -33,8 +34,6 @@ def sync_all():
     """
     logger.info("🔁 Starting full DoorLoop sync for all entities...")
 
-    # The order of this list is critical to respect data dependencies.
-    # For example, Properties must exist before Units can be linked to them.
     sync_tasks_list = [
         # Phase 1: Core Independent Entities
         ("Accounts", sync_accounts),
@@ -54,7 +53,9 @@ def sync_all():
         # Phase 4: Lease-Related Financial Transactions
         ("Lease Charges", sync_lease_charges),
         ("Lease Credits", sync_lease_credits),
-        ("Lease Payments", sync_payments),
+        # --- THIS IS THE FIX ---
+        # The function name must match the import: sync_lease_payments
+        ("Lease Payments", sync_lease_payments),
         
         # Phase 5: Operational & Supporting Data
         ("Tasks (incl. Work Orders)", sync_tasks),
