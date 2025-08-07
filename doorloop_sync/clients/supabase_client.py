@@ -1,6 +1,7 @@
 import os
 import logging
-from supabase import create_client, Client, APIError
+from supabase import create_client, Client
+from postgrest.exceptions import APIError  # ✅ FIX: Correct import path for APIError
 from doorloop_sync.utils.data_types import standardize_for_storage
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,6 @@ class SupabaseClient:
         try:
             standardized_data = [standardize_for_storage(item) for item in data]
             
-            # ✅ FIX: Pass the on_conflict_column to the Supabase client
             response = self.supabase.table(table).upsert(
                 standardized_data, 
                 on_conflict=on_conflict_column
