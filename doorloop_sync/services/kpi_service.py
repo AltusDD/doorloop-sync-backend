@@ -1,6 +1,6 @@
 import logging
-# Use the full SupabaseClient that can read data
-from doorloop_sync.clients.supabase_client import SupabaseClient 
+from doorloop_sync.clients.supabase_client import SupabaseClient
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -8,46 +8,69 @@ class KpiService:
     @staticmethod
     def compute_and_store_all_kpis():
         """
-        Connects to Supabase, computes all core KPIs from the clean tables,
-        and stores them in the kpi_summary table.
+        Main orchestrator for all KPI-related calculations and storage.
         """
-        logger.info("📊 Starting KPI computation...")
-        
+        logger.info("--- Starting KPI Computation ---")
+        supabase = SupabaseClient()
+
+        # Phase 1: Core calculations
+        KpiService._calculate_delinquency_and_collections(supabase)
+
+        # Phase 2: Final summary table generation
+        KpiService._summarize_kpis(supabase)
+
+        logger.info("--- KPI Computation Finished ---")
+
+    @staticmethod
+    def _calculate_delinquency_and_collections(supabase: SupabaseClient):
+        """
+        Updates lease delinquency stages based on their current balance.
+        """
+        logger.info("Calculating delinquency stages for all active leases...")
         try:
-            supabase = SupabaseClient()
-            kpis = {}
+            leases_response = supabase.fetch_all('leases')
+            if not leases_response:
+                logger.warning("No leases found to process for delinquency.")
+                return
 
-            # --- Fetch all necessary data from the clean tables ---
-            properties = supabase.fetch_all("properties")
-            units = supabase.fetch_all("units")
-            leases = supabase.fetch_all("leases")
-            
-            # --- Perform Real Calculations ---
-            kpis["total_properties"] = len(properties) if properties else 0
-            kpis["total_units"] = len(units) if units else 0
-            
-            active_leases = [l for l in leases if l and l.get("status") == "ACTIVE"] if leases else []
-            kpis["active_leases"] = len(active_leases)
-            
-            # Calculate Occupancy Rate based on active leases with assigned units
-            occupied_unit_ids = {l.get("unit_id_dl") for l in active_leases if l.get("unit_id_dl")}
-            occupied_units_count = len(occupied_unit_ids)
-            
-            if kpis["total_units"] > 0:
-                occupancy_rate = (occupied_units_count / kpis["total_units"]) * 100
-                kpis["occupancy_rate"] = round(occupancy_rate, 2)
+            leases = leases_response
+
+            updates_to_perform = []
+            for lease in leases:
+                # Only consider active leases for delinquency updates
+                if lease.get('status') != 'ACTIVE':
+                    continue
+
+                lease_id = lease.get('id')
+                current_stage = lease.get('delinquency_stage')
+                new_stage = 'Current'
+
+                # ✅ FIX: Explicitly convert total_balance_due to a float for comparison.
+                if float(lease.get('total_balance_due') or 0) > 0:
+                    new_stage = 'Delinquent'
+                else:
+                    new_stage = 'Current'
+
+                # Only create an update payload if the stage has actually changed
+                if current_stage != new_stage:
+                    updates_to_perform.append({'id': lease_id, 'delinquency_stage': new_stage})
+
+            if updates_to_perform:
+                logger.info(f"Found {len(updates_to_perform)} leases to update delinquency status.")
+                # Use the batch upsert method for efficiency
+                supabase.upsert('leases', updates_to_perform)
+                logger.info("Successfully updated delinquency stages.")
             else:
-                kpis["occupancy_rate"] = 0
-
-            # --- Store the KPIs ---
-            # Upsert the results into the kpi_summary table.
-            # The 'id' of 1 ensures we are always overwriting the same row.
-            supabase.upsert("kpi_summary", [{"id": 1, "kpis": kpis}])
-            
-            logger.info(f"✅ Stored KPI summary: {kpis}")
+                logger.info("No delinquency stage updates were needed; all leases are current.")
 
         except Exception as e:
-            logger.error(f"❌ KPI Service failed: {e}", exc_info=True)
+            logger.error(f"Failed during delinquency calculation: {e}", exc_info=True)
             raise
 
-# kpi_service.py [silent tag]
+    @staticmethod
+    def _summarize_kpis(supabase: SupabaseClient):
+        """
+        Placeholder for summarizing data into KPI tables.
+        """
+        logger.info("Summarizing KPIs (not yet implemented).")
+        pass
