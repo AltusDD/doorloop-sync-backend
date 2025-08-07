@@ -31,5 +31,6 @@ def normalize_properties():
         })
     
     if normalized_properties:
-        supabase.upsert('properties', normalized_properties)
+        # ✅ FIX: Tell the upsert command to use 'doorloop_id' for conflict resolution
+        supabase.upsert('properties', normalized_properties, on_conflict_column='doorloop_id')
         logger.info(f"Successfully normalized and upserted {len(normalized_properties)} properties.")
