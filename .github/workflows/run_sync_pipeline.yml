@@ -24,6 +24,12 @@ jobs:
           pip install rich
 
       - name: 🚀 Run Orchestrator and Save Logs
+        # THIS IS THE FIX: Add the 'env' block to pass secrets to the script
+        env:
+          DOORLOOP_API_KEY: ${{ secrets.DOORLOOP_API_KEY }}
+          DOORLOOP_API_BASE_URL: ${{ secrets.DOORLOOP_API_BASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python orchestrator.py > sync_output.log 2>&1 || true
 
@@ -32,7 +38,6 @@ jobs:
           python sync_health_check.py sync_output.log || true
 
       - name: 📦 Upload Sync Output Log
-        # CORRECTED: Use the correct version format 'v4'
         uses: actions/upload-artifact@v4
         with:
           name: sync-output-log
