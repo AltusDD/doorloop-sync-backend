@@ -1,22 +1,48 @@
 import logging
+# CORRECTED: Use the full, absolute path to the client module
+from doorloop_sync.clients.doorloop_client import DoorLoopClient
 from doorloop_sync.clients.supabase_ingest_client import SupabaseIngestClient
-from doorloop_client import DoorLoopClient
-
-logger = logging.getLogger(__name__)
+from doorloop_sync.utils.logger import log_sync_start, log_sync_end, log_error
+from doorloop_sync.utils.data_processing import clean_record
 
 def sync_vendors():
-    logger.info("🚀 Starting sync for: vendors")
-    client = DoorLoopClient()
-    supabase = SupabaseIngestClient()
+    """
+    Fetches all vendors from DoorLoop and upserts them into the 'vendors' table.
+    """
+    entity = "vendors"
+    log_sync_start(entity)
+    
+    try:
+        client = DoorLoopClient()
+        supabase = SupabaseIngestClient()
+        
+        all_records = client.get_all("/api/vendors")
+        
+        if not all_records:
+            log_sync_end(entity, 0)
+            return
 
-    all_records = client.fetch_all("/api/vendors")
-    if not all_records:
-        logger.warning(f"⚠️ No vendors data fetched.")
-        return
+        normalized_records = []
+        for item in all_records:
+            record = {
+                "doorloop_id": item.get("id"),
+                "first_name": item.get("firstName"),
+                "last_name": item.get("lastName"),
+                "full_name": item.get("fullName"),
+                "display_name": item.get("name"),
+                "company_name": item.get("companyName"),
+                "notes": item.get("notes"),
+                "active": item.get("active", True),
+                "balance_cents": int(float(item.get("balance", 0)) * 100),
+                "created_at": item.get("createdAt"),
+                "updated_at": item.get("updatedAt"),
+            }
+            normalized_records.append(clean_record(record))
 
-    for record in all_records:
-        record.setdefault("active", True)
+        supabase.insert_records("vendors", normalized_records, entity)
+        log_sync_end(entity, len(normalized_records))
 
-    response = supabase.upsert("vendors", all_records)
-    logger.info(f"✅ Completed sync for vendors. Records processed: {len(all_records)}")
-    return response
+    except Exception as e:
+        log_error(entity, str(e))
+
+# sync_vendors.py [silent tag]
