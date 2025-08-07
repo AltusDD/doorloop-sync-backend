@@ -11,13 +11,13 @@ class KpiService:
         Main orchestrator for all KPI-related calculations and storage.
         """
         logger.info("--- Starting KPI Computation ---")
+        
+        # Create a client instance for the first phase
         supabase = SupabaseClient()
-
-        # Phase 1: Core calculations
         KpiService._calculate_delinquency_and_collections(supabase)
 
-        # Phase 2: Final summary table generation
-        KpiService._summarize_kpis(supabase)
+        # The second phase will create its own client instance
+        KpiService._summarize_kpis()
 
         logger.info("--- KPI Computation Finished ---")
 
@@ -34,7 +34,6 @@ class KpiService:
                 return
 
             leases = leases_response
-
             updates_to_perform = []
             for lease in leases:
                 if lease.get('status') != 'ACTIVE':
@@ -64,26 +63,23 @@ class KpiService:
             raise
 
     @staticmethod
-    def _summarize_kpis(supabase: SupabaseClient):
+    def _summarize_kpis():
         """
         Calculates all core business KPIs and saves the snapshot to the kpi_summary table.
         """
         logger.info("Summarizing all core KPIs...")
         try:
-            # --- Fetch all necessary data and add DEBUG logging ---
+            # ✅ FIX: Create a new, clean SupabaseClient instance for this specific task.
+            # This ensures a fresh connection state, bypassing issues from previous operations.
+            supabase = SupabaseClient()
+
             properties = supabase.fetch_all('properties')
-            logger.info(f"DEBUG: Fetched {len(properties) if properties else 0} records from 'properties'.")
-
             units = supabase.fetch_all('units')
-            logger.info(f"DEBUG: Fetched {len(units) if units else 0} records from 'units'.")
-
             leases = supabase.fetch_all('leases')
-            logger.info(f"DEBUG: Fetched {len(leases) if leases else 0} records from 'leases'.")
 
-            # --- Perform KPI Calculations ---
             total_properties = len(properties) if properties else 0
             total_units = len(units) if units else 0
-
+            
             active_leases_list = [l for l in leases if l.get('status') == 'ACTIVE'] if leases else []
             total_active_leases = len(active_leases_list)
 
@@ -100,7 +96,6 @@ class KpiService:
                 'total_active_leases': total_active_leases,
                 'total_delinquency': round(total_delinquency, 2)
             }
-
             logger.info(f"Calculated KPIs: {kpi_payload}")
 
             supabase.supabase.table('kpi_summary').delete().neq('id', -1).execute()
