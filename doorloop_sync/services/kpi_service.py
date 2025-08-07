@@ -1,5 +1,5 @@
 import logging
-# Use the full SupabaseClient that can read data, not just the ingest client.
+# Use the full SupabaseClient that can read data
 from doorloop_sync.clients.supabase_client import SupabaseClient 
 
 logger = logging.getLogger(__name__)
