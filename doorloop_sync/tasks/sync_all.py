@@ -1,8 +1,9 @@
 import logging
 # --- Import all raw sync functions ---
+# FIX: Removed imports for unsupported endpoints
 from doorloop_sync.tasks.raw_sync import (
-    sync_accounts, sync_activity_logs, sync_applications, sync_communications,
-    sync_files, sync_inspections, sync_insurance_policies, sync_leases,
+    sync_accounts, sync_communications,
+    sync_files, sync_leases,
     sync_lease_charges, sync_lease_credits, sync_lease_payments, sync_notes,
     sync_owners, sync_portfolios, sync_properties, sync_tasks,
     sync_tenants, sync_units, sync_users, sync_vendors
@@ -19,15 +20,14 @@ def sync_all():
     """
     logger.info("🔁 Starting full DoorLoop sync for all entities...")
 
+    # FIX: Removed the four failing/unsupported sync tasks from this list
     sync_tasks_list = [
         ("Accounts", sync_accounts), ("Users", sync_users), ("Portfolios", sync_portfolios),
         ("Vendors", sync_vendors), ("Owners", sync_owners), ("Properties", sync_properties),
         ("Units", sync_units), ("Tenants", sync_tenants), ("Leases", sync_leases),
         ("Lease Charges", sync_lease_charges), ("Lease Credits", sync_lease_credits),
         ("Lease Payments", sync_lease_payments), ("Tasks", sync_tasks),
-        ("Communications", sync_communications), ("Notes", sync_notes), ("Files", sync_files),
-        ("Insurance Policies", sync_insurance_policies), ("Inspections", sync_inspections),
-        ("Applications", sync_applications), ("Activity Logs", sync_activity_logs)
+        ("Communications", sync_communications), ("Notes", sync_notes), ("Files", sync_files)
     ]
 
     # --- Phase 1: Raw Data Ingestion ---
