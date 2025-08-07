@@ -6,3 +6,4 @@ uvicorn[standard]>=0.29.0
 
 # Added dependency to load environment variables from .env file
 python-dotenv>=1.0.0
+pandas==2.2.2
