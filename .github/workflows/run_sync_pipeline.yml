@@ -32,7 +32,8 @@ jobs:
           python sync_health_check.py sync_output.log || true
 
       - name: 📦 Upload Sync Output Log
-        uses: actions/upload-artifact@4
+        # CORRECTED: Use the correct version format 'v4'
+        uses: actions/upload-artifact@v4
         with:
           name: sync-output-log
           path: sync_output.log
