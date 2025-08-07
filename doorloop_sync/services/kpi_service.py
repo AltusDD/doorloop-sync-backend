@@ -1,10 +1,10 @@
 import logging
-# CORRECTED: Use absolute imports
+# CORRECTED: Use absolute imports to find the client
 from doorloop_sync.clients.supabase_ingest_client import SupabaseIngestClient
 
 logger = logging.getLogger(__name__)
 
-# CORRECTED: Wrap logic in a class to match how it's called
+# CORRECTED: Wrap logic in a class to match how it's called in sync_all.py
 class KpiService:
     @staticmethod
     def compute_and_store_all_kpis():
@@ -15,13 +15,11 @@ class KpiService:
         logger.info("📊 Starting KPI computation...")
         
         try:
-            supabase = SupabaseIngestClient() # Assumes this can provide access to the client
+            # This assumes your SupabaseIngestClient can also be used for reads,
+            # or you have another client for that.
+            supabase = SupabaseIngestClient() 
             kpis = {}
 
-            # This logic assumes you have a way to access the Supabase client directly.
-            # You may need to adjust how you get the client instance.
-            # For now, let's assume a placeholder for fetching data.
-            
             # --- Placeholder for fetching logic ---
             # In a real scenario, you would use a Supabase client to run queries.
             # e.g., properties = supabase.fetch_all("properties")
