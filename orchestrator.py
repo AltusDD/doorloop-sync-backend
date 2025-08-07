@@ -28,8 +28,10 @@ def main():
     )
     logger = logging.getLogger(__name__)
 
-    # Use SUPABASE_KEY as it's the more common name for the service role key
-    required_vars = ['DOORLOOP_API_KEY', 'DOORLOOP_API_BASE_URL', 'SUPABASE_URL', 'SUPABASE_KEY']
+    # --- THIS IS THE FIX ---
+    # The list of required variables now looks for the correct secret name
+    # for the Supabase service role key.
+    required_vars = ['DOORLOOP_API_KEY', 'DOORLOOP_API_BASE_URL', 'SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']
     missing_vars = [var for var in required_vars if not os.getenv(var)]
     
     if missing_vars:
@@ -49,4 +51,3 @@ if __name__ == "__main__":
     main()
 
 # orchestrator.py [silent tag]
-# Orchestrator logic
