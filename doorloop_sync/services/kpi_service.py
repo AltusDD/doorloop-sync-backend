@@ -1,6 +1,5 @@
 import logging
 from doorloop_sync.clients.supabase_client import SupabaseClient
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -9,82 +8,52 @@ class KpiService:
     def compute_and_store_all_kpis():
         """
         Main orchestrator for all KPI-related calculations and storage.
+        This single, robust function reads all data once, performs all calculations,
+        and then writes all results back to the database.
         """
         logger.info("--- Starting KPI Computation ---")
-        
-        # Create a client instance for the first phase
         supabase = SupabaseClient()
-        KpiService._calculate_delinquency_and_collections(supabase)
 
-        # The second phase will create its own client instance
-        KpiService._summarize_kpis()
-
-        logger.info("--- KPI Computation Finished ---")
-
-    @staticmethod
-    def _calculate_delinquency_and_collections(supabase: SupabaseClient):
-        """
-        Updates lease delinquency stages based on their current balance.
-        """
-        logger.info("Calculating delinquency stages for all active leases...")
         try:
-            leases_response = supabase.fetch_all('leases')
-            if not leases_response:
-                logger.warning("No leases found to process for delinquency.")
-                return
-
-            leases = leases_response
-            updates_to_perform = []
-            for lease in leases:
-                if lease.get('status') != 'ACTIVE':
-                    continue
-
-                lease_id = lease.get('id')
-                current_stage = lease.get('delinquency_stage')
-                new_stage = 'Current'
-
-                if float(lease.get('total_balance_due') or 0) > 0:
-                    new_stage = 'Delinquent'
-                else:
-                    new_stage = 'Current'
-
-                if current_stage != new_stage:
-                    updates_to_perform.append({'id': lease_id, 'delinquency_stage': new_stage})
-
-            if updates_to_perform:
-                logger.info(f"Found {len(updates_to_perform)} leases to update delinquency status.")
-                supabase.upsert('leases', updates_to_perform)
-                logger.info("Successfully updated delinquency stages.")
-            else:
-                logger.info("No delinquency stage updates were needed; all leases are current.")
-
-        except Exception as e:
-            logger.error(f"Failed during delinquency calculation: {e}", exc_info=True)
-            raise
-
-    @staticmethod
-    def _summarize_kpis():
-        """
-        Calculates all core business KPIs and saves the snapshot to the kpi_summary table.
-        """
-        logger.info("Summarizing all core KPIs...")
-        try:
-            # ✅ FIX: Create a new, clean SupabaseClient instance for this specific task.
-            # This ensures a fresh connection state, bypassing issues from previous operations.
-            supabase = SupabaseClient()
-
+            # ======================================================================
+            # PHASE 1: READ ALL DATA
+            # Fetch all data from the database a single time at the beginning.
+            # ======================================================================
+            logger.info("Fetching all required data from Supabase...")
             properties = supabase.fetch_all('properties')
             units = supabase.fetch_all('units')
             leases = supabase.fetch_all('leases')
+            logger.info(f"Successfully fetched {len(properties)} properties, {len(units)} units, and {len(leases)} leases.")
 
-            total_properties = len(properties) if properties else 0
-            total_units = len(units) if units else 0
+            if not leases:
+                logger.warning("No leases found. Skipping KPI calculation.")
+                return
+
+            # ======================================================================
+            # PHASE 2: PERFORM ALL CALCULATIONS IN MEMORY
+            # ======================================================================
+            logger.info("Performing all calculations in memory...")
+
+            # --- Delinquency Stage Calculation ---
+            lease_updates_to_perform = []
+            for lease in leases:
+                if lease.get('status') == 'ACTIVE':
+                    current_stage = lease.get('delinquency_stage')
+                    new_stage = 'Current'
+                    if float(lease.get('total_balance_due') or 0) > 0:
+                        new_stage = 'Delinquent'
+                    
+                    if current_stage != new_stage:
+                        lease_updates_to_perform.append({'id': lease.get('id'), 'delinquency_stage': new_stage})
+
+            # --- KPI Summary Calculation ---
+            total_properties = len(properties)
+            total_units = len(units)
             
-            active_leases_list = [l for l in leases if l.get('status') == 'ACTIVE'] if leases else []
+            active_leases_list = [l for l in leases if l.get('status') == 'ACTIVE']
             total_active_leases = len(active_leases_list)
 
-            occupied_units = total_active_leases
-            occupancy_rate = (occupied_units / total_units) * 100 if total_units > 0 else 0
+            occupancy_rate = (total_active_leases / total_units) * 100 if total_units > 0 else 0
 
             delinquent_leases = [l for l in active_leases_list if float(l.get('total_balance_due') or 0) > 0]
             total_delinquency = sum(float(l.get('total_balance_due') or 0) for l in delinquent_leases)
@@ -98,14 +67,25 @@ class KpiService:
             }
             logger.info(f"Calculated KPIs: {kpi_payload}")
 
-            supabase.supabase.table('kpi_summary').delete().neq('id', -1).execute()
-            logger.info("Cleared previous KPI summary.")
+            # ======================================================================
+            # PHASE 3: WRITE ALL RESULTS TO DATABASE
+            # ======================================================================
+            logger.info("Writing all results to the database...")
 
+            # --- Write lease delinquency updates ---
+            if lease_updates_to_perform:
+                logger.info(f"Updating delinquency status for {len(lease_updates_to_perform)} leases...")
+                supabase.upsert('leases', lease_updates_to_perform)
+                logger.info("Successfully updated delinquency stages.")
+
+            # --- Write the KPI summary snapshot ---
+            supabase.supabase.table('kpi_summary').delete().neq('id', -1).execute()
             payload_to_insert = [{'id': 1, 'kpis': kpi_payload}]
             supabase.supabase.table('kpi_summary').insert(payload_to_insert).execute()
-
             logger.info("✅ Successfully inserted new KPI summary snapshot.")
 
+            logger.info("--- KPI Computation Finished ---")
+
         except Exception as e:
-            logger.error(f"Failed during KPI summarization: {e}", exc_info=True)
+            logger.error(f"A critical error occurred during KPI computation: {e}", exc_info=True)
             raise
