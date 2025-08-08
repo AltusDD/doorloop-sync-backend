@@ -34,7 +34,6 @@ class SupabaseClient:
         logger.info(f"ℹ️ Upserting {len(data)} records to table: {table}")
         try:
             standardized_data = [standardize_record(item) for item in data]
-            
             response = self.supabase.table(table).upsert(
                 standardized_data, 
                 on_conflict=on_conflict_column
