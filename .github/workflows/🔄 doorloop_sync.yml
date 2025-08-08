@@ -24,14 +24,11 @@ jobs:
           pip install -r requirements.txt
 
       # ✅ NEW DEBUGGING STEP ADDED HERE
-      - name: 🐛 Debug File Structure and Python Path
+      - name: 🐛 DEBUG - Verify File Content
         run: |
-          echo "--- Current Working Directory ---"
-          pwd
-          echo "--- Listing All Files (Recursive) ---"
-          ls -R
-          echo "--- Python Path ---"
-          python -c "import sys; print(sys.path)"
+          echo "--- Verifying content of supabase_client.py ---"
+          cat ./doorloop_sync/clients/supabase_client.py
+          echo "--- End of file content ---"
 
       - name: Run ETL Pipeline
         env:
