@@ -23,10 +23,11 @@ def normalize_units():
             'beds': record.get('beds'),
             'baths': record.get('baths'),
             'size': record.get('size'),
-            'market_rent': record.get('marketRent'),
+            # ✅ FIX: Changed key to match the database blueprint
+            'rent_amount': record.get('marketRent'),
             'doorloop_property_id': record.get('property'),
         })
     
     if normalized_units:
-        supabase.upsert('units', normalized_units)
+        supabase.upsert('units', normalized_units, on_conflict_column='doorloop_id')
         logger.info(f"Successfully normalized and upserted {len(normalized_units)} units.")
