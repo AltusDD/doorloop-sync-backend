@@ -1,7 +1,7 @@
 from doorloop_sync.clients.doorloop_client import DoorLoopClient
 from doorloop_sync.clients.supabase_ingest_client import SupabaseIngestClient
 from doorloop_sync.utils.logger import log_sync_start, log_sync_end, log_error
-from doorloop_sync.utils.data_processing import clean_record
+from doorloop_sync.utils.utils_data import standardize_record
 
 def sync_activity_logs():
     """
@@ -32,7 +32,7 @@ def sync_activity_logs():
                 "resource_type": item.get("resourceType"),
                 "created_at": item.get("createdAt"),
             }
-            normalized_records.append(clean_record(record))
+            normalized_records.append(standardize_record(record))
 
         supabase.insert_records("activity_logs", normalized_records, entity)
         log_sync_end(entity, len(normalized_records))
