@@ -4,10 +4,6 @@ from doorloop_sync.clients.supabase_client import SupabaseClient
 logger = logging.getLogger(__name__)
 
 def normalize_leases():
-    """
-    Fetches raw lease data, transforms it, and upserts it into the
-    final 'leases' table.
-    """
     supabase = SupabaseClient()
     raw_leases = supabase.fetch_all('doorloop_raw_leases')
     if not raw_leases:
@@ -17,7 +13,6 @@ def normalize_leases():
     normalized_leases = []
     for item in raw_leases:
         record = item.get('data', {})
-        # Assuming the first unit and tenant are the primary ones for this lease
         primary_unit_id = record.get('units', [None])[0]
         primary_tenant_id = record.get('tenants', [None])[0]
 
@@ -35,5 +30,6 @@ def normalize_leases():
         })
 
     if normalized_leases:
-        supabase.upsert('leases', normalized_leases)
+        # ✅ FIX: Explicitly set the conflict column to 'doorloop_id'
+        supabase.upsert('leases', normalized_leases, on_conflict_column='doorloop_id')
         logger.info(f"Successfully normalized and upserted {len(normalized_leases)} leases.")
