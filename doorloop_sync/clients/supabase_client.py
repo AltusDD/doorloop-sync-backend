@@ -2,7 +2,6 @@ import os
 import logging
 from supabase import create_client, Client
 from postgrest.exceptions import APIError
-# ✅ FIX: Import the renamed function from the renamed file
 from doorloop_sync.utils.utils_data import standardize_record
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,6 @@ class SupabaseClient:
 
         logger.info(f"ℹ️ Upserting {len(data)} records to table: {table}")
         try:
-            # ✅ FIX: Call the renamed function to prepare the data
             standardized_data = [standardize_record(item) for item in data]
             
             response = self.supabase.table(table).upsert(
