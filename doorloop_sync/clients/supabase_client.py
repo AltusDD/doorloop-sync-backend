@@ -1,8 +1,9 @@
 import os
 import logging
 from supabase import create_client, Client
-from postgrest.exceptions import APIError  # ✅ FIX: Correct import path for APIError
-from doorloop_sync.utils.data_types import standardize_for_storage
+from postgrest.exceptions import APIError
+# ✅ FIX: Import your existing function from your existing file
+from doorloop_sync.utils.data_processing import clean_and_prepare_record
 
 logger = logging.getLogger(__name__)
 
@@ -27,22 +28,14 @@ class SupabaseClient:
             return []
 
     def upsert(self, table: str, data: list, on_conflict_column: str = None):
-        """
-        Upserts a list of records into a Supabase table.
-        
-        Args:
-            table: The name of the table to upsert into.
-            data: A list of dictionaries representing the records.
-            on_conflict_column: The unique column to use for conflict resolution.
-                                Defaults to the table's primary key.
-        """
         if not data:
             logger.warning(f"⏭️ Skipping upsert to '{table}' — payload was empty.")
             return {}
 
         logger.info(f"ℹ️ Upserting {len(data)} records to table: {table}")
         try:
-            standardized_data = [standardize_for_storage(item) for item in data]
+            # ✅ FIX: Call your existing function to prepare the data
+            standardized_data = [clean_and_prepare_record(item) for item in data]
             
             response = self.supabase.table(table).upsert(
                 standardized_data, 
