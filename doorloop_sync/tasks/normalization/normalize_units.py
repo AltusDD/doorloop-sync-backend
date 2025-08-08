@@ -19,11 +19,11 @@ def normalize_units():
         record = item.get('data', {})
         normalized_units.append({
             'doorloop_id': record.get('id'),
-            'name': record.get('name'),
+            # ✅ FIX: Changed key to match the database blueprint
+            'unit_number': record.get('name'),
             'beds': record.get('beds'),
             'baths': record.get('baths'),
             'size': record.get('size'),
-            # ✅ FIX: Changed key to match the database blueprint
             'rent_amount': record.get('marketRent'),
             'doorloop_property_id': record.get('property'),
         })
