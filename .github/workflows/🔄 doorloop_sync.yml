@@ -23,12 +23,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ✅ NEW DEBUGGING STEP ADDED HERE
-      - name: 🐛 DEBUG - Verify File Content
-        run: |
-          echo "--- Verifying content of supabase_client.py ---"
-          cat ./doorloop_sync/clients/supabase_client.py
-          echo "--- End of file content ---"
+      # ✅ FINAL FIX: Add the project root to the Python search path.
+      - name: Add repository root to Python path
+        run: echo "PYTHONPATH=$PWD" >> $GITHUB_ENV
 
       - name: Run ETL Pipeline
         env:
