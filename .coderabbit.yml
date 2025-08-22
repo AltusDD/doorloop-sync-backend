@@ -1,0 +1,27 @@
+reviews:
+  profile: assertive
+  high_level_summary: true
+  commit_status: true
+  fail_commit_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+
+pre_merge_checks:
+  title: { mode: error, requirements: "Title: <scope>: <concise change>." }
+  description: { mode: error }
+  docstrings: { mode: warning, threshold: 50 }
+
+tools:
+  github-checks: { enabled: true, timeout_ms: 600000 }
+  ruff: { enabled: true }
+  markdownlint: { enabled: true }
+  gitleaks: { enabled: true }
+
+path_instructions:
+  - path: "**/*.sql"
+    instructions: |
+      No production schema edits without reversible migrations and notes.
+  - path: "apps/**"
+    instructions: |
+      Keep changes scoped; if touching shared libs, include migration plan.
